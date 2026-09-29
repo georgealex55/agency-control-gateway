@@ -2,6 +2,7 @@ import { createMcpHandler } from "mcp-handler";
 import { z } from "zod";
 import { isAuthorized } from "@/lib/auth";
 import { executeSdkReadAction } from "@/lib/ghl-actions";
+import { oauthChallenge, verifyMcpBearer } from "@/lib/mcp-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,13 +20,21 @@ function firstArray(value: unknown): unknown[] {
   const data = rec(root?.data);
 
   for (const candidate of [
+    root?.locations,
     root?.funnels,
     root?.pages,
+    root?.workflows,
+    root?.blogs,
+    root?.posts,
     root?.items,
     root?.results,
     root?.data,
+    data?.locations,
     data?.funnels,
     data?.pages,
+    data?.workflows,
+    data?.blogs,
+    data?.posts,
     data?.items,
     data?.results,
   ]) {
@@ -49,17 +58,16 @@ function norm(value: string): string {
   return value.trim().toLowerCase();
 }
 
+function resultPayload(action: string, data: unknown) {
+  const items = firstArray(data);
+  return { action, count: items.length, items, data };
+}
+
 function websiteLike(item: unknown): boolean {
   const r = rec(item);
   if (!r) return false;
 
-  const values = [
-    r.type,
-    r.category,
-    r.kind,
-    r.siteType,
-    r.funnelType,
-  ]
+  const values = [r.type, r.category, r.kind, r.siteType, r.funnelType]
     .filter((value) => typeof value === "string")
     .map((value) => String(value).toLowerCase());
 
@@ -67,8 +75,14 @@ function websiteLike(item: unknown): boolean {
   return values.some((value) => value.includes("website") || value === "web");
 }
 
+async function runRead(action: string, payload: Record<string, unknown>) {
+  const result = await executeSdkReadAction(action, payload);
+  if (!result) throw new Error(`${action} SDK action is unavailable`);
+  return result.data;
+}
+
 async function listWebsites(locationId: string, name?: string) {
-  const result = await executeSdkReadAction("list_funnels", {
+  const data = await runRead("list_funnels", {
     locationId,
     type: "website",
     name: name || undefined,
@@ -76,9 +90,7 @@ async function listWebsites(locationId: string, name?: string) {
     offset: "0",
   });
 
-  if (!result) throw new Error("list_funnels SDK action is unavailable");
-
-  let websites = firstArray(result.data).filter(websiteLike);
+  let websites = firstArray(data).filter(websiteLike);
 
   if (name) {
     const needle = norm(name);
@@ -104,9 +116,7 @@ async function listWebsitePages(
   let website: unknown = undefined;
 
   if (!funnelId) {
-    if (!websiteName?.trim()) {
-      throw new Error("websiteName or funnelId is required");
-    }
+    if (!websiteName?.trim()) throw new Error("websiteName or funnelId is required");
 
     const websites = await listWebsites(locationId, websiteName);
     const exact = websites.find(
@@ -119,12 +129,10 @@ async function listWebsitePages(
     }
 
     funnelId = field(website, ["_id", "id", "funnelId"]);
-    if (!funnelId) {
-      throw new Error("Website found but no site/funnel id was returned");
-    }
+    if (!funnelId) throw new Error("Website found but no site/funnel id was returned");
   }
 
-  const pagesResult = await executeSdkReadAction("list_funnel_pages", {
+  const data = await runRead("list_funnel_pages", {
     locationId,
     funnelId,
     name: pageName || undefined,
@@ -132,10 +140,7 @@ async function listWebsitePages(
     offset: 0,
   });
 
-  if (!pagesResult) throw new Error("list_funnel_pages SDK action is unavailable");
-
-  let pages = firstArray(pagesResult.data);
-
+  let pages = firstArray(data);
   if (pageName) {
     const needle = norm(pageName);
     pages = pages.filter((item) =>
@@ -149,7 +154,36 @@ async function listWebsitePages(
   return { found: true, funnelId, website: website ?? null, pages };
 }
 
+const readOnlyAnnotations = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false,
+} as const;
+
 const handler = createMcpHandler((server) => {
+  server.registerTool(
+    "list_locations",
+    {
+      title: "List HighLevel Locations",
+      description:
+        "Read-only listing of HighLevel agency sub-accounts/locations. Use this to find a location ID before querying its sites or CRM resources.",
+      inputSchema: z.object({
+        limit: z.number().int().min(1).max(100).optional(),
+        skip: z.number().int().min(0).optional(),
+      }),
+      annotations: readOnlyAnnotations,
+    },
+    async ({ limit, skip }) => {
+      const data = await runRead("list_locations", { limit: limit ?? 100, skip });
+      const payload = resultPayload("list_locations", data);
+      return {
+        structuredContent: payload,
+        content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+      };
+    },
+  );
+
   server.registerTool(
     "list_websites",
     {
@@ -157,35 +191,17 @@ const handler = createMcpHandler((server) => {
       description:
         "Read-only lookup of Sites > Websites for a specific HighLevel sub-account/location.",
       inputSchema: z.object({
-        locationId: z.string().min(1).describe("HighLevel location/sub-account ID"),
-        name: z.string().optional().describe("Optional website name filter"),
+        locationId: z.string().min(1),
+        name: z.string().optional(),
       }),
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
+      annotations: readOnlyAnnotations,
     },
     async ({ locationId, name }) => {
       const websites = await listWebsites(locationId, name);
+      const payload = { locationId, query: name ?? null, count: websites.length, websites };
       return {
-        structuredContent: {
-          locationId,
-          query: name ?? null,
-          count: websites.length,
-          websites,
-        },
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              { locationId, query: name ?? null, count: websites.length, websites },
-              null,
-              2,
-            ),
-          },
-        ],
+        structuredContent: payload,
+        content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
       };
     },
   );
@@ -195,31 +211,20 @@ const handler = createMcpHandler((server) => {
     {
       title: "List HighLevel Website Pages",
       description:
-        "Read-only lookup of pages within a HighLevel website. Resolve by website name or site/funnel ID.",
+        "Read-only lookup of pages inside a HighLevel website. Resolve the website by name or by its site/funnel ID.",
       inputSchema: z.object({
-        locationId: z.string().min(1).describe("HighLevel location/sub-account ID"),
-        websiteName: z.string().optional().describe("Website name, such as XanderIT"),
-        funnelId: z.string().optional().describe("HighLevel site/funnel ID if already known"),
-        pageName: z.string().optional().describe("Optional page name/path filter"),
+        locationId: z.string().min(1),
+        websiteName: z.string().optional(),
+        funnelId: z.string().optional(),
+        pageName: z.string().optional(),
       }).refine(
         (value) => Boolean(value.websiteName?.trim() || value.funnelId?.trim()),
         { message: "websiteName or funnelId is required" },
       ),
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
+      annotations: readOnlyAnnotations,
     },
     async ({ locationId, websiteName, funnelId, pageName }) => {
-      const result = await listWebsitePages(
-        locationId,
-        websiteName,
-        funnelId,
-        pageName,
-      );
-
+      const result = await listWebsitePages(locationId, websiteName, funnelId, pageName);
       const payload = {
         locationId,
         websiteName: websiteName ?? null,
@@ -229,7 +234,116 @@ const handler = createMcpHandler((server) => {
         count: result.pages.length,
         pages: result.pages,
       };
+      return {
+        structuredContent: payload,
+        content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+      };
+    },
+  );
 
+  server.registerTool(
+    "list_funnels",
+    {
+      title: "List HighLevel Funnels",
+      description:
+        "Read-only listing of funnels for a specific HighLevel location. Use this for funnel discovery, not websites.",
+      inputSchema: z.object({
+        locationId: z.string().min(1),
+        name: z.string().optional(),
+        category: z.string().optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).optional(),
+      }),
+      annotations: readOnlyAnnotations,
+    },
+    async ({ locationId, name, category, limit, offset }) => {
+      const data = await runRead("list_funnels", {
+        locationId,
+        type: "funnel",
+        name,
+        category,
+        limit: limit ?? 50,
+        offset: offset ?? 0,
+      });
+      const payload = { locationId, ...resultPayload("list_funnels", data) };
+      return {
+        structuredContent: payload,
+        content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+      };
+    },
+  );
+
+  server.registerTool(
+    "list_workflows",
+    {
+      title: "List HighLevel Workflows",
+      description: "Read-only listing of workflows in a HighLevel location/sub-account.",
+      inputSchema: z.object({ locationId: z.string().min(1) }),
+      annotations: readOnlyAnnotations,
+    },
+    async ({ locationId }) => {
+      const data = await runRead("list_workflows", { locationId });
+      const payload = { locationId, ...resultPayload("list_workflows", data) };
+      return {
+        structuredContent: payload,
+        content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+      };
+    },
+  );
+
+  server.registerTool(
+    "list_blogs",
+    {
+      title: "List HighLevel Blogs",
+      description: "Read-only listing of blogs in a HighLevel location/sub-account.",
+      inputSchema: z.object({
+        locationId: z.string().min(1),
+        searchTerm: z.string().optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        skip: z.number().int().min(0).optional(),
+      }),
+      annotations: readOnlyAnnotations,
+    },
+    async ({ locationId, searchTerm, limit, skip }) => {
+      const data = await runRead("list_blogs", {
+        locationId,
+        searchTerm,
+        limit: limit ?? 50,
+        skip: skip ?? 0,
+      });
+      const payload = { locationId, ...resultPayload("list_blogs", data) };
+      return {
+        structuredContent: payload,
+        content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+      };
+    },
+  );
+
+  server.registerTool(
+    "list_blog_posts",
+    {
+      title: "List HighLevel Blog Posts",
+      description: "Read-only listing of posts inside a specific HighLevel blog.",
+      inputSchema: z.object({
+        locationId: z.string().min(1),
+        blogId: z.string().min(1),
+        searchTerm: z.string().optional(),
+        status: z.string().optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+        offset: z.number().int().min(0).optional(),
+      }),
+      annotations: readOnlyAnnotations,
+    },
+    async ({ locationId, blogId, searchTerm, status, limit, offset }) => {
+      const data = await runRead("list_blog_posts", {
+        locationId,
+        blogId,
+        searchTerm,
+        status: status ?? "ALL",
+        limit: limit ?? 50,
+        offset: offset ?? 0,
+      });
+      const payload = { locationId, blogId, ...resultPayload("list_blog_posts", data) };
       return {
         structuredContent: payload,
         content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
@@ -239,19 +353,21 @@ const handler = createMcpHandler((server) => {
 });
 
 async function authorizedHandler(request: Request): Promise<Response> {
-  if (!isAuthorized(request)) {
-    return new Response(
-      JSON.stringify({ error: "Unauthorized" }),
-      {
-        status: 401,
-        headers: {
-          "content-type": "application/json",
-        },
-      },
-    );
+  if (isAuthorized(request) || await verifyMcpBearer(request)) {
+    return handler(request);
   }
 
-  return handler(request);
+  return new Response(
+    JSON.stringify({ error: "Unauthorized" }),
+    {
+      status: 401,
+      headers: {
+        "content-type": "application/json",
+        "www-authenticate": oauthChallenge(request),
+        "cache-control": "no-store",
+      },
+    },
+  );
 }
 
 export {
