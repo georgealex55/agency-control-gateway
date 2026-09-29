@@ -33,10 +33,15 @@ export async function verifyMcpBearer(request: Request): Promise<boolean> {
 
   try {
     const jwks = createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`));
-    await jwtVerify(match[1], jwks, {
+    const { payload } = await jwtVerify(match[1], jwks, {
       issuer: `${issuer}/`,
       audience: oauthAudience(request),
     });
+
+    const rawScope = typeof payload.scope === "string" ? payload.scope : "";
+    const scopes = new Set(rawScope.split(/\s+/).filter(Boolean));
+    if (!scopes.has("ghl.read")) return false;
+
     return true;
   } catch {
     return false;
