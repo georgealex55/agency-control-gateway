@@ -58,6 +58,79 @@ function norm(value: string): string {
   return value.trim().toLowerCase();
 }
 
+type HtmlBlock = {
+  path: string;
+  id: string | null;
+  type: string | null;
+  html: string;
+};
+
+function extractCustomHtmlBlocks(value: unknown): HtmlBlock[] {
+  const blocks: HtmlBlock[] = [];
+  const seen = new Set<string>();
+
+  function walk(node: unknown, path: string, customAncestor = false): void {
+    if (Array.isArray(node)) {
+      node.forEach((child, index) => walk(child, `${path}[${index}]`, customAncestor));
+      return;
+    }
+
+    const r = rec(node);
+    if (!r) return;
+
+    const type = field(r, ["type", "elementType", "componentType", "kind"]);
+    const codeType = field(r, ["codeType", "language", "contentType"]);
+    const looksCustom =
+      customAncestor ||
+      /custom[ _-]?(code|html)|customcode|customhtml/i.test(type) ||
+      /html/i.test(codeType);
+
+    if (looksCustom) {
+      for (const key of ["code", "html", "customHtml", "customHTML", "content", "value"]) {
+        const candidate = r[key];
+        if (
+          typeof candidate === "string" &&
+          candidate.trim().length > 0 &&
+          !seen.has(candidate)
+        ) {
+          seen.add(candidate);
+          blocks.push({
+            path: `${path}.${key}`,
+            id: field(r, ["id", "_id", "elementId"]) || null,
+            type: type || null,
+            html: candidate,
+          });
+        }
+      }
+    }
+
+    for (const [key, child] of Object.entries(r)) {
+      if (typeof child === "object" && child !== null) {
+        walk(child, path ? `${path}.${key}` : key, looksCustom);
+      }
+    }
+  }
+
+  walk(value, "data");
+  return blocks;
+}
+
+async function pageHtmlPayload(locationId: string, page: unknown) {
+  const pageId = field(page, ["id", "_id", "pageId"]);
+  if (!pageId) return null;
+
+  const data = await runRead("get_funnel_page_data", { locationId, pageId });
+  const blocks = extractCustomHtmlBlocks(data);
+
+  return {
+    pageId,
+    name: field(page, ["name", "title"]) || null,
+    url: field(page, ["url", "path", "slug"]) || null,
+    blockCount: blocks.length,
+    blocks,
+  };
+}
+
 function resultPayload(action: string, data: unknown) {
   const items = firstArray(data);
   return { action, count: items.length, items, data };
@@ -125,7 +198,7 @@ async function listWebsitePages(
     website = exact ?? websites[0];
 
     if (!website) {
-      return { found: false, funnelId: "", website: null, pages: [] as unknown[] };
+      return { found: false, funnelId: "", website: null, pages: [] as unknown[], html: [] as unknown[] };
     }
 
     funnelId = field(website, ["_id", "id", "funnelId"]);
@@ -136,7 +209,7 @@ async function listWebsitePages(
     locationId,
     funnelId,
     name: pageName || undefined,
-    limit: 100,
+    limit: 20,
     offset: 0,
   });
 
@@ -151,7 +224,13 @@ async function listWebsitePages(
     );
   }
 
-  return { found: true, funnelId, website: website ?? null, pages };
+  const html =
+    pageName && pages.length > 0
+      ? (await Promise.all(pages.slice(0, 5).map((page) => pageHtmlPayload(locationId, page))))
+          .filter(Boolean)
+      : [];
+
+  return { found: true, funnelId, website: website ?? null, pages, html };
 }
 
 const readOnlyAnnotations = {
@@ -233,6 +312,35 @@ const handler = createMcpHandler((server) => {
         website: result.website,
         count: result.pages.length,
         pages: result.pages,
+        customHtml: result.html,
+      };
+      return {
+        structuredContent: payload,
+        content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+      };
+    },
+  );
+
+  server.registerTool(
+    "get_website_page_html",
+    {
+      title: "Get HighLevel Website Page Custom HTML",
+      description:
+        "Read-only extraction of Custom HTML/Custom Code blocks from one HighLevel website page. Use a known page ID for the most precise lookup.",
+      inputSchema: z.object({
+        locationId: z.string().min(1),
+        pageId: z.string().min(1),
+      }),
+      annotations: readOnlyAnnotations,
+    },
+    async ({ locationId, pageId }) => {
+      const data = await runRead("get_funnel_page_data", { locationId, pageId });
+      const blocks = extractCustomHtmlBlocks(data);
+      const payload = {
+        locationId,
+        pageId,
+        blockCount: blocks.length,
+        blocks,
       };
       return {
         structuredContent: payload,
