@@ -1,6 +1,7 @@
 import { getCompanyIdInfo } from "@/lib/identity";
 
 const DEFAULT_BASE = "https://services.leadconnectorhq.com";
+const DEFAULT_BACKEND_BASE = "https://backend.leadconnectorhq.com";
 
 export type RiskLevel = "read" | "write" | "destructive";
 
@@ -82,6 +83,45 @@ function resolveRule(method: string, path: string): Rule | undefined {
 
 function destructiveEnabled() {
   return String(process.env.ALLOW_DESTRUCTIVE_ACTIONS || "false").toLowerCase() === "true";
+}
+
+export async function ghlBackendRequest(input: {
+  method: "GET";
+  path: string;
+}) {
+  const token = process.env.GHL_PRIVATE_INTEGRATION_TOKEN;
+  if (!token) throw new Error("GHL_PRIVATE_INTEGRATION_TOKEN is not configured");
+
+  const method = input.method.toUpperCase();
+  let path = input.path.trim();
+  if (!path.startsWith("/")) path = `/${path}`;
+
+  if (path.includes("://") || path.includes("..")) {
+    throw new Error("Invalid HighLevel backend path");
+  }
+
+  // This backend endpoint is intentionally read-only and narrowly allowlisted.
+  if (method !== "GET" || !/^\/funnels\/page\/data(?:\?.*)?$/.test(path)) {
+    throw new Error(`Backend route not allowlisted: ${method} ${path}`);
+  }
+
+  const base = process.env.GHL_BACKEND_API_BASE || DEFAULT_BACKEND_BASE;
+  const url = `${base.replace(/\/$/, "")}${path}`;
+  const response = await fetch(url, {
+    method,
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+      Version: "2021-04-15",
+    },
+    cache: "no-store",
+  });
+
+  const text = await response.text();
+  let data: unknown = null;
+  try { data = text ? JSON.parse(text) : null; } catch { data = { raw: text }; }
+
+  return { status: response.status, ok: response.ok, risk: "read" as const, data };
 }
 
 export async function ghlRequest(input: {
