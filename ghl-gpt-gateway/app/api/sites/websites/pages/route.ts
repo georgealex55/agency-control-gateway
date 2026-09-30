@@ -50,7 +50,8 @@ export async function GET(request: Request) {
     const funnelIdParam = url.searchParams.get("funnelId")?.trim() || "";
     const websiteName = url.searchParams.get("websiteName")?.trim() || "";
     const pageName = url.searchParams.get("pageName")?.trim() || "";
-    const limit = url.searchParams.get("limit") || "50";
+    const requestedLimit = Number(url.searchParams.get("limit") || "20");
+    const limit = String(Math.min(Math.max(Number.isFinite(requestedLimit) ? requestedLimit : 20, 1), 20));
     const offset = url.searchParams.get("offset") || "0";
 
     if (!locationId) {
