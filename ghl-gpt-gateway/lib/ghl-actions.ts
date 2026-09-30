@@ -2,7 +2,9 @@ import { getHighLevelClient } from "@/lib/ghl-client";
 import {
   ensureLocationOAuthSession,
   getOAuthHighLevelClient,
+  removeLocationOAuthSession,
 } from "@/lib/ghl-oauth";
+import { getGhlOAuthSessionStorage } from "@/lib/ghl-session-storage";
 
 type Payload = Record<string, unknown>;
 
@@ -60,6 +62,66 @@ export type SdkReadResult = {
   risk: "read";
   data: unknown;
 };
+
+const GHL_BACKEND_BASE = "https://backend.leadconnectorhq.com";
+
+async function pageBuilderRequest(
+  locationId: string,
+  pageId: string,
+  retry = true,
+): Promise<unknown> {
+  await ensureLocationOAuthSession(locationId);
+  const storage = getGhlOAuthSessionStorage();
+  const token = await storage.getAccessToken(locationId);
+
+  if (!token) {
+    throw new Error("No HighLevel Location OAuth access token is available");
+  }
+
+  const url =
+    `${GHL_BACKEND_BASE}/funnels/page/data?pageId=${encodeURIComponent(pageId)}`;
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+      Version: "2021-04-15",
+      channel: "OAUTH",
+    },
+    cache: "no-store",
+  });
+
+  if (response.status === 401 && retry) {
+    await removeLocationOAuthSession(locationId);
+    await ensureLocationOAuthSession(locationId);
+    return pageBuilderRequest(locationId, pageId, false);
+  }
+
+  const text = await response.text();
+  let data: unknown;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = { raw: text };
+  }
+
+  if (!response.ok) {
+    const root =
+      data && typeof data === "object" && !Array.isArray(data)
+        ? data as Record<string, unknown>
+        : undefined;
+    const message =
+      typeof root?.message === "string"
+        ? root.message
+        : typeof root?.error === "string"
+          ? root.error
+          : `HighLevel page builder request failed with HTTP ${response.status}`;
+    throw new Error(message);
+  }
+
+  return data;
+}
 
 /**
  * Executes read actions through the official SDK.
@@ -163,13 +225,23 @@ export async function executeSdkReadAction(
 
     case "list_funnel_pages": {
       const { ghl, locationId } = await getLocationClient(p);
+      const requestedLimit = optNumber(p.limit, 20);
       const data = await ghl.funnels.getPagesByFunnelId({
         locationId,
         funnelId: reqString(p, "funnelId"),
         name: optString(p.name),
-        limit: optNumber(p.limit, 50),
+        limit: Math.min(Math.max(requestedLimit, 1), 20),
         offset: optNumber(p.offset, 0),
       });
+      return { status: 200, ok: true, risk: "read", data };
+    }
+
+    case "get_funnel_page_data": {
+      const locationId = locationIdFromPayload(p);
+      const data = await pageBuilderRequest(
+        locationId,
+        reqString(p, "pageId"),
+      );
       return { status: 200, ok: true, risk: "read", data };
     }
 
