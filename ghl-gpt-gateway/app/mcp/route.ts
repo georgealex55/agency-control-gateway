@@ -71,6 +71,28 @@ type HtmlBlock = {
 function extractCustomHtmlBlocks(value: unknown): HtmlBlock[] {
   const blocks: HtmlBlock[] = [];
   const seen = new Set<string>();
+  const parsedJsonStrings = new Set<string>();
+
+  function looksLikeHtml(text: string): boolean {
+    return /<!doctype\s+html|<html\b|<style\b|<script\b|<(?:div|section|main|header|footer|nav|article|aside|form|img|svg|canvas|iframe|p|h[1-6]|a|button|input)\b/i.test(text);
+  }
+
+  function addBlock(
+    candidate: string,
+    path: string,
+    r?: R,
+    type?: string,
+  ): void {
+    const text = candidate.trim();
+    if (!text || seen.has(text)) return;
+    seen.add(text);
+    blocks.push({
+      path,
+      id: r ? field(r, ["id", "_id", "elementId"]) || null : null,
+      type: type || null,
+      html: candidate,
+    });
+  }
 
   function walk(node: unknown, path: string, customAncestor = false): void {
     if (Array.isArray(node)) {
@@ -81,41 +103,87 @@ function extractCustomHtmlBlocks(value: unknown): HtmlBlock[] {
     const r = rec(node);
     if (!r) return;
 
-    const type = field(r, ["type", "elementType", "componentType", "kind"]);
+    const type = field(r, ["type", "elementType", "componentType", "kind", "name"]);
     const codeType = field(r, ["codeType", "language", "contentType"]);
     const looksCustom =
       customAncestor ||
-      /custom[ _-]?(code|html)|customcode|customhtml/i.test(type) ||
+      /custom[ _-]?(code|html)|customcode|customhtml|code element|html element/i.test(type) ||
       /html/i.test(codeType);
 
-    if (looksCustom) {
-      for (const key of ["code", "html", "customHtml", "customHTML", "content", "value"]) {
-        const candidate = r[key];
-        if (
-          typeof candidate === "string" &&
-          candidate.trim().length > 0 &&
-          !seen.has(candidate)
-        ) {
-          seen.add(candidate);
-          blocks.push({
-            path: `${path}.${key}`,
-            id: field(r, ["id", "_id", "elementId"]) || null,
-            type: type || null,
-            html: candidate,
-          });
-        }
-      }
-    }
-
     for (const [key, child] of Object.entries(r)) {
-      if (typeof child === "object" && child !== null) {
-        walk(child, path ? `${path}.${key}` : key, looksCustom);
+      const childPath = path ? `${path}.${key}` : key;
+
+      if (typeof child === "string") {
+        const text = child.trim();
+        const keySuggestsCode = /html|code|markup|source|content|value|body/i.test(key);
+
+        if (
+          text &&
+          (looksCustom || (keySuggestsCode && looksLikeHtml(text)) || (text.length >= 200 && looksLikeHtml(text)))
+        ) {
+          addBlock(child, childPath, r, type);
+        }
+
+        if (
+          text.length >= 50 &&
+          text.length <= 2_000_000 &&
+          (text.startsWith("{") || text.startsWith("[")) &&
+          !parsedJsonStrings.has(text)
+        ) {
+          try {
+            const parsed = JSON.parse(text);
+            parsedJsonStrings.add(text);
+            walk(parsed, `${childPath}(json)`, looksCustom);
+          } catch {
+            // Not JSON; leave it as a normal string.
+          }
+        }
+      } else if (typeof child === "object" && child !== null) {
+        walk(child, childPath, looksCustom);
       }
     }
   }
 
   walk(value, "data");
   return blocks;
+}
+
+function builderDiagnostic(value: unknown) {
+  const strings: Array<{ path: string; length: number; preview: string }> = [];
+
+  function walk(node: unknown, path: string, depth: number): void {
+    if (depth > 7 || strings.length > 100) return;
+    if (Array.isArray(node)) {
+      node.slice(0, 50).forEach((child, index) => walk(child, `${path}[${index}]`, depth + 1));
+      return;
+    }
+
+    const r = rec(node);
+    if (!r) return;
+
+    for (const [key, child] of Object.entries(r)) {
+      const childPath = path ? `${path}.${key}` : key;
+      if (typeof child === "string" && child.length >= 80) {
+        strings.push({
+          path: childPath,
+          length: child.length,
+          preview: child.slice(0, 160),
+        });
+      } else if (typeof child === "object" && child !== null) {
+        walk(child, childPath, depth + 1);
+      }
+    }
+  }
+
+  walk(value, "data", 0);
+  strings.sort((a, b) => b.length - a.length);
+
+  const root = rec(value);
+  return {
+    rootType: Array.isArray(value) ? "array" : typeof value,
+    topLevelKeys: root ? Object.keys(root).slice(0, 30) : [],
+    largestStrings: strings.slice(0, 12),
+  };
 }
 
 async function pageHtmlPayload(locationId: string, page: unknown) {
@@ -131,6 +199,7 @@ async function pageHtmlPayload(locationId: string, page: unknown) {
     url: field(page, ["url", "path", "slug"]) || null,
     blockCount: blocks.length,
     blocks,
+    diagnostic: blocks.length === 0 ? builderDiagnostic(data) : undefined,
   };
 }
 
@@ -344,6 +413,7 @@ const handler = createMcpHandler((server) => {
         pageId,
         blockCount: blocks.length,
         blocks,
+        diagnostic: blocks.length === 0 ? builderDiagnostic(data) : undefined,
       };
       return {
         structuredContent: payload,
