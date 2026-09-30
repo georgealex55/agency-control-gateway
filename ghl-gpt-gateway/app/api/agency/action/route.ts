@@ -81,13 +81,13 @@ export async function POST(request: Request) {
         call = { method: "DELETE", path: `/contacts/${reqString(p, "contactId")}/workflow/${reqString(p, "workflowId")}`, confirmDestructive };
         break;
       case "list_funnels":
-        call = { method: "GET", path: `/funnels/funnel/list${query({ locationId: reqString(p, "locationId"), type: p.type, category: p.category, offset: p.offset ?? 0, limit: p.limit ?? 50, parentId: p.parentId, name: p.name })}` };
+        call = { method: "GET", path: `/funnels/funnel${query({ locationId: reqString(p, "locationId"), type: p.type, category: p.category, skip: p.skip ?? p.offset ?? 0, limit: Math.min(Number(p.limit ?? 100), 100), parentId: p.parentId, name: p.name })}` };
         break;
       case "list_funnel_pages":
-        call = { method: "GET", path: `/funnels/page${query({ locationId: reqString(p, "locationId"), funnelId: reqString(p, "funnelId"), name: p.name, limit: p.limit ?? 50, offset: p.offset ?? 0 })}` };
+        call = { method: "GET", path: `/funnels/funnel/${reqString(p, "funnelId")}/pages${query({ locationId: reqString(p, "locationId"), name: p.name, limit: Math.min(Number(p.limit ?? 20), 20), skip: p.skip ?? p.offset ?? 0 })}` };
         break;
       case "list_redirects":
-        call = { method: "GET", path: `/funnels/lookup/redirect/list${query({ locationId: reqString(p, "locationId"), limit: p.limit ?? 50, skip: p.skip ?? 0 })}` };
+        call = { method: "GET", path: `/funnels/lookup/redirect${query({ locationId: reqString(p, "locationId"), limit: p.limit ?? 50, skip: p.skip ?? 0 })}` };
         break;
       case "create_redirect":
         call = { method: "POST", path: "/funnels/lookup/redirect", body };
