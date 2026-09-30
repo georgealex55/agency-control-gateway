@@ -1,7 +1,7 @@
 import { createMcpHandler } from "mcp-handler";
 import { z } from "zod";
 import { isAuthorized } from "@/lib/auth";
-import { executeSdkReadAction } from "@/lib/ghl-actions";
+import { executeSdkReadAction, executeSdkWriteAction } from "@/lib/ghl-actions";
 import { oauthChallenge, verifyMcpBearer } from "@/lib/mcp-auth";
 
 export const runtime = "nodejs";
@@ -226,6 +226,12 @@ async function runRead(action: string, payload: Record<string, unknown>) {
   return result.data;
 }
 
+async function runWrite(action: string, payload: Record<string, unknown>) {
+  const result = await executeSdkWriteAction(action, payload);
+  if (!result) throw new Error(`${action} SDK action is unavailable`);
+  return result.data;
+}
+
 async function listWebsites(locationId: string, name?: string) {
   const data = await runRead("list_funnels", {
     locationId,
@@ -307,6 +313,13 @@ async function listWebsitePages(
 
 const readOnlyAnnotations = {
   readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false,
+} as const;
+
+const writeAnnotations = {
+  readOnlyHint: false,
   destructiveHint: false,
   idempotentHint: true,
   openWorldHint: false,
@@ -414,6 +427,53 @@ const handler = createMcpHandler((server) => {
         blockCount: blocks.length,
         blocks,
         diagnostic: blocks.length === 0 ? builderDiagnostic(data) : undefined,
+      };
+      return {
+        structuredContent: payload,
+        content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+      };
+    },
+  );
+
+  server.registerTool(
+    "update_website_page_html",
+    {
+      title: "Update HighLevel Website Page Custom HTML",
+      description:
+        "Guarded update for the existing rawCustomCode element on one HighLevel page. Defaults to dry-run. Live writes require dryRun=false, confirmWrite=true, and the server feature flag ALLOW_GHL_PAGE_BUILDER_WRITE=true.",
+      inputSchema: z.object({
+        locationId: z.string().min(1),
+        pageId: z.string().min(1),
+        html: z.string().min(1).max(2_000_000),
+        targetPath: z.string().optional(),
+        expectedSha256: z.string().regex(/^[a-f0-9]{64}$/i).optional(),
+        dryRun: z.boolean().optional(),
+        confirmWrite: z.boolean().optional(),
+      }),
+      annotations: writeAnnotations,
+    },
+    async ({
+      locationId,
+      pageId,
+      html,
+      targetPath,
+      expectedSha256,
+      dryRun,
+      confirmWrite,
+    }) => {
+      const data = await runWrite("update_website_page_html", {
+        locationId,
+        pageId,
+        html,
+        targetPath,
+        expectedSha256,
+        dryRun: dryRun ?? true,
+        confirmWrite: confirmWrite ?? false,
+      });
+      const payload = {
+        locationId,
+        pageId,
+        ...rec(data),
       };
       return {
         structuredContent: payload,
