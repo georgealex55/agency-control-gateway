@@ -65,6 +65,12 @@ const RULES: Rule[] = [
   { method: "POST", pattern: /^\/blogs\/posts$/, version: "v3", risk: "write" },
   { method: "PUT", pattern: /^\/blogs\/posts\/[A-Za-z0-9_-]+$/, version: "v3", risk: "write" },
 
+  // Courses / memberships: read-only discovery for course products, categories/modules, and lessons/posts.
+  { method: "GET", pattern: /^\/courses\/products(?:\?.*)?$/, version: "v3", risk: "read" },
+  { method: "GET", pattern: /^\/courses\/products\/[A-Za-z0-9_-]+(?:\?.*)?$/, version: "v3", risk: "read" },
+  { method: "GET", pattern: /^\/courses\/products\/[A-Za-z0-9_-]+\/categories(?:\?.*)?$/, version: "v3", risk: "read" },
+  { method: "GET", pattern: /^\/courses\/products\/[A-Za-z0-9_-]+\/lessons(?:\?.*)?$/, version: "v3", risk: "read" },
+
   // Funnels/sites: public API supports discovery and redirect management, not visual page editing.
   { method: "GET", pattern: /^\/funnels\/funnel\/list(?:\?.*)?$/, version: "v3", risk: "read" },
   { method: "GET", pattern: /^\/funnels\/page(?:\?.*)?$/, version: "v3", risk: "read" },
