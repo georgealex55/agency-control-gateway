@@ -64,6 +64,70 @@ export type SdkReadResult = {
 };
 
 const GHL_BACKEND_BASE = "https://backend.leadconnectorhq.com";
+const GHL_SERVICES_BASE = "https://services.leadconnectorhq.com";
+
+async function locationOAuthGet(
+  locationId: string,
+  path: string,
+  params: Record<string, string | number | undefined>,
+  version = "v4",
+  retry = true,
+): Promise<unknown> {
+  await ensureLocationOAuthSession(locationId);
+  const storage = getGhlOAuthSessionStorage();
+  const token = await storage.getAccessToken(locationId);
+
+  if (!token) {
+    throw new Error("No HighLevel Location OAuth access token is available");
+  }
+
+  const url = new URL(`${GHL_SERVICES_BASE}${path}`);
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "") {
+      url.searchParams.set(key, String(value));
+    }
+  }
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+      Version: version,
+    },
+    cache: "no-store",
+  });
+
+  if (response.status === 401 && retry) {
+    await removeLocationOAuthSession(locationId);
+    await ensureLocationOAuthSession(locationId);
+    return locationOAuthGet(locationId, path, params, version, false);
+  }
+
+  const text = await response.text();
+  let data: unknown;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = { raw: text };
+  }
+
+  if (!response.ok) {
+    const root =
+      data && typeof data === "object" && !Array.isArray(data)
+        ? data as Record<string, unknown>
+        : undefined;
+    const message =
+      typeof root?.message === "string"
+        ? root.message
+        : typeof root?.error === "string"
+          ? root.error
+          : `HighLevel request failed with HTTP ${response.status}`;
+    throw new Error(message);
+  }
+
+  return data;
+}
 
 async function pageBuilderRequest(
   locationId: string,
@@ -210,29 +274,38 @@ export async function executeSdkReadAction(
     }
 
     case "list_funnels": {
-      const { ghl, locationId } = await getLocationClient(p);
-      const data = await ghl.funnels.getFunnels({
+      const locationId = locationIdFromPayload(p);
+      const requestedLimit = optNumber(p.limit, 100);
+      const data = await locationOAuthGet(
         locationId,
-        type: optString(p.type),
-        category: optString(p.category),
-        offset: optString(p.offset ?? 0),
-        limit: optString(p.limit ?? 50),
-        parentId: optString(p.parentId),
-        name: optString(p.name),
-      });
+        "/funnels/funnel",
+        {
+          locationId,
+          type: optString(p.type),
+          category: optString(p.category),
+          skip: optNumber(p.skip ?? p.offset, 0),
+          limit: Math.min(Math.max(requestedLimit, 1), 100),
+          parentId: optString(p.parentId),
+          name: optString(p.name),
+        },
+      );
       return { status: 200, ok: true, risk: "read", data };
     }
 
     case "list_funnel_pages": {
-      const { ghl, locationId } = await getLocationClient(p);
+      const locationId = locationIdFromPayload(p);
+      const funnelId = reqString(p, "funnelId");
       const requestedLimit = optNumber(p.limit, 20);
-      const data = await ghl.funnels.getPagesByFunnelId({
+      const data = await locationOAuthGet(
         locationId,
-        funnelId: reqString(p, "funnelId"),
-        name: optString(p.name),
-        limit: Math.min(Math.max(requestedLimit, 1), 20),
-        offset: optNumber(p.offset, 0),
-      });
+        `/funnels/funnel/${encodeURIComponent(funnelId)}/pages`,
+        {
+          locationId,
+          name: optString(p.name),
+          limit: Math.min(Math.max(requestedLimit, 1), 20),
+          skip: optNumber(p.skip ?? p.offset, 0),
+        },
+      );
       return { status: 200, ok: true, risk: "read", data };
     }
 
