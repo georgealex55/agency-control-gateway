@@ -17,8 +17,8 @@ function arr(value: unknown): unknown[] {
   const root = rec(value);
   const data = rec(root?.data);
   for (const v of [
-    root?.pages, root?.funnels, root?.items, root?.results, root?.data,
-    data?.pages, data?.funnels, data?.items, data?.results,
+    root?.pages, root?.funnelPages, root?.funnels, root?.items, root?.results, root?.data,
+    data?.pages, data?.funnelPages, data?.funnels, data?.items, data?.results,
   ]) {
     if (Array.isArray(v)) return v;
   }
