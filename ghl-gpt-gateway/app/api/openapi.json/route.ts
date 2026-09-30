@@ -5,7 +5,7 @@ const actions = [
   "list_social_accounts", "list_social_posts", "get_social_post", "create_social_post", "update_social_post", "delete_social_post",
   "list_blogs", "list_blog_posts", "get_blog_post", "create_blog_post", "update_blog_post",
   "list_workflows", "add_contact_to_workflow", "remove_contact_from_workflow",
-  "list_funnels", "list_funnel_pages", "list_redirects", "create_redirect"
+  "list_funnels", "list_funnel_pages", "get_funnel_page_data", "list_redirects", "create_redirect"
 ];
 
 export async function GET(request: Request) {
@@ -38,6 +38,7 @@ export async function GET(request: Request) {
                 id: { type: "string", description: "Post/blog/resource id when required." },
                 blogId: { type: "string" },
                 funnelId: { type: "string" },
+                pageId: { type: "string", description: "HighLevel funnel/website page ID for page-builder data reads." },
                 contactId: { type: "string" },
                 workflowId: { type: "string" },
                 status: { type: "string" },
