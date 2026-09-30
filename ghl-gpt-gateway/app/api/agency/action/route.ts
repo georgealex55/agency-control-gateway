@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAuthorized } from "@/lib/auth";
-import { ghlRequest } from "@/lib/ghl";
+import { ghlBackendRequest, ghlRequest } from "@/lib/ghl";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -86,6 +86,16 @@ export async function POST(request: Request) {
       case "list_funnel_pages":
         call = { method: "GET", path: `/funnels/funnel/${reqString(p, "funnelId")}/pages${query({ locationId: reqString(p, "locationId"), name: p.name, limit: Math.min(Number(p.limit ?? 20), 20), skip: p.skip ?? p.offset ?? 0 })}` };
         break;
+      case "get_funnel_page_data": {
+        const result = await ghlBackendRequest({
+          method: "GET",
+          path: `/funnels/page/data${query({ pageId: reqString(p, "pageId") })}`,
+        });
+        return NextResponse.json(
+          { action, locationId: locationId || undefined, ...result },
+          { status: result.ok ? 200 : result.status }
+        );
+      }
       case "list_redirects":
         call = { method: "GET", path: `/funnels/lookup/redirect${query({ locationId: reqString(p, "locationId"), limit: p.limit ?? 50, skip: p.skip ?? 0 })}` };
         break;
