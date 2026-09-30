@@ -2,11 +2,20 @@ import { NextResponse } from "next/server";
 import { isAuthorized } from "@/lib/auth";
 import { ghlRequest } from "@/lib/ghl";
 import { executeSdkReadAction, executeSdkWriteAction } from "@/lib/ghl-actions";
+import {
+  ensureLocationOAuthSession,
+  removeLocationOAuthSession,
+} from "@/lib/ghl-oauth";
+import { getGhlOAuthSessionStorage } from "@/lib/ghl-session-storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Payload = Record<string, unknown>;
+type GatewayCall = { method: string; path: string; body?: unknown; confirmDestructive?: boolean };
+type ActionResult = { status: number; ok: boolean; risk: "read" | "write" | "destructive"; data: unknown };
+
+const GHL_SERVICES_BASE = "https://services.leadconnectorhq.com";
 
 function reqString(p: Payload, key: string): string {
   const value = p[key];
@@ -33,6 +42,49 @@ function query(params: Record<string, unknown>) {
   return s ? `?${s}` : "";
 }
 
+async function courseOAuthGet(
+  locationId: string,
+  path: string,
+  params: Record<string, unknown>,
+  retry = true,
+): Promise<ActionResult> {
+  await ensureLocationOAuthSession(locationId);
+  const storage = getGhlOAuthSessionStorage();
+  const token = await storage.getAccessToken(locationId);
+
+  if (!token) throw new Error("No HighLevel Location OAuth access token is available");
+
+  const url = new URL(`${GHL_SERVICES_BASE}${path}`);
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== "") {
+      url.searchParams.set(key, String(value));
+    }
+  }
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+      Version: "v3",
+    },
+    cache: "no-store",
+  });
+
+  if (response.status === 401 && retry) {
+    await removeLocationOAuthSession(locationId);
+    await ensureLocationOAuthSession(locationId);
+    return courseOAuthGet(locationId, path, params, false);
+  }
+
+  const text = await response.text();
+  let data: unknown;
+  try { data = text ? JSON.parse(text) : null; }
+  catch { data = { raw: text }; }
+
+  return { status: response.status, ok: response.ok, risk: "read", data };
+}
+
 export async function POST(request: Request) {
   if (!isAuthorized(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -43,7 +95,8 @@ export async function POST(request: Request) {
     const body = p.body;
     const confirmDestructive = p.confirmDestructive === true;
 
-    let call: { method: string; path: string; body?: unknown; confirmDestructive?: boolean };
+    let call: GatewayCall | undefined;
+    let directResult: ActionResult | undefined;
 
     switch (action) {
       case "list_locations":
@@ -104,33 +157,56 @@ export async function POST(request: Request) {
         call = { method: "POST", path: "/funnels/lookup/redirect", body };
         break;
       case "list_courses":
-      case "list_membership_products":
-        call = { method: "GET", path: `/courses/products${query({ locationId: reqString(p, "locationId"), limit: p.limit ?? 50, cursor: p.cursor, search: p.search })}` };
+      case "list_membership_products": {
+        const loc = reqString(p, "locationId");
+        directResult = await courseOAuthGet(loc, "/courses/products", {
+          locationId: loc,
+          limit: p.limit ?? 50,
+          cursor: p.cursor,
+          search: p.search,
+        });
         break;
-      case "get_course":
-        call = { method: "GET", path: `/courses/products/${reqString(p, "productId")}${query({ locationId: reqString(p, "locationId") })}` };
+      }
+      case "get_course": {
+        const loc = reqString(p, "locationId");
+        directResult = await courseOAuthGet(loc, `/courses/products/${encodeURIComponent(reqString(p, "productId"))}`, {
+          locationId: loc,
+        });
         break;
+      }
       case "list_course_categories":
-      case "list_course_modules":
-        call = { method: "GET", path: `/courses/products/${reqString(p, "productId")}/categories${query({ locationId: reqString(p, "locationId") })}` };
+      case "list_course_modules": {
+        const loc = reqString(p, "locationId");
+        directResult = await courseOAuthGet(loc, `/courses/products/${encodeURIComponent(reqString(p, "productId"))}/categories`, {
+          locationId: loc,
+        });
         break;
+      }
       case "list_course_lessons":
-      case "list_course_posts":
-        call = { method: "GET", path: `/courses/products/${reqString(p, "productId")}/lessons${query({ locationId: reqString(p, "locationId"), categoryId: p.categoryId })}` };
+      case "list_course_posts": {
+        const loc = reqString(p, "locationId");
+        directResult = await courseOAuthGet(loc, `/courses/products/${encodeURIComponent(reqString(p, "productId"))}/lessons`, {
+          locationId: loc,
+          categoryId: p.categoryId,
+        });
         break;
+      }
       default:
         throw new Error(`Unsupported action: ${action}`);
     }
 
     const sdkResult =
+      directResult ??
       (await executeSdkReadAction(action, p)) ??
       (await executeSdkWriteAction(action, p));
-    const result = sdkResult ?? await ghlRequest(call);
+    const result = sdkResult ?? (call ? await ghlRequest(call) : undefined);
+    if (!result) throw new Error(`No transport was configured for action: ${action}`);
+
     return NextResponse.json(
       {
         action,
         locationId: locationId || undefined,
-        transport: sdkResult ? "official-sdk" : "legacy-rest",
+        transport: directResult ? "location-oauth" : sdkResult ? "official-sdk" : "legacy-rest",
         ...result,
       },
       { status: result.ok ? 200 : result.status },
