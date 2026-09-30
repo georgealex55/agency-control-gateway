@@ -65,11 +65,12 @@ const RULES: Rule[] = [
   { method: "POST", pattern: /^\/blogs\/posts$/, version: "v3", risk: "write" },
   { method: "PUT", pattern: /^\/blogs\/posts\/[A-Za-z0-9_-]+$/, version: "v3", risk: "write" },
 
-  // Funnels/sites: public API supports discovery and redirect management, not visual page editing.
-  { method: "GET", pattern: /^\/funnels\/funnel\/list(?:\?.*)?$/, version: "v3", risk: "read" },
-  { method: "GET", pattern: /^\/funnels\/page(?:\?.*)?$/, version: "v3", risk: "read" },
-  { method: "GET", pattern: /^\/funnels\/page\/count(?:\?.*)?$/, version: "v3", risk: "read" },
-  { method: "GET", pattern: /^\/funnels\/lookup\/redirect\/list(?:\?.*)?$/, version: "v3", risk: "read" },
+  // Funnels/sites: HighLevel moved funnel/page discovery reads to v4 on 2026-09-18.
+  // The public API still exposes metadata only, not visual builder/custom-HTML source editing.
+  { method: "GET", pattern: /^\/funnels\/funnel(?:\?.*)?$/, version: "v4", risk: "read" },
+  { method: "GET", pattern: /^\/funnels\/funnel\/[A-Za-z0-9_-]+\/pages(?:\?.*)?$/, version: "v4", risk: "read" },
+  { method: "GET", pattern: /^\/funnels\/funnel\/[A-Za-z0-9_-]+\/pages\/count(?:\?.*)?$/, version: "v4", risk: "read" },
+  { method: "GET", pattern: /^\/funnels\/lookup\/redirect(?:\?.*)?$/, version: "v4", risk: "read" },
   { method: "POST", pattern: /^\/funnels\/lookup\/redirect$/, version: "v3", risk: "write" },
   { method: "PATCH", pattern: /^\/funnels\/lookup\/redirect\/[A-Za-z0-9_-]+$/, version: "v3", risk: "write" },
   { method: "DELETE", pattern: /^\/funnels\/lookup\/redirect\/[A-Za-z0-9_-]+$/, version: "v3", risk: "destructive" },
