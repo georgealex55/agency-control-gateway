@@ -103,6 +103,21 @@ export async function POST(request: Request) {
       case "create_redirect":
         call = { method: "POST", path: "/funnels/lookup/redirect", body };
         break;
+      case "list_courses":
+      case "list_membership_products":
+        call = { method: "GET", path: `/courses/products${query({ locationId: reqString(p, "locationId"), limit: p.limit ?? 50, cursor: p.cursor, search: p.search })}` };
+        break;
+      case "get_course":
+        call = { method: "GET", path: `/courses/products/${reqString(p, "productId")}${query({ locationId: reqString(p, "locationId") })}` };
+        break;
+      case "list_course_categories":
+      case "list_course_modules":
+        call = { method: "GET", path: `/courses/products/${reqString(p, "productId")}/categories${query({ locationId: reqString(p, "locationId") })}` };
+        break;
+      case "list_course_lessons":
+      case "list_course_posts":
+        call = { method: "GET", path: `/courses/products/${reqString(p, "productId")}/lessons${query({ locationId: reqString(p, "locationId"), categoryId: p.categoryId })}` };
+        break;
       default:
         throw new Error(`Unsupported action: ${action}`);
     }
