@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     openapi: "3.1.0",
     info: {
       title: "HighLevel Agency Control Gateway",
-      version: "2.0.0",
+      version: "2.3.0",
       description: "Secure GPT-facing control layer for HighLevel. Native writes include CRM, Social Planner and blogs; workflow definitions and funnel/page design are read/discovery only where HighLevel's public API is read-only."
     },
     servers: [{ url: origin }],
@@ -23,6 +23,24 @@ export async function GET(request: Request) {
     },
     security: [{ GatewayKey: [] }],
     paths: {
+      "/api/sites/websites": {
+        get: {
+          operationId: "listWebsites",
+          summary: "List websites for a HighLevel location/sub-account",
+          parameters: [
+            { name: "locationId", in: "query", required: true, schema: { type: "string" } },
+            { name: "name", in: "query", required: false, schema: { type: "string" } },
+            { name: "limit", in: "query", required: false, schema: { type: "integer", default: 50 } },
+            { name: "offset", in: "query", required: false, schema: { type: "integer", default: 0 } },
+            { name: "includeAll", in: "query", required: false, schema: { type: "boolean", default: false } }
+          ],
+          responses: {
+            "200": { description: "Website listing" },
+            "400": { description: "Missing/invalid location" },
+            "401": { description: "Invalid gateway key" }
+          }
+        }
+      },
       "/api/agency/action": {
         post: {
           operationId: "agencyAction",

@@ -1,0 +1,22 @@
+name: GHL SDK branch build
+
+on:
+  push:
+    branches:
+      - ghl-sdk-integration
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ghl-gpt-gateway
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ghl-gpt-gateway/package.json
+      - run: npm install
+      - run: npm run build

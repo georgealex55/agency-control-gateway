@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAuthorized } from "@/lib/auth";
 import { ghlRequest } from "@/lib/ghl";
+import { executeSdkReadAction, executeSdkWriteAction } from "@/lib/ghl-actions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,6 +12,16 @@ function reqString(p: Payload, key: string): string {
   const value = p[key];
   if (typeof value !== "string" || !value.trim()) throw new Error(`${key} is required`);
   return value.trim();
+}
+
+function errorStatus(error: unknown): number {
+  if (error && typeof error === "object" && "statusCode" in error) {
+    const status = Number((error as { statusCode?: unknown }).statusCode);
+    if (Number.isInteger(status) && status >= 400 && status <= 599) {
+      return status;
+    }
+  }
+  return 400;
 }
 
 function query(params: Record<string, unknown>) {
@@ -96,10 +107,24 @@ export async function POST(request: Request) {
         throw new Error(`Unsupported action: ${action}`);
     }
 
-    const result = await ghlRequest(call);
-    return NextResponse.json({ action, locationId: locationId || undefined, ...result }, { status: result.ok ? 200 : result.status });
+    const sdkResult =
+      (await executeSdkReadAction(action, p)) ??
+      (await executeSdkWriteAction(action, p));
+    const result = sdkResult ?? await ghlRequest(call);
+    return NextResponse.json(
+      {
+        action,
+        locationId: locationId || undefined,
+        transport: sdkResult ? "official-sdk" : "legacy-rest",
+        ...result,
+      },
+      { status: result.ok ? 200 : result.status },
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 400 });
+    return NextResponse.json(
+      { error: message },
+      { status: errorStatus(error) },
+    );
   }
 }

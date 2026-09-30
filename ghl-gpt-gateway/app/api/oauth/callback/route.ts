@@ -1,4 +1,9 @@
 import { NextResponse } from "next/server";
+import type { ISessionData } from "@gohighlevel/api-client";
+import {
+  isLocationOAuthConfigured,
+  storeAgencyOAuthSession,
+} from "@/lib/ghl-oauth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,9 +30,7 @@ export async function GET(request: Request) {
 
   const clientId = process.env.GHL_OAUTH_CLIENT_ID?.trim();
   const clientSecret = process.env.GHL_OAUTH_CLIENT_SECRET?.trim();
-  const redirectUri =
-    process.env.GHL_OAUTH_REDIRECT_URI?.trim() ||
-    `${url.origin}/api/oauth/callback`;
+  const redirectUri = `${url.origin}/api/oauth/callback`;
 
   if (!clientId || !clientSecret) {
     return NextResponse.json(
@@ -37,6 +40,17 @@ export async function GET(request: Request) {
           "GHL_OAUTH_CLIENT_ID and GHL_OAUTH_CLIENT_SECRET must be configured in Vercel.",
       },
       { status: 500 },
+    );
+  }
+
+  if (!isLocationOAuthConfigured()) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "Durable OAuth storage is not configured. Set GHL_OAUTH_DATABASE_URL and GHL_TOKEN_ENCRYPTION_KEY before installing the Marketplace app.",
+      },
+      { status: 503 },
     );
   }
 
@@ -69,28 +83,67 @@ export async function GET(request: Request) {
   }
 
   if (!tokenResponse.ok) {
+    const safeDetails = {
+      error: typeof data.error === "string" ? data.error : undefined,
+      errorDescription:
+        typeof data.error_description === "string"
+          ? data.error_description
+          : undefined,
+      message: typeof data.message === "string" ? data.message : undefined,
+      statusCode:
+        typeof data.statusCode === "number" ||
+        typeof data.statusCode === "string"
+          ? data.statusCode
+          : undefined,
+      traceId:
+        typeof data.traceId === "string" ? data.traceId : undefined,
+    };
+
+    console.error("HighLevel OAuth token exchange failed", {
+      status: tokenResponse.status,
+      ...safeDetails,
+    });
+
     return NextResponse.json(
       {
         ok: false,
         status: tokenResponse.status,
         error: "HighLevel OAuth token exchange failed.",
-        details: data,
+        details: safeDetails,
       },
       { status: tokenResponse.status },
     );
   }
 
-  const companyId =
-    typeof data.companyId === "string" ? data.companyId : null;
+  try {
+    const { companyId } = await storeAgencyOAuthSession(
+      data as ISessionData,
+    );
 
-  return NextResponse.json({
-    ok: true,
-    companyId,
-    userType: data.userType ?? null,
-    scope: data.scope ?? null,
-    expiresIn: data.expires_in ?? null,
-    nextStep: companyId
-      ? "Set GHL_COMPANY_ID in Vercel to this companyId, then redeploy. The access and refresh tokens were intentionally not returned or stored."
-      : "OAuth succeeded but HighLevel did not return companyId.",
-  });
+    return NextResponse.json({
+      ok: true,
+      companyId,
+      userType: data.userType ?? null,
+      scope: data.scope ?? null,
+      expiresIn: data.expires_in ?? null,
+      durableStorage: true,
+      tokensReturned: false,
+      nextStep:
+        "Agency OAuth session stored securely. The gateway can now mint and refresh Location tokens for authorized sub-accounts.",
+    });
+  } catch (storageError) {
+    const message =
+      storageError instanceof Error
+        ? storageError.message
+        : "Unknown OAuth storage error";
+
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "OAuth exchange succeeded but durable token storage failed.",
+        details: message,
+      },
+      { status: 500 },
+    );
+  }
 }
