@@ -14,6 +14,7 @@ function rec(value: unknown): R | undefined {
 }
 
 function arr(value: unknown): unknown[] {
+  if (Array.isArray(value)) return value;
   const root = rec(value);
   const data = rec(root?.data);
   for (const v of [

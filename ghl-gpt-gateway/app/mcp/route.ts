@@ -16,6 +16,7 @@ function rec(value: unknown): R | undefined {
 }
 
 function firstArray(value: unknown): unknown[] {
+  if (Array.isArray(value)) return value;
   const root = rec(value);
   const data = rec(root?.data);
 
