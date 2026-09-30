@@ -5,7 +5,8 @@ const actions = [
   "list_social_accounts", "list_social_posts", "get_social_post", "create_social_post", "update_social_post", "delete_social_post",
   "list_blogs", "list_blog_posts", "get_blog_post", "create_blog_post", "update_blog_post",
   "list_workflows", "add_contact_to_workflow", "remove_contact_from_workflow",
-  "list_funnels", "list_funnel_pages", "list_redirects", "create_redirect"
+  "list_funnels", "list_funnel_pages", "list_redirects", "create_redirect",
+  "list_courses", "list_membership_products", "get_course", "list_course_categories", "list_course_modules", "list_course_lessons", "list_course_posts"
 ];
 
 export async function GET(request: Request) {
@@ -14,8 +15,8 @@ export async function GET(request: Request) {
     openapi: "3.1.0",
     info: {
       title: "HighLevel Agency Control Gateway",
-      version: "2.3.0",
-      description: "Secure GPT-facing control layer for HighLevel. Native writes include CRM, Social Planner and blogs; workflow definitions and funnel/page design are read/discovery only where HighLevel's public API is read-only."
+      version: "2.4.0",
+      description: "Secure GPT-facing control layer for HighLevel. Native writes include CRM, Social Planner and blogs; workflow definitions and funnel/page design are read/discovery only where HighLevel's public API is read-only. Courses/memberships are exposed as read-only discovery actions for products, categories/modules, and lessons/posts."
     },
     servers: [{ url: origin }],
     components: {
@@ -56,10 +57,14 @@ export async function GET(request: Request) {
                 id: { type: "string", description: "Post/blog/resource id when required." },
                 blogId: { type: "string" },
                 funnelId: { type: "string" },
+                productId: { type: "string", description: "Course product id when reading course categories/modules or lessons/posts." },
+                categoryId: { type: "string", description: "Course category/module id when filtering lessons/posts." },
                 contactId: { type: "string" },
                 workflowId: { type: "string" },
                 status: { type: "string" },
                 searchTerm: { type: "string" },
+                search: { type: "string", description: "Case-insensitive title search for courses." },
+                cursor: { type: "string", description: "Opaque cursor from a previous course page." },
                 name: { type: "string" },
                 type: { type: "string" },
                 category: { type: "string" },
