@@ -8,7 +8,13 @@ This feature adds an agency-facing workspace to the existing `ghl-gpt-gateway` N
 - `GET /api/portal/session`: returns administrator configuration and current cookie session status.
 - `POST /api/portal/session`: separate portal administrator login.
 - `DELETE /api/portal/session`: logout.
-- `POST /api/portal/scan`: authenticated, **read-only** GHL location and module-count discovery, capped at eight locations. Does not import records or perform writes.
+- `POST /api/portal/scan`: authenticated, **read-only** subaccount and module-count discovery through the **single main GHL agency** connection, capped at eight subaccounts. Does not import records or perform writes.
+
+## Main-account-only HighLevel integration
+
+Only the agency owner connects the primary HighLevel agency account. `GHL_COMPANY_ID` must identify the main agency before scans are enabled. Agency discovery uses the existing agency-level integration. GHL APIs for individual subaccount features can require location-scoped OAuth tokens, which the existing gateway derives *server-side* from the agency installation; the client never signs in, consents separately or supplies GHL credentials. If a subaccount is not covered by the agency authorization/scopes, its feature inventory remains unavailable rather than prompting that customer to connect.
+
+This **does not** connect separate external GHL agencies or accounts that are not under the authorized agency. The client-facing product workspaces and feature packages are distinct from GHL authorization.
 
 ## Set administrator access through Vercel environment secrets
 
