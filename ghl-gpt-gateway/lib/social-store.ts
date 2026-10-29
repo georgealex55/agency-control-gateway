@@ -9,8 +9,9 @@ const cols="id,workspace_id,content,state,channels,scheduled_at,created_at,updat
 export async function listSocialPosts(workspaceId:string):Promise<{posts:SocialPost[];summary:Record<SocialState,number>}>{
  const db=await readySql();
  const list=rows<R>(await db.query("SELECT "+cols+" FROM agency_social_posts WHERE workspace_id=$1::uuid ORDER BY created_at DESC LIMIT 100",[workspaceId])).map(toPost);
+ const totals=rows<{state:SocialState;total:string|number}>(await db.query("SELECT state,count(*)::int AS total FROM agency_social_posts WHERE workspace_id=$1::uuid GROUP BY state",[workspaceId]));
  const counts={draft:0,planned:0,approved:0};
- for(const item of list)counts[item.state]++;
+ for(const item of totals)if(item.state in counts)counts[item.state]=Number(item.total);
  return {posts:list,summary:counts};
 }
 export async function createSocialPost(workspaceId:string,input:SocialInput):Promise<SocialPost|null>{
