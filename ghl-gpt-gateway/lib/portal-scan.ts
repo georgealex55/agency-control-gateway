@@ -14,8 +14,10 @@ function field(o:R,keys:string[]):string {
   for(const key of keys){const v=o[key];if(typeof v==="string"&&v.trim())return v.trim();}
   return "";
 }
-/** Read-only inventory; never sends raw API results or credentials to the browser. */
+/** Single agency account integration. Subaccounts are discovered from the agency, not separately authorized by clients. GHL may mint server-side location tokens from the agency OAuth grant for module reads. */
 export async function scanAgency():Promise<{locations:ScanLocation[];discovered:number;limited:boolean}> {
+  // Fail closed if no primary agency is selected: never scan arbitrary accessible locations.
+  if(!process.env.GHL_COMPANY_ID?.trim()) throw new Error("Primary GHL agency company ID is not configured");
   const r=await executeSdkReadAction("list_locations",{limit:8});
   if(!r?.ok)throw new Error("Location discovery unavailable");
   const locations=findItems(r.data,"locations");
@@ -41,5 +43,5 @@ export async function scanAgency():Promise<{locations:ScanLocation[];discovered:
     for(const [key,value] of results)features[key]=value;
     summary.push({id:locationId,locationId,name:(field(o,["name","businessName","companyName"])||"Unnamed workspace").slice(0,120),features});
   }
-  return {locations:summary,discovered:locations.length,limited:locations.length>=8};
+  return {connectionMode:"agency_only" as const,clientAuthorizationRequired:false,locations:summary,discovered:locations.length,limited:locations.length>=8};
 }
