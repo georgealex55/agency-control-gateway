@@ -15,7 +15,7 @@ function field(o:R,keys:string[]):string {
   return "";
 }
 /** Single agency account integration. Subaccounts are discovered from the agency, not separately authorized by clients. GHL may mint server-side location tokens from the agency OAuth grant for module reads. */
-export async function scanAgency():Promise<{locations:ScanLocation[];discovered:number;limited:boolean}> {
+export async function scanAgency():Promise<{connectionMode:"agency_only";clientAuthorizationRequired:false;locations:ScanLocation[];discovered:number;limited:boolean}> {
   // Fail closed if no primary agency is selected: never scan arbitrary accessible locations.
   if(!process.env.GHL_COMPANY_ID?.trim()) throw new Error("Primary GHL agency company ID is not configured");
   const r=await executeSdkReadAction("list_locations",{limit:8});
