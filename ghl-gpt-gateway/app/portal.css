@@ -2,3 +2,20 @@
 @media(max-width:1150px){.ag-metrics{grid-template-columns:repeat(2,1fr)}.ag-columns{grid-template-columns:1fr}.ag-content{padding:32px 24px}.ag-top{padding:0 24px}}
 @media(max-width:810px){.ag-side{width:74px;padding:24px 10px}.ag-brand{padding:0 9px 35px}.ag-brand>div,.ag-caption,.ag-nav>span:last-child,.ag-side-foot{display:none}.ag-nav{justify-content:center}.ag-nav-icon{font-size:21px}.ag-clientlayout{grid-template-columns:1fr}}
 @media(max-width:600px){.ag-shell{display:block}.ag-side{width:100%;padding:12px 16px}.ag-brand{padding:2px 3px 12px}.ag-side nav{display:flex;overflow:auto}.ag-nav{min-width:48px;flex:1}.ag-top{height:57px;padding:0 16px}.ag-content{padding:30px 17px}.ag-content h1{font-size:27px}.ag-intro-head{flex-direction:column;align-items:flex-start}.ag-metrics{gap:10px}.ag-metric{min-height:112px;padding:13px}.ag-card{padding:17px}.ag-banner button{display:none}.ag-scope,.ag-modulegrid{grid-template-columns:1fr}.ag-connecthead{flex-wrap:wrap}.ag-login>div,.ag-location{flex-direction:column;align-items:flex-start}.ag-tags{justify-content:flex-start}.ag-footer{padding:18px}.ag-stage{font-size:9px;padding:6px}}
+
+/* Native platform workspaces — not connected to GHL */
+.ag-platform-section{display:grid;gap:16px}
+.ag-platform-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.ag-platform-bar h2{margin:0 0 5px;font-size:16px}
+.ag-platform-bar p{font-size:11px}
+.ag-workspace-layout{display:grid;grid-template-columns:minmax(245px,.8fr) minmax(330px,1.2fr);gap:18px}
+.ag-ws-form{display:grid;gap:12px;background:#f7f9fe;padding:15px;border:1px solid #e2e8f3;border-radius:10px;margin-bottom:15px}
+.ag-ws-form label{display:grid;gap:6px;font-size:11px;font-weight:750;color:#40506a}
+.ag-ws-form input,.ag-ws-form select{width:100%;min-width:0;border:1px solid #dce4ef;background:white;color:#203348;padding:11px 12px;border-radius:8px;font-size:12px}
+.ag-ws-form .ag-primary{justify-self:start}
+.ag-ws-note{background:#edf3ff;border:1px solid #dce6fa;padding:15px;border-radius:9px;font-size:12px;color:#43598b;line-height:1.7;margin-top:18px;margin-bottom:12px}
+.ag-ws-note b{color:#284678}
+.ag-ws-note p{font-size:12px;margin-top:5px}
+.ag-ws-modules{display:grid;gap:1px}
+.ag-empty{padding:18px 4px;font-size:12px;color:#8494a7}
+@media(max-width:1120px){.ag-workspace-layout{grid-template-columns:1fr}}
