@@ -60,7 +60,7 @@ export default function Home() {
       <div className="ag-brand"><span className="ag-logo">A<span>•</span></span><div><b>Agency Control</b><small>UNIFIED WORKSPACE</small></div></div>
       <span className="ag-caption">PLATFORM</span>
       <nav aria-label="Main navigation">{NAV.map(n=><button key={n.id} className={"ag-nav "+(view===n.id?"current":"")} onClick={()=>setView(n.id)}><span className="ag-nav-icon">{n.icon}</span><span>{n.label}</span></button>)}</nav>
-      <div className="ag-side-foot"><span className="ag-signal"/> GHL integration preserved<small>Milestone 01 · Agency foundation</small></div>
+      <div className="ag-side-foot"><span className="ag-signal"/> Independent platform core<small>Milestone 02 · Workspaces</small></div>
     </aside>
     <div className="ag-main">
       <header className="ag-top"><div>Agency <span>/</span> <strong>{NAV.find(n=>n.id===view)?.label}</strong></div><div className="ag-topright"><span className="ag-stage"><span className="ag-signal"/> Preview foundation</span><button className="ag-avatar" onClick={()=>setView("settings")}>AC</button></div></header>
@@ -99,7 +99,7 @@ export default function Home() {
           <div className="ag-columns"><section className="ag-card"><Head title="Admin access"/><Status title="Administrator login" value={session.configured?"Configured":"Setup required"}/><Status title="Active session" value={session.authenticated?"Authenticated":"Not signed in"}/><Status title="Scanner" value="Read only"/><Status title="Client login" value="Not enabled"/></section><section className="ag-card"><Head title="Integration readiness"/><Status title="GHL migration" value="Deferred to final phase"/><Status title="Feature requests" value="Preview only"/><Status title="Stripe billing" value="Not connected"/><Status title="Frappe / Postiz" value="Not connected"/></section></div>
           <section className="ag-card"><Head title="Required Vercel secrets" sub="Never put secret values in the GitHub repo."/><code className="ag-code">AGENCY_PORTAL_PASSWORD_SHA256 = SHA-256 hash of a strong admin password</code><code className="ag-code">AGENCY_PORTAL_SESSION_SECRET = separate 32+ character random secret</code><p className="ag-footnote">Enable Vercel access protection / edge rate limits before using administrator login broadly. Existing gateway OAuth and API routes remain unchanged.</p></section>
         </>}
-      </main><footer className="ag-footer">AGENCY CONTROL <span>·</span> Milestone 01 <span>·</span> Client data unchanged</footer>
+      </main><footer className="ag-footer">AGENCY CONTROL <span>·</span> Milestone 02 <span>·</span> No GHL migration</footer>
     </div>
   </div>;
 }
