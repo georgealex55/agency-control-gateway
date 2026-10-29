@@ -42,7 +42,7 @@ agency-control-gateway/                    (main GitHub repository)
 | Website Studio | Frappe, Builder | Python/Frappe, MariaDB, Redis, workers | Source pinned; integration pending |
 | Learning Studio | Frappe, LMS, Payments | Frappe service; file/media storage | Source pinned; integration pending |
 | CRM & scheduling | Frappe, CRM | Frappe service | Source pinned; integration pending |
-| Social Intelligence | Postiz | Separate application, PostgreSQL, Redis, workers and social API apps | Source pinned; integration pending |
+| Social Intelligence | Native Vercel service; Postiz retained as reference | Next.js Functions, Vercel Queues, Neon PostgreSQL | Dry-run staging only; no social publishing |
 | Workflow Studio | Activepieces | Separate application and worker stack | Source pinned; **deferred** |
 | Agency Admin | Next.js + dedicated Neon DB | Vercel | Existing independent platform core |
 
