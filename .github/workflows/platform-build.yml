@@ -1,0 +1,31 @@
+name: Platform control-plane build
+on:
+  push:
+    branches:
+      - feature/origin-layout-platform-services-20261029
+  pull_request:
+    branches:
+      - feature/platform-core-milestone2-20261029
+      - main
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ghl-gpt-gateway
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Compile Next.js (without external services)
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"

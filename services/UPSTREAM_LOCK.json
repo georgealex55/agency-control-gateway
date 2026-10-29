@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "strategy": "pinned-git-submodules",
+  "controlPlane": "ghl-gpt-gateway",
+  "noGhlImports": true,
+  "services": [
+    {"id":"frappe","origin":"frappe/frappe","originBranch":"version-16","path":"services/sources/frappe","commit":"2fcb9397a1f1da353b21e53d2f97ec56653acd02","runtime":"python-mariadb-redis-workers","production":false},
+    {"id":"builder","origin":"frappe/builder","originBranch":"develop","path":"services/sources/builder","commit":"2d77800ab791bf7607ad168cbd03289a0f859193","runtime":"frappe-app","production":false},
+    {"id":"crm","origin":"frappe/crm","originBranch":"main","path":"services/sources/crm","commit":"36bd8859f2a6345a620477bc708d0546e8c3f08a","runtime":"frappe-app","production":false},
+    {"id":"lms","origin":"frappe/lms","originBranch":"version-16","path":"services/sources/lms","commit":"4f73d8691c9646e0f200968c2e7af9a5d4baebaa","runtime":"frappe-app","production":false},
+    {"id":"payments","origin":"frappe/payments","originBranch":"version-16","path":"services/sources/payments","commit":"cca07d9f9392e2ea0e521c5975151db9e4b6c321","runtime":"frappe-app","production":false},
+    {"id":"frappe_docker","origin":"frappe/frappe_docker","originBranch":"main","path":"services/sources/frappe_docker","commit":"61d35da827ebc04d01b64c9e78385597ccebc9d8","runtime":"docker-compose","production":false},
+    {"id":"postiz","origin":"gitroomhq/postiz-app","originBranch":"main","path":"services/sources/postiz","commit":"64f00fd6d0e9dfd55d202ff83983e7576e08bc2e","runtime":"node-postgres-redis-workers","production":false},
+    {"id":"activepieces","origin":"activepieces/activepieces","originBranch":"main","path":"services/sources/activepieces","commit":"6e52092eee5a037b05d44e10e7d4e28d9b6af0d5","runtime":"node-postgres-redis-workers","production":false}
+  ]
+}
