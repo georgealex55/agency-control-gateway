@@ -19,3 +19,19 @@
 .ag-ws-modules{display:grid;gap:1px}
 .ag-empty{padding:18px 4px;font-size:12px;color:#8494a7}
 @media(max-width:1120px){.ag-workspace-layout{grid-template-columns:1fr}}
+
+/* Pinned upstream service catalog */
+.ag-modulecatalog{grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin-bottom:18px}
+.ag-sourcecard{display:flex;flex-direction:column;align-items:flex-start;gap:9px;text-align:left;min-height:175px;padding:20px;border:1px solid #e6edf5;background:#fff;border-radius:12px;color:#17253a}
+.ag-sourcecard.selected,.ag-sourcecard:hover{border-color:#9fb4f8;box-shadow:0 0 0 2px #edf2ff}
+.ag-sourcecard strong{font-size:13px}
+.ag-sourcecard small{font-size:11px;line-height:1.5;color:#8799ae;flex:1}
+.ag-source-icon{background:#edf2ff;color:#3a5bc8;display:grid;place-items:center;width:38px;height:38px;border-radius:9px;font-size:20px}
+.ag-source-status{font-size:10px;font-weight:750;color:#267d68;background:#eaf8f3;border-radius:6px;padding:5px 8px}
+.ag-source-status.deferred{background:#f3f5fa;color:#8191a8}
+.ag-source-list{display:grid;gap:6px;margin:12px 0 20px}
+.ag-source-list>div{display:flex;gap:12px;align-items:center;border:1px solid #edf1f7;padding:12px;border-radius:8px;color:#536681;font-size:12px}
+.ag-source-list span{color:#5571cd;font-size:11px;font-weight:850;min-width:25px}
+.ag-card h3{font-size:12px;margin:16px 0 8px;color:#3c4b60}
+@media(max-width:1120px){.ag-modulecatalog{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.ag-modulecatalog{grid-template-columns:1fr}}
