@@ -10,6 +10,6 @@ export async function POST(req:NextRequest) {
     const data=await scanAgency();
     return NextResponse.json({ok:true,readOnly:true,...data},{headers:{"Cache-Control":"no-store"}});
   }catch {
-    return NextResponse.json({error:"GHL discovery unavailable. Check SDK and location OAuth setup."},{status:502,headers:{"Cache-Control":"no-store"}});
+    return NextResponse.json({error:"Agency discovery unavailable. Check the primary GHL company ID, agency authorization, and scopes."},{status:502,headers:{"Cache-Control":"no-store"}});
   }
 }
