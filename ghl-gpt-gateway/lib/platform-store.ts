@@ -38,11 +38,16 @@ export function validWorkspaceName(v:unknown):v is string{return typeof v==="str
 export function validBusinessType(v:unknown):v is BusinessType{return v==="website"||v==="education"||v==="marketing"||v==="general";}
 export function validWorkspaceId(v:unknown):v is string{return typeof v==="string"&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);}
 type Row={id:string;name:string;slug:string;business_type:BusinessType;created_at:string|Date};
+function toRows<T>(result:unknown):T[]{
+  if(Array.isArray(result))return result as T[];
+  if(result&&typeof result==="object"&&"rows" in result&&Array.isArray(result.rows))return result.rows as T[];
+  throw new Error("Invalid database response");
+}
 function mapRow(row:Row):PlatformWorkspace{return {id:row.id,name:row.name,slug:row.slug,businessType:row.business_type,createdAt:new Date(row.created_at).toISOString(),modules:{}};}
 export async function listPlatformWorkspaces():Promise<PlatformWorkspace[]>{
   const db=await readySql();
-  const rows=await db.query("SELECT id,name,slug,business_type,created_at FROM agency_platform_workspaces ORDER BY created_at DESC LIMIT 100") as Row[];
-  const plans=await db.query("SELECT workspace_id,module_key,rollout_state FROM agency_platform_module_plans WHERE workspace_id IN (SELECT id FROM agency_platform_workspaces)");
+  const rows=toRows<Row>(await db.query("SELECT id,name,slug,business_type,created_at FROM agency_platform_workspaces ORDER BY created_at DESC LIMIT 100"));
+  const plans=toRows<{workspace_id:string;module_key:string;rollout_state:string}>(await db.query("SELECT workspace_id,module_key,rollout_state FROM agency_platform_module_plans WHERE workspace_id IN (SELECT id FROM agency_platform_workspaces)"));
   const map=new Map<string,PlatformWorkspace>();
   for(const row of rows)map.set(row.id,mapRow(row));
   for(const plan of plans){const item=map.get(String(plan.workspace_id));if(item&&isModuleKey(plan.module_key)&&(plan.rollout_state==="hidden"||plan.rollout_state==="planned"))item.modules[plan.module_key]=plan.rollout_state;}
@@ -51,17 +56,17 @@ export async function listPlatformWorkspaces():Promise<PlatformWorkspace[]>{
 export async function createPlatformWorkspace(input:{name:string;slug:string;businessType:BusinessType}):Promise<PlatformWorkspace>{
   const db=await readySql();
   const id=randomUUID();
-  const rows=await db.query(
+  const rows=toRows<Row>(await db.query(
     "WITH workspace AS (INSERT INTO agency_platform_workspaces (id,name,slug,business_type) VALUES ($1::uuid,$2,$3,$4) RETURNING id,name,slug,business_type,created_at), audit AS (INSERT INTO agency_platform_audit_events (workspace_id,action,detail) SELECT id,'workspace.created',jsonb_build_object('slug',slug) FROM workspace RETURNING id) SELECT id,name,slug,business_type,created_at FROM workspace",
     [id,input.name,input.slug,input.businessType]
-  ) as Row[];
+  ));
   return mapRow(rows[0]);
 }
 export async function setModulePlan(workspaceId:string,moduleKey:ModuleKey,state:ModulePlan):Promise<boolean>{
   const db=await readySql();
-  const rows=await db.query(
+  const rows=toRows<{workspace_id:string}>(await db.query(
     "WITH changed AS (INSERT INTO agency_platform_module_plans (workspace_id,module_key,rollout_state) SELECT id,$2,$3 FROM agency_platform_workspaces WHERE id=$1::uuid ON CONFLICT (workspace_id,module_key) DO UPDATE SET rollout_state=EXCLUDED.rollout_state,updated_at=NOW() RETURNING workspace_id,module_key,rollout_state), audit AS (INSERT INTO agency_platform_audit_events (workspace_id,action,detail) SELECT workspace_id,'module.plan.updated',jsonb_build_object('module',module_key,'state',rollout_state) FROM changed RETURNING id) SELECT workspace_id FROM changed",
     [workspaceId,moduleKey,state]
-  );
+  ));
   return rows.length>0;
 }
