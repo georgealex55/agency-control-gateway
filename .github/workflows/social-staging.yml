@@ -3,9 +3,11 @@ on:
   push:
     branches:
       - feature/social-intelligence-stage-20261029
+      - feature/social-vercel-native-stage-20261029
   pull_request:
     branches:
       - feature/origin-layout-platform-services-20261029
+      - feature/social-intelligence-stage-20261029
 permissions:
   contents: read
 jobs:
@@ -19,7 +21,7 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: "22"
-      - run: node --experimental-strip-types --test tests/agency-contracts.test.mjs tests/platform-core.test.mjs tests/source-layout.test.mjs tests/social-intelligence.test.mjs
+      - run: node --experimental-strip-types --test tests/agency-contracts.test.mjs tests/platform-core.test.mjs tests/source-layout.test.mjs tests/social-intelligence.test.mjs tests/social-native-queue.test.mjs
   next-build:
     runs-on: ubuntu-latest
     defaults:
