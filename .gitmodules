@@ -25,3 +25,7 @@
 [submodule "services/sources/activepieces"]
 	path = services/sources/activepieces
 	url = https://github.com/activepieces/activepieces.git
+
+[submodule "services/sources/frappe_docker"]
+	path = services/sources/frappe_docker
+	url = https://github.com/frappe/frappe_docker.git
