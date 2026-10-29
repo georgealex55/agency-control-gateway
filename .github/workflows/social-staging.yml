@@ -1,0 +1,39 @@
+name: Social Intelligence staging checks
+on:
+  push:
+    branches:
+      - feature/social-intelligence-stage-20261029
+  pull_request:
+    branches:
+      - feature/origin-layout-platform-services-20261029
+permissions:
+  contents: read
+jobs:
+  social-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+      - run: node --experimental-strip-types --test tests/agency-contracts.test.mjs tests/platform-core.test.mjs tests/source-layout.test.mjs tests/social-intelligence.test.mjs
+  next-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ghl-gpt-gateway
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
