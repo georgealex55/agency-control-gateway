@@ -3,13 +3,15 @@ import { useEffect, useState, type FormEvent } from "react";
 import { MODULES, SAMPLE_TENANTS, type ModuleKey } from "@/lib/agency-platform";
 import PlatformWorkspaces from "./platform-workspaces";
 import ServiceCatalog from "./service-catalog";
+import SocialStudio from "./social-studio";
 
-type View="overview"|"discover"|"clients"|"features"|"services"|"settings";
+type View="overview"|"discover"|"clients"|"features"|"services"|"social"|"settings";
 type ScanLocation={id:string;name:string;locationId:string;features:Record<string,{status:string;count:number|null}>};
 const NAV:{id:View;label:string;icon:string}[]=[
   {id:"overview",label:"Overview",icon:"◫"},
   {id:"clients",label:"Workspaces",icon:"▦"},
   {id:"services",label:"Platform Studios",icon:"◈"},
+  {id:"social",label:"Social Intelligence",icon:"↗"},
   {id:"features",label:"Feature Catalog",icon:"▧"},
   {id:"settings",label:"Settings",icon:"⚙"},
   {id:"discover",label:"GHL Migration (later)",icon:"◎"}
@@ -93,6 +95,10 @@ export default function Home() {
           {!session.authenticated&&<section className="ag-card"><Head title="Example workspace types" sub="Design references only; they are not real client accounts."/><div className="ag-rows">{SAMPLE_TENANTS.map(t=><div className="ag-tenant" key={t.id}><span className="ag-tenant-icon">▦</span><span><b>{t.name}</b><small>{t.category} · SAMPLE</small></span></div>)}</div></section>}
         </>}
         {view==="services"&&<ServiceCatalog/>}
+        {view==="social"&&(!session.authenticated?<section className="ag-card"><h2>Agency administrator access required</h2>
+          {!session.configured?<p>Configure administrator access in the staging Vercel environment before managing real social drafts.</p>:<form onSubmit={login} className="ag-login"><label htmlFor="social-adminpass">Administrator password</label><div><input id="social-adminpass" type="password" minLength={12} autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)} placeholder="Administrator password"/><button className="ag-primary" disabled={loading}>{loading?"Signing in…":"Unlock Social Intelligence"}</button></div></form>}
+          {error&&<p className="ag-error" role="alert">{error}</p>}
+        </section>:<SocialStudio/>)}
         {view==="features"&&<>
           <div className="ag-eyebrow">FEATURE GOVERNANCE</div><h1>Give clients exactly what they need.</h1><p className="ag-subhead">Agency-approved modules, staged gradually. Requests below are previews—not billing or live activation.</p>
           <section className="ag-card"><Head title="Available modules" sub="Feature packages for your $30 entry-level model"/>{MODULES.map(m=><div key={m.key} className="ag-featurerow"><span className="ag-tenant-icon">{m.key==="lms"?"▤":m.key==="social"?"#":m.key==="automation"?"⚡":"◈"}</span><div><b>{m.title}</b><small>{m.description}</small></div>{m.upgrade?<button className={"ag-secondary "+(requests.includes(m.key)?"ag-selected":"")} onClick={()=>setRequests(v=>v.includes(m.key)?v.filter(x=>x!==m.key):[...v,m.key])}>{requests.includes(m.key)?"Staged ✓":"Preview request"}</button>:<span className="ag-included">Core package</span>}</div>)}<p className="ag-footnote">Preview requests remain in this browser screen. No GHL writes, payments or backend grants are performed.</p></section>
