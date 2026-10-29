@@ -1,0 +1,27 @@
+[submodule "services/sources/frappe"]
+	path = services/sources/frappe
+	url = https://github.com/frappe/frappe.git
+
+[submodule "services/sources/builder"]
+	path = services/sources/builder
+	url = https://github.com/frappe/builder.git
+
+[submodule "services/sources/crm"]
+	path = services/sources/crm
+	url = https://github.com/frappe/crm.git
+
+[submodule "services/sources/lms"]
+	path = services/sources/lms
+	url = https://github.com/frappe/lms.git
+
+[submodule "services/sources/payments"]
+	path = services/sources/payments
+	url = https://github.com/frappe/payments.git
+
+[submodule "services/sources/postiz"]
+	path = services/sources/postiz
+	url = https://github.com/gitroomhq/postiz-app.git
+
+[submodule "services/sources/activepieces"]
+	path = services/sources/activepieces
+	url = https://github.com/activepieces/activepieces.git
