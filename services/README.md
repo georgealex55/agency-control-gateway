@@ -7,11 +7,10 @@ This repository preserves the original Next.js application in `ghl-gpt-gateway/`
 ```sh
 git clone --recurse-submodules https://github.com/georgealex55/agency-control-gateway.git
 cd agency-control-gateway
-git submodule update --init --recursive
-node scripts/verify-sources.mjs
+bash scripts/checkout-upstreams.sh
 ```
 
-**Important:** GitHub's standard ZIP download does not contain submodule source files. Use a recursive Git checkout. GitHub shows each entry as a source link pinned to its specific commit. `services/UPSTREAM_LOCK.json` is the source-of-truth inventory. Updates require explicit dependency review and a new gitlink commit; never track moving `main` branches in production.
+**Important:** submodule checkouts are opt-in (update=none) to keep Vercel builds fast. Run the checkout script to download full source before installing services. GitHub's standard ZIP download does not contain submodule source files. Use a recursive Git checkout. GitHub shows each entry as a source link pinned to its specific commit. `services/UPSTREAM_LOCK.json` is the source-of-truth inventory. Updates require explicit dependency review and a new gitlink commit; never track moving `main` branches in production.
 
 ## Architecture
 
