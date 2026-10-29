@@ -1,16 +1,11 @@
 import {randomUUID} from "node:crypto";
 import {readySql} from "@/lib/platform-store";
-import {validId} from "@/lib/social-contract";
-export const SOCIAL_DRY_TOPIC="agency-social-dry-run-v1";
-export type DryRunPayload={jobId:string;workspaceId:string;postId:string};
+import {SOCIAL_DRY_TOPIC,validDryPayload} from "@/lib/social-queue-contract";
+export {SOCIAL_DRY_TOPIC,validDryPayload} from "@/lib/social-queue-contract";
+export type {DryRunPayload} from "@/lib/social-queue-contract";
 export type DispatchJob={id:string;workspaceId:string;postId:string;channel:string;status:string;createdAt:string;completedAt:string|null};
 type Row=Record<string,unknown>;
 function rows<T>(v:unknown):T[]{if(Array.isArray(v))return v as T[];if(v&&typeof v==="object"&&"rows" in v&&Array.isArray(v.rows))return v.rows as T[];throw new Error("Invalid database result");}
-export function validDryPayload(value:unknown):value is DryRunPayload {
- if(!value||typeof value!=="object"||Array.isArray(value))return false;
- const d=value as Record<string,unknown>;
- return validId(d.jobId)&&validId(d.workspaceId)&&validId(d.postId);
-}
 function asJob(row:Row):DispatchJob{return {id:String(row.id),workspaceId:String(row.workspace_id),postId:String(row.post_id),channel:String(row.channel),status:String(row.status),createdAt:new Date(String(row.created_at)).toISOString(),completedAt:row.completed_at?new Date(String(row.completed_at)).toISOString():null};}
 export async function prepareDueJobs(workspaceId:string):Promise<{jobs:DispatchJob[];total:number}>{
  const db=await readySql();
@@ -39,7 +34,7 @@ export async function markQueued(jobId:string,workspaceId:string):Promise<void>{
  const db=await readySql();
  await db.query("UPDATE agency_social_dispatch_jobs SET status='queued',updated_at=now() WHERE id=$1::uuid AND workspace_id=$2::uuid AND status='pending'",[jobId,workspaceId]);
 }
-export async function consumeDryRun(payload:DryRunPayload):Promise<{status:"simulated"|"canceled"|"already-processed"|"not-found"}>{
+export async function consumeDryRun(payload:import("@/lib/social-queue-contract").DryRunPayload):Promise<{status:"simulated"|"canceled"|"already-processed"|"not-found"}>{
  if(!validDryPayload(payload))throw new Error("Invalid queue payload");
  const db=await readySql();
  // An idempotent atomic update guards retries, edits, revocation, cross-tenant IDs and channel change.

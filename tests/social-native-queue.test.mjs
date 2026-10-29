@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {validDryPayload,SOCIAL_DRY_TOPIC} from "../ghl-gpt-gateway/lib/social-native-queue.ts";
+import {validDryPayload,SOCIAL_DRY_TOPIC} from "../ghl-gpt-gateway/lib/social-queue-contract.ts";
 import {stageEnabled,socialReadiness} from "../ghl-gpt-gateway/lib/social-contract.ts";
 const w="8bba25e1-dc8e-4601-8bf2-91092f097bcc",j="62f2d771-46dd-49e9-b49d-4cc79ff3f3cd",p="bccf663f-097d-4324-a155-963b08eadb30";
 test("queue payload cannot reference malformed or missing workspace",()=>{
