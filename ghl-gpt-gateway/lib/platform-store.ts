@@ -1,9 +1,11 @@
 import { neon } from "@neondatabase/serverless";
 import { randomUUID } from "crypto";
-import { MODULES, type ModuleKey } from "@/lib/agency-platform";
+import type { ModuleKey } from "@/lib/agency-platform";
+import { isModuleKey } from "@/lib/platform-validation";
+import type { BusinessType } from "@/lib/platform-validation";
+export { isModuleKey, validBusinessType, validSlug, validWorkspaceName, validWorkspaceId } from "@/lib/platform-validation";
 
 export type ModulePlan = "hidden" | "planned";
-export type BusinessType = "website" | "education" | "marketing" | "general";
 export type PlatformWorkspace = { id:string;name:string;slug:string;businessType:BusinessType;createdAt:string;modules:Partial<Record<ModuleKey,ModulePlan>> };
 type DB = ReturnType<typeof neon>;
 let client:DB|undefined;
@@ -31,12 +33,6 @@ export async function readySql():Promise<DB>{
   if(!initialized) initialized=setup().catch(e=>{initialized=undefined;throw e;});
   await initialized;return db;
 }
-const moduleKeys=new Set<string>(MODULES.map(m=>m.key));
-export function isModuleKey(v:unknown):v is ModuleKey{return typeof v==="string"&&moduleKeys.has(v);}
-export function validSlug(v:unknown):v is string{return typeof v==="string"&&/^[a-z][a-z0-9-]{2,47}$/.test(v)&&!v.includes("--");}
-export function validWorkspaceName(v:unknown):v is string{return typeof v==="string"&&v.trim().length>=2&&v.trim().length<=120;}
-export function validBusinessType(v:unknown):v is BusinessType{return v==="website"||v==="education"||v==="marketing"||v==="general";}
-export function validWorkspaceId(v:unknown):v is string{return typeof v==="string"&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);}
 type Row={id:string;name:string;slug:string;business_type:BusinessType;created_at:string|Date};
 function toRows<T>(result:unknown):T[]{
   if(Array.isArray(result))return result as T[];
