@@ -212,6 +212,19 @@ export default function SocialStudio(){
   }catch(e){setProbeMessage(e instanceof Error?e.message:"Unable to send the queue probe");}
   finally{setBusy(false);}
  }
+ async function testBlobRoundTrip(){
+  if(!workspaceId||busy)return;
+  setBusy(true);setMediaStatus("Testing private upload, download and cleanup using a synthetic 1-pixel image…");
+  try{
+   const r=await fetch("/api/platform/social/media/diagnostics?workspaceId="+encodeURIComponent(workspaceId),{
+    method:"POST",credentials:"same-origin"
+   });
+   const j=await r.json();if(!r.ok)throw Error(j.error||j.note||"Private round-trip unavailable");
+   setMediaStatus(j.roundTripVerified===true?"Verified: synthetic image uploaded privately, read back and deleted. No public file or social post was created.":"Round-trip did not complete.");
+   await checkBlobStorage();
+  }catch(e){setMediaStatus(e instanceof Error?e.message:"Private media round-trip failed");}
+  finally{setBusy(false);}
+ }
  async function checkBlobStorage(){
   if(!workspaceId||busy)return;setMediaStatus("Verifying real private Blob read access…");
   try{
@@ -344,6 +357,7 @@ export default function SocialStudio(){
     <div className="ag-platform-bar"><div><h2>Private media library</h2><p>Isolated, workspace-owned JPEG, PNG and WebP files. No media is public or sent to social channels.</p></div>
       <div className="ag-social-actions">
        <button className="ag-secondary" onClick={()=>void checkBlobStorage()} disabled={busy}>Verify private Blob access</button>
+       <button className="ag-secondary" onClick={()=>void testBlobRoundTrip()} disabled={busy||!mediaUploads}>Test private upload/read/delete</button>
        <button className="ag-secondary" onClick={()=>void refreshMedia()} disabled={busy}>Refresh files</button>
       </div></div>
     <div className="ag-ws-note"><b>{mediaUploads?"Private uploads enabled":mediaStorageConnected?"Private Blob connected · uploads disabled":"Private Blob not linked"}</b>
