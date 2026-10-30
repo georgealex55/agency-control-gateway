@@ -12,7 +12,7 @@ type MediaAsset={id:string;workspaceId:string;name:string;mime:string;size:numbe
 type MetaReadiness={provider:"facebook_pages"|"instagram_professional";appConfigured:boolean;permissions:string[];accessType:"read_only";launchEnabled:boolean;};
 type MetaCandidate={id:string;name:string;tasks?:string[];accountType?:string};
 type MetaPending={id:string;provider:"facebook_pages"|"instagram_professional";candidates:MetaCandidate[];expiresAt:string};
-type MetaConnection={id:string;provider:"facebook_pages"|"instagram_professional";accountId:string;name:string;connectedAt:string;expiresAt:string|null;expired:boolean};
+type MetaConnection={id:string;provider:"facebook_pages"|"instagram_professional";accountId:string;name:string;connectedAt:string;expiresAt:string|null;lastVerifiedAt:string|null;expired:boolean};
 type MetaInventory={connections:MetaConnection[];pending:MetaPending[];readOnly:true;publishingEnabled:false};
 type ProviderReadiness={id:string;name:string;auth:string;accounts:string;scopes:string[];publishScopes:string[];appSetup:string;connectionStatus:"not_connected";oauthEnabled:false;publishingEnabled:false;};
 type InternalInsights={drafts:Record<SocialState,number>;dispatch:Record<"pending"|"queued"|"simulated"|"canceled",number>;retryExhausted:number;scheduledNextSevenDays:number;overdueApproved:number;channelPlans:{channel:string;count:number}[];externalReach:null;externalEngagement:null;metricsAvailable:false;};
@@ -188,6 +188,17 @@ export default function SocialStudio(){
    setMetaMessage("Connected for read-only account discovery. Publishing remains disabled.");
    await refreshMetaInventory();
   }catch(e){setMetaMessage(e instanceof Error?e.message:"Account selection failed");}finally{setBusy(false);}
+ }
+ async function verifyMetaAccount(connectionId:string){
+  if(!workspaceId||busy)return;setBusy(true);setMetaMessage("Verifying read-only provider access…");
+  try{
+   const r=await fetch("/api/platform/social/meta/connections/verify",{method:"POST",
+    headers:{"Content-Type":"application/json"},credentials:"same-origin",
+    body:JSON.stringify({workspaceId,connectionId})});
+   const j=await r.json();if(!r.ok)throw Error(j.error||"Provider verification failed");
+   setMetaMessage("Verified read-only access. No content was published.");
+   await refreshMetaInventory();
+  }catch(e){setMetaMessage(e instanceof Error?e.message:"Provider verification unavailable");}finally{setBusy(false);}
  }
  async function disconnectMetaAccount(connectionId:string){
   if(!workspaceId||busy||!window.confirm("Disconnect this account from Agency Control? This clears the locally stored token; you can also revoke app access at Meta."))return;
@@ -423,8 +434,11 @@ export default function SocialStudio(){
     {!metaInventory?.connections.length&&<div className="ag-social-empty">No Facebook or Instagram accounts are connected yet.</div>}
     {metaInventory?.connections.map(account=><div className="ag-social-calendar" key={account.id}>
       <div><b>{account.name}</b><small>{account.provider==="facebook_pages"?"Facebook Page":"Instagram Professional"} · Read-only</small></div>
-      <div><small>{account.expired?"Token expired":account.expiresAt?"Token expires "+new Date(account.expiresAt).toLocaleDateString():"Token expiry not supplied"}</small></div>
-      <button className="ag-secondary" disabled={busy} onClick={()=>void disconnectMetaAccount(account.id)}>Disconnect</button>
+      <div><small>{account.expired?"Token expired":account.expiresAt?"Token expires "+new Date(account.expiresAt).toLocaleDateString():"Token expiry not supplied"} · {account.lastVerifiedAt?"Verified "+new Date(account.lastVerifiedAt).toLocaleDateString():"Not reverified"}</small></div>
+      <div className="ag-social-actions">
+       <button className="ag-secondary" disabled={busy||account.expired} onClick={()=>void verifyMetaAccount(account.id)}>Verify read access</button>
+       <button className="ag-secondary" disabled={busy} onClick={()=>void disconnectMetaAccount(account.id)}>Disconnect</button>
+      </div>
     </div>)}
     <div className="ag-ws-note"><b>Additional channels planned</b>
       <p>LinkedIn, TikTok, YouTube, X, Threads and Pinterest require independent developer applications. Their OAuth connections are not active in this milestone.</p>
