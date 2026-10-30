@@ -7,6 +7,14 @@
           "topic": "agency-social-dry-run-v1"
         }
       ]
+    },
+    "app/api/queues/social-queue-probe/route.ts": {
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "agency-social-queue-probe-v1"
+        }
+      ]
     }
   }
 }
