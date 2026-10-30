@@ -1,9 +1,11 @@
 "use client";
 import {useEffect,useState,type FormEvent} from "react";
 import {SOCIAL_CHANNELS,type SocialChannel,type SocialState} from "@/lib/social-contract";
+import {localMonthBounds,localDayKey,shiftMonth} from "@/lib/social-calendar-contract";
 type Post={id:string;workspaceId:string;content:string;state:SocialState;channels:string[];scheduledAt:string|null;createdAt:string};
 type Workspace={id:string;name:string;slug:string};
 type DispatchJob={id:string;postId:string;channel:string;status:string;attempts:number;nextAttemptAt:string|null;lastErrorCode:string|null;createdAt:string;completedAt:string|null};
+type DeliveryMonitor={summary:{queuedOverHour:number;leasesOverdue:number;retryScheduled:number;retryExhausted:number;readyPending:number;outdatedRevision:number;attention:number};items:{id:string;postId:string;channel:string;status:string;reason:string;attempts:number;lastUpdated:string}[];autoRecoveryEnabled:false};
 type MediaAsset={id:string;workspaceId:string;name:string;mime:string;size:number;createdAt:string};
 type MetaReadiness={provider:"facebook_pages"|"instagram_professional";appConfigured:boolean;permissions:string[];connected:false;launchEnabled:false;};
 type ProviderReadiness={id:string;name:string;auth:string;accounts:string;scopes:string[];publishScopes:string[];appSetup:string;connectionStatus:"not_connected";oauthEnabled:false;publishingEnabled:false;};
@@ -24,6 +26,13 @@ export default function SocialStudio(){
  const [channels,setChannels]=useState<SocialChannel[]>([]);
  const [editing,setEditing]=useState<string|null>(null);
  const [jobs,setJobs]=useState<DispatchJob[]>([]);
+ const [calendarMonth,setCalendarMonth]=useState(()=>new Date().getFullYear()+"-"+String(new Date().getMonth()+1).padStart(2,"0"));
+ const [calendarSelected,setCalendarSelected]=useState("");
+ const [calendarPosts,setCalendarPosts]=useState<Post[]>([]);
+ const [calendarTruncated,setCalendarTruncated]=useState(false);
+ const [calendarError,setCalendarError]=useState("");
+ const [calendarStatus,setCalendarStatus]=useState("all");
+ const [monitor,setMonitor]=useState<DeliveryMonitor|null>(null);
  const [internalInsights,setInternalInsights]=useState<InternalInsights|null>(null);
  const [providers,setProviders]=useState<ProviderReadiness[]>([]);
  const [metaReadiness,setMetaReadiness]=useState<MetaReadiness[]>([]);
@@ -39,12 +48,39 @@ export default function SocialStudio(){
   fetch("/api/platform/workspaces",{credentials:"same-origin",cache:"no-store"}).then(async r=>{const j=await r.json();if(!r.ok)throw Error(j.error||"Workspaces unavailable");return j;}).then(j=>{const list=Array.isArray(j.workspaces)?j.workspaces:[];setWorkspaces(list);setWorkspaceId(list[0]?.id||"");}).catch(e=>setMessage(e.message)).finally(()=>setLoading(false));
  },[]);
  useEffect(()=>{if(workspaceId){setSelectedMedia(null);void refresh(workspaceId);void refreshJobs(workspaceId);void refreshInsights(workspaceId);void refreshProviders(workspaceId);void refreshMedia(workspaceId);void refreshMeta(workspaceId);}else {setPosts([]);setJobs([]);setInternalInsights(null);setProviders([]);setMediaAssets([]);setMetaReadiness([]);}},[workspaceId]);
+ useEffect(()=>{if(workspaceId){void refreshCalendar(workspaceId,calendarMonth);void refreshMonitor(workspaceId);}else {setCalendarPosts([]);setMonitor(null);}},[workspaceId,calendarMonth]);
  async function refresh(id=workspaceId){
   if(!id)return;
   try{
    const r=await fetch("/api/platform/social?workspaceId="+encodeURIComponent(id),{credentials:"same-origin",cache:"no-store"});
    const j=await r.json();if(!r.ok)throw Error(j.error||"Social drafts unavailable");setPosts(Array.isArray(j.posts)?j.posts:[]);
   }catch(e){setMessage(e instanceof Error?e.message:"Could not load social drafts");}
+ }
+ async function refreshCalendar(id=workspaceId,month=calendarMonth){
+  const bounds=localMonthBounds(month);if(!id||!bounds)return;
+  try{
+   const query=new URLSearchParams({workspaceId:id,start:bounds.start,end:bounds.end});
+   const r=await fetch("/api/platform/social/calendar?"+query.toString(),{credentials:"same-origin",cache:"no-store"});
+   const j=await r.json();if(!r.ok)throw Error(j.error||"Calendar unavailable");
+   setCalendarPosts(Array.isArray(j.posts)?j.posts:[]);setCalendarTruncated(j.truncated===true);setCalendarError("");
+  }catch(e){setCalendarError(e instanceof Error?e.message:"Unable to load calendar");}
+ }
+ async function refreshMonitor(id=workspaceId){
+  if(!id)return;
+  try{
+   const r=await fetch("/api/platform/social/monitor?workspaceId="+encodeURIComponent(id),{credentials:"same-origin",cache:"no-store"});
+   const j=await r.json();if(!r.ok)throw Error(j.error||"Delivery monitor unavailable");
+   setMonitor(j as DeliveryMonitor);
+  }catch(e){setDispatchNote(e instanceof Error?e.message:"Delivery monitor unavailable");}
+ }
+ async function duplicateAsDraft(p:Post){
+  if(!workspaceId||busy)return;setBusy(true);setMessage("");
+  try{
+   const r=await fetch("/api/platform/social",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",
+    body:JSON.stringify({workspaceId,content:p.content,state:"draft",channels:p.channels,scheduledAt:null})});
+   const j=await r.json();if(!r.ok)throw Error(j.error||"Unable to duplicate draft");
+   await refresh();setMessage("Copied as a new draft. Nothing was queued or published.");setTab("composer");
+  }catch(e){setMessage(e instanceof Error?e.message:"Could not duplicate content");}finally{setBusy(false);}
  }
  function reset(){setEditing(null);setContent("");setState("draft");setChannels([]);setSchedule(localDate(60));}
  function edit(p:Post){setEditing(p.id);setContent(p.content);setState(p.state);setChannels(p.channels as SocialChannel[]);setSchedule(p.scheduledAt?new Date(new Date(p.scheduledAt).getTime()-new Date(p.scheduledAt).getTimezoneOffset()*60000).toISOString().slice(0,16):localDate(60));setTab("composer");}
@@ -58,14 +94,14 @@ export default function SocialStudio(){
     body:JSON.stringify({workspaceId,content,state,channels,scheduledAt})
    });
    const j=await r.json();if(!r.ok)throw Error(j.error||"Could not save content");
-   await refresh();reset();setMessage("Saved in staging. Nothing was published or sent.");
+   await Promise.all([refresh(),refreshCalendar(),refreshInsights(),refreshMonitor()]);reset();setMessage("Saved in staging. Nothing was published or sent.");
   }catch(e){setMessage(e instanceof Error?e.message:"Save failed");}
   finally{setBusy(false);}
  }
  async function remove(id:string){
   if(!workspaceId)return;setBusy(true);setMessage("");
   try{const r=await fetch("/api/platform/social/"+encodeURIComponent(id)+"?workspaceId="+encodeURIComponent(workspaceId),{method:"DELETE",credentials:"same-origin"});
-  const j=await r.json();if(!r.ok)throw Error(j.error||"Unable to delete draft");await refresh();if(editing===id)reset();setMessage("Draft removed from staging.");}
+  const j=await r.json();if(!r.ok)throw Error(j.error||"Unable to delete draft");await Promise.all([refresh(),refreshCalendar(),refreshInsights(),refreshMonitor()]);if(editing===id)reset();setMessage("Draft removed from staging.");}
   catch(e){setMessage(e instanceof Error?e.message:"Delete failed");}finally{setBusy(false);}
  }
  async function refreshJobs(id=workspaceId){
@@ -122,7 +158,7 @@ export default function SocialStudio(){
    const r=await fetch("/api/platform/social/dispatch",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",body:JSON.stringify({workspaceId})});
    const j=await r.json();if(!r.ok)throw Error(j.error||"Queue not available");
    setDispatchNote("Submitted "+j.submitted+" jobs to Vercel Queues, "+j.failed+" failed, "+j.exhaustedRetries+" exhausted retries. "+(j.submitted===0?"Only approved content with a past-due date is eligible.":"Delivery is simulated, not published."));
-   await refreshJobs();await refreshInsights();
+   await refreshJobs();await refreshInsights();await refreshMonitor();
   }catch(e){setDispatchNote(e instanceof Error?e.message:"Queue not available");}
   finally{setBusy(false);}
  }
@@ -138,11 +174,59 @@ export default function SocialStudio(){
    {tab==="composer"&&<div className="ag-social-columns"><section className="ag-card"><h2>{editing?"Edit content":"Create content"}</h2><p>Draft and plan content without connecting a social account.</p>
     <form onSubmit={save} className="ag-social-form"><label>Post content<textarea rows={7} maxLength={3000} required value={content} onChange={e=>setContent(e.target.value)} placeholder="Write a post or start with a clear campaign idea…"/></label><div className="ag-social-count">{content.length}/3000</div><label>Stage<select value={state} onChange={e=>setState(e.target.value as SocialState)}><option value="draft">Draft</option><option value="planned">Planned (not published)</option><option value="approved">Approved for later integration</option></select></label><label>Target date (local time)<input type="datetime-local" value={schedule} onChange={e=>setSchedule(e.target.value)}/></label><fieldset><legend>Channel targets (planning only)</legend><div className="ag-social-channels">{SOCIAL_CHANNELS.map(c=><label key={c}><input type="checkbox" checked={channels.includes(c)} onChange={e=>setChannels(v=>e.target.checked?[...v,c]:v.filter(x=>x!==c))}/>{networkNames[c]}</label>)}</div></fieldset><div className="ag-social-actions"><button className="ag-primary" disabled={busy||!content.trim()}>{busy?"Saving…":editing?"Save changes":"Save in staging"}</button>{editing&&<button type="button" className="ag-secondary" onClick={reset}>Cancel edit</button>}</div></form></section>
    <section className="ag-card"><h2>Content library</h2><p>Everything here remains inside staging.</p><div className="ag-social-list">{posts.length===0?<div className="ag-social-empty">No content yet. Draft your first social post.</div>:posts.map(p=><article key={p.id} className="ag-social-post"><div className="ag-social-post-meta"><span className={"ag-social-post-badge "+p.state}>{p.state}</span><span>{dateHuman(p.scheduledAt)}</span></div><p>{p.content}</p><div className="ag-social-targets">{p.channels.map(c=><span key={c}>{networkNames[c]||c}</span>)}</div><div className="ag-social-actions"><button className="ag-secondary" disabled={busy} onClick={()=>edit(p)}>Edit</button><button className="ag-secondary" disabled={busy} onClick={()=>void remove(p.id)}>Delete</button></div></article>)}</div></section></div>}
-   {tab==="calendar"&&<section className="ag-card"><h2>Content planning timeline</h2><p>These are internal scheduling intentions. No job runs and no social network receives a post.</p><div className="ag-social-list">{posts.filter(x=>x.scheduledAt).sort((a,b)=>Date.parse(a.scheduledAt!)-Date.parse(b.scheduledAt!)).map(p=><div className="ag-social-calendar" key={p.id}><div><b>{dateHuman(p.scheduledAt)}</b><small>{p.state.toUpperCase()}</small></div><div><p>{p.content}</p><small>{p.channels.map(x=>networkNames[x]||x).join(", ")||"No channel selected"}</small></div><button className="ag-secondary" onClick={()=>edit(p)}>Edit</button></div>)}{!posts.some(p=>p.scheduledAt)&&<div className="ag-social-empty">No posts scheduled for planning yet.</div>}</div></section>}
-   {tab==="insights"&&<section className="ag-card">
+   {tab==="calendar"&&<section className="ag-card">
+    <div className="ag-platform-bar"><div><h2>Monthly content calendar</h2><p>All dates represent internal plans in your browser's local time zone. Nothing here is published automatically.</p></div>
+      <div className="ag-social-actions"><button className="ag-secondary" disabled={busy} onClick={()=>{setCalendarMonth(m=>shiftMonth(m,-1));setCalendarSelected("");}}>← Previous</button>
+      <input aria-label="Calendar month" type="month" value={calendarMonth} min="2020-01" max="2100-12" onChange={e=>{if(localMonthBounds(e.target.value)){setCalendarMonth(e.target.value);setCalendarSelected("");}}}/>
+      <button className="ag-secondary" disabled={busy} onClick={()=>{setCalendarMonth(m=>shiftMonth(m,1));setCalendarSelected("");}}>Next →</button></div></div>
+    {calendarError&&<div className="ag-error" role="alert">{calendarError}</div>}
+    {calendarTruncated&&<div className="ag-ws-note">This month has more than 500 planned items. Showing the first 500 by scheduled date.</div>}
+    <div className="ag-calendar-weekdays">{["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(day=><b key={day}>{day}</b>)}</div>
+    <div className="ag-calendar-grid">
+     {Array.from({length:new Date(Number(calendarMonth.slice(0,4)),Number(calendarMonth.slice(5,7)),0).getDate()},(_,i)=>{
+      const key=calendarMonth+"-"+String(i+1).padStart(2,"0");
+      const entries=calendarPosts.filter(p=>p.scheduledAt&&localDayKey(p.scheduledAt)===key);
+      const startOn=(new Date(Number(calendarMonth.slice(0,4)),Number(calendarMonth.slice(5,7))-1,1).getDay()+6)%7;
+      return <button type="button" key={key} style={i===0?{gridColumnStart:startOn+1}:undefined}
+       className={"ag-calendar-day "+((calendarSelected||calendarMonth+"-01")===key?"selected":"")}
+       onClick={()=>setCalendarSelected(key)} aria-label={key+": "+entries.length+" scheduled items"}>
+       <strong>{i+1}</strong><small>{entries.length?entries.length+" planned":""}</small>
+       {entries.slice(0,2).map(p=><span key={p.id} className={"ag-calendar-pill "+p.state}>{p.state+" · "+p.content.slice(0,24)}</span>)}
+       {entries.length>2&&<small>+{entries.length-2} more</small>}
+      </button>;
+     })}
+    </div>
+    <div className="ag-platform-bar"><div><h3>{new Date((calendarSelected||calendarMonth+"-01")+"T12:00:00").toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"})}</h3>
+       <p>Review and edit this day's planned content, or start a new draft.</p></div>
+       <div className="ag-social-actions"><select aria-label="Filter post status" value={calendarStatus} onChange={e=>setCalendarStatus(e.target.value)}>
+       <option value="all">All states</option><option value="draft">Drafts</option><option value="planned">Planned</option><option value="approved">Approved</option></select>
+       <button className="ag-secondary" onClick={()=>{setEditing(null);setContent("");setState("draft");setChannels([]);setSchedule((calendarSelected||calendarMonth+"-01")+"T09:00");setTab("composer");}}>+ Draft for day</button></div></div>
+    <div className="ag-social-list">
+      {calendarPosts.filter(p=>p.scheduledAt&&localDayKey(p.scheduledAt)===(calendarSelected||calendarMonth+"-01")&&(calendarStatus==="all"||p.state===calendarStatus)).map(p=>
+       <div className="ag-social-calendar" key={p.id}><div><b>{dateHuman(p.scheduledAt)}</b><small>{p.state.toUpperCase()}</small></div>
+         <div><p>{p.content}</p><small>{p.channels.map(x=>networkNames[x]||x).join(", ")||"No channels"}</small></div>
+         <div className="ag-social-actions"><button disabled={busy} className="ag-secondary" onClick={()=>edit(p)}>Edit</button>
+           <button disabled={busy} className="ag-secondary" onClick={()=>void duplicateAsDraft(p)}>Copy draft</button></div></div>)}
+      {!calendarPosts.some(p=>p.scheduledAt&&localDayKey(p.scheduledAt)===(calendarSelected||calendarMonth+"-01")&&(calendarStatus==="all"||p.state===calendarStatus))&&
+       <div className="ag-social-empty">No content planned for this date and status.</div>}
+    </div>
+   </section>}
+      {tab==="insights"&&<section className="ag-card">
     <div className="ag-platform-bar"><div><h2>Vercel-native delivery simulator</h2><p>Approved due posts are dispatched to Vercel Queues, but the private worker only records simulated delivery in Neon.</p></div>
       <button className="ag-primary" disabled={busy} onClick={()=>void dryRun()}>{busy?"Checking…":"Run due-post simulation →"}</button></div>
     <div className="ag-ws-note"><b>External publishing disabled.</b> {dispatchNote}</div>
+    <div className="ag-social-actions"><button className="ag-secondary" disabled={busy} onClick={()=>void refreshMonitor()}>Check delivery health</button>
+      <span className="ag-social-workspace">Review only · no automatic recovery</span></div>
+    <div className="ag-social-stats">
+     {([["Needs review",monitor?.summary.attention??"—"],["Queued over 1 hour",monitor?.summary.queuedOverHour??"—"],
+       ["Expired leases",monitor?.summary.leasesOverdue??"—"],["Retries exhausted",monitor?.summary.retryExhausted??"—"]] as [string,number|string][]).map(([label,n])=>
+       <div className="ag-metric" key={label}><div><span>{label}</span></div><strong>{n}</strong><small>Internal delivery status</small></div>)}
+    </div>
+    {Boolean(monitor?.items.length)&&<div className="ag-ws-note"><b>Review flagged jobs:</b>
+      <div className="ag-social-list">{monitor?.items.slice(0,25).map(item=><div className="ag-social-calendar" key={item.id}>
+       <div><b>{item.channel}</b><small>{item.status}</small></div><div><small>{item.reason.replaceAll("_"," ")} · {dateHuman(item.lastUpdated)}</small></div>
+       <span>{item.attempts} attempts</span></div>)}</div>
+      <p>No resend or external publishing is performed by this monitor.</p></div>}
     <div className="ag-social-insights">
       <div><h3>Delivery ledger</h3>{jobs.length===0?<div className="ag-social-empty">No staged delivery attempts yet. An approved post becomes eligible when its scheduled date arrives.</div>:jobs.map(job=><div className="ag-social-calendar" key={job.id}>
        <div><b>{job.channel}</b><small>{job.status} · attempt {job.attempts||0}{job.lastErrorCode?" · retry pending":""}</small></div><div><small>{job.id.slice(0,8)} · {dateHuman(job.completedAt||job.createdAt)}</small></div>
