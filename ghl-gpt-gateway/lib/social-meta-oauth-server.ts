@@ -17,7 +17,7 @@ export function oauthSettings(env:Record<string,string|undefined>,provider:MetaP
 }
 /** Only fixed official hosts; short timeout, redirects denied, no client credentials returned to browser. */
 export async function exchangeMetaCode(provider:MetaProvider,code:string,settings:ReturnType<typeof oauthSettings>,fetcher:typeof fetch=fetch){
- if(typeof code!=="string"||code.length<4||code.length>1024||!(/^[A-Za-z0-9._/-]+#?$/.test(code)))throw Error("Invalid authorization code");
+ if(typeof code!=="string"||code.length<4||code.length>1024||!(/^[A-Za-z0-9._/-]+(?:#_?)?$/.test(code)))throw Error("Invalid authorization code");
  const p={client_id:settings.clientId,client_secret:settings.clientSecret,grant_type:"authorization_code",redirect_uri:settings.redirectUri,code};
  let response:Response;
  if(provider==="facebook_pages"){
