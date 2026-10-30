@@ -5,6 +5,8 @@ import {localMonthBounds,localDayKey,shiftMonth} from "@/lib/social-calendar-con
 type Post={id:string;workspaceId:string;content:string;state:SocialState;channels:string[];scheduledAt:string|null;createdAt:string};
 type Workspace={id:string;name:string;slug:string};
 type DispatchJob={id:string;postId:string;channel:string;status:string;attempts:number;nextAttemptAt:string|null;lastErrorCode:string|null;createdAt:string;completedAt:string|null};
+type QueueProbe={id:string;workspaceId:string;status:"prepared"|"sent"|"acknowledged"|"send_failed";createdAt:string;sentAt:string|null;acknowledgedAt:string|null;lastErrorCode:string|null};
+type BlobDiagnostic={storeCreated:boolean;storeConnected:boolean;checkedLive:boolean;uploadsEnabled:boolean;status:string;mode:string;private:true};
 type DeliveryMonitor={summary:{queuedOverHour:number;leasesOverdue:number;retryScheduled:number;retryExhausted:number;readyPending:number;outdatedRevision:number;attention:number};items:{id:string;postId:string;channel:string;status:string;reason:string;attempts:number;lastUpdated:string}[];autoRecoveryEnabled:false};
 type MediaAsset={id:string;workspaceId:string;name:string;mime:string;size:number;createdAt:string};
 type MetaReadiness={provider:"facebook_pages"|"instagram_professional";appConfigured:boolean;permissions:string[];connected:false;launchEnabled:false;};
@@ -45,11 +47,14 @@ export default function SocialStudio(){
  const [selectedMedia,setSelectedMedia]=useState<File|null>(null);
  const [mediaStatus,setMediaStatus]=useState("");
  const [dispatchNote,setDispatchNote]=useState("Nothing has been dispatched in staging.");
+ const [queueProbes,setQueueProbes]=useState<QueueProbe[]>([]);
+ const [probeMessage,setProbeMessage]=useState("Queue delivery has not been tested from this browser.");
+ const [blobDiagnostic,setBlobDiagnostic]=useState<BlobDiagnostic|null>(null);
  const [tab,setTab]=useState<"composer"|"calendar"|"insights"|"metrics"|"providers"|"media">("composer");
  useEffect(()=>{
   fetch("/api/platform/workspaces",{credentials:"same-origin",cache:"no-store"}).then(async r=>{const j=await r.json();if(!r.ok)throw Error(j.error||"Workspaces unavailable");return j;}).then(j=>{const list=Array.isArray(j.workspaces)?j.workspaces:[];setWorkspaces(list);setWorkspaceId(list[0]?.id||"");}).catch(e=>setMessage(e.message)).finally(()=>setLoading(false));
  },[]);
- useEffect(()=>{setLinkTargetPost("");setLinkedMedia([]);if(workspaceId){setSelectedMedia(null);void refresh(workspaceId);void refreshJobs(workspaceId);void refreshInsights(workspaceId);void refreshProviders(workspaceId);void refreshMedia(workspaceId);void refreshMeta(workspaceId);}else {setPosts([]);setJobs([]);setInternalInsights(null);setProviders([]);setMediaAssets([]);setMetaReadiness([]);}},[workspaceId]);
+ useEffect(()=>{setLinkTargetPost("");setLinkedMedia([]);if(workspaceId){setSelectedMedia(null);void refresh(workspaceId);void refreshJobs(workspaceId);void refreshInsights(workspaceId);void refreshProviders(workspaceId);void refreshMedia(workspaceId);void refreshMeta(workspaceId);void refreshQueueProbes(workspaceId);setBlobDiagnostic(null);}else {setQueueProbes([]);setBlobDiagnostic(null);setPosts([]);setJobs([]);setInternalInsights(null);setProviders([]);setMediaAssets([]);setMetaReadiness([]);}},[workspaceId]);
  useEffect(()=>{if(workspaceId&&linkTargetPost){void refreshLinkedMedia(workspaceId,linkTargetPost);}else setLinkedMedia([]);},[workspaceId,linkTargetPost]);
  useEffect(()=>{if(workspaceId){void refreshCalendar(workspaceId,calendarMonth);void refreshMonitor(workspaceId);}else {setCalendarPosts([]);setMonitor(null);}},[workspaceId,calendarMonth]);
  async function refresh(id=workspaceId){
@@ -184,6 +189,38 @@ export default function SocialStudio(){
   }catch(e){setMediaStatus(e instanceof Error?e.message:"Private upload unavailable");}
   finally{setBusy(false);}
  }
+ async function refreshQueueProbes(id=workspaceId){
+  if(!id)return;
+  try{
+   const r=await fetch("/api/platform/social/diagnostics/queue?workspaceId="+encodeURIComponent(id),{credentials:"same-origin",cache:"no-store"});
+   const j=await r.json();if(!r.ok)throw Error(j.error||"Queue probe ledger unavailable");
+   setQueueProbes(Array.isArray(j.probes)?j.probes:[]);
+   const newest=j.probes?.[0] as QueueProbe|undefined;
+   if(newest?.status==="acknowledged")setProbeMessage("Verified: Vercel Queue delivered this probe to its private function.");
+   else if(newest?.status==="sent")setProbeMessage("Probe sent. Delivery is not confirmed yet; refresh to check acknowledgement.");
+   else if(newest?.status==="send_failed")setProbeMessage("Queue send failed. Review staging deployment logs.");
+  }catch(e){setProbeMessage(e instanceof Error?e.message:"Queue status unavailable");}
+ }
+ async function runQueueProbe(){
+  if(!workspaceId||busy)return;
+  setBusy(true);setProbeMessage("Sending an isolated queue-only self-test. No social post will be created.");
+  try{
+   const r=await fetch("/api/platform/social/diagnostics/queue",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",body:JSON.stringify({workspaceId})});
+   const j=await r.json();if(!r.ok)throw Error(j.error||"Queue self-test failed");
+   setProbeMessage("Vercel accepted the diagnostic message. Waiting for private consumer acknowledgement.");
+   await refreshQueueProbes();
+  }catch(e){setProbeMessage(e instanceof Error?e.message:"Unable to send the queue probe");}
+  finally{setBusy(false);}
+ }
+ async function checkBlobStorage(){
+  if(!workspaceId||busy)return;setMediaStatus("Verifying real private Blob read access…");
+  try{
+   const r=await fetch("/api/platform/social/media/diagnostics?workspaceId="+encodeURIComponent(workspaceId),{credentials:"same-origin",cache:"no-store"});
+   const j=await r.json();setBlobDiagnostic(j as BlobDiagnostic);
+   if(j.storeConnected===true&&j.checkedLive===true)setMediaStatus("Private Blob list request succeeded. Uploads remain "+(j.uploadsEnabled?"enabled":"disabled")+".");
+   else setMediaStatus(j.status==="not-connected"?"Private Blob store exists but is not linked to this staging deployment.":j.status||"Private Blob connectivity check failed.");
+  }catch(e){setMediaStatus(e instanceof Error?e.message:"Blob diagnostic unavailable");}
+ }
  async function dryRun(){
   if(!workspaceId)return;setBusy(true);setDispatchNote("Preparing due approved posts…");
   try{
@@ -247,6 +284,19 @@ export default function SocialStudio(){
     <div className="ag-platform-bar"><div><h2>Vercel-native delivery simulator</h2><p>Approved due posts are dispatched to Vercel Queues, but the private worker only records simulated delivery in Neon.</p></div>
       <button className="ag-primary" disabled={busy} onClick={()=>void dryRun()}>{busy?"Checking…":"Run due-post simulation →"}</button></div>
     <div className="ag-ws-note"><b>External publishing disabled.</b> {dispatchNote}</div>
+    <div className="ag-ws-note">
+      <b>Private queue delivery verification</b>
+      <p>Send a synthetic diagnostic message to a separate Vercel Queue consumer. This does not create or publish any social post.</p>
+      <div className="ag-social-actions">
+       <button className="ag-secondary" disabled={busy||!workspaceId} onClick={()=>void runQueueProbe()}>Run queue self-test</button>
+       <button className="ag-secondary" disabled={busy||!workspaceId} onClick={()=>void refreshQueueProbes()}>Refresh result</button>
+      </div>
+      <p role="status">{probeMessage}</p>
+      {queueProbes.slice(0,3).map(probe=><div className="ag-social-calendar" key={probe.id}>
+       <span><b>{probe.status==="acknowledged"?"Delivered to worker":probe.status}</b><small>{new Date(probe.createdAt).toLocaleString()}</small></span>
+       <span><small>{probe.acknowledgedAt?"Acknowledged "+new Date(probe.acknowledgedAt).toLocaleTimeString():"Not yet acknowledged"}</small></span>
+      </div>)}
+    </div>
     <div className="ag-social-actions"><button className="ag-secondary" disabled={busy} onClick={()=>void refreshMonitor()}>Check delivery health</button>
       <span className="ag-social-workspace">Review only · no automatic recovery</span></div>
     <div className="ag-social-stats">
@@ -292,9 +342,16 @@ export default function SocialStudio(){
    </section>}
 {tab==="media"&&<section className="ag-card">
     <div className="ag-platform-bar"><div><h2>Private media library</h2><p>Isolated, workspace-owned JPEG, PNG and WebP files. No media is public or sent to social channels.</p></div>
-      <button className="ag-secondary" onClick={()=>void refreshMedia()} disabled={busy}>Refresh files</button></div>
+      <div className="ag-social-actions">
+       <button className="ag-secondary" onClick={()=>void checkBlobStorage()} disabled={busy}>Verify private Blob access</button>
+       <button className="ag-secondary" onClick={()=>void refreshMedia()} disabled={busy}>Refresh files</button>
+      </div></div>
     <div className="ag-ws-note"><b>{mediaUploads?"Private uploads enabled":mediaStorageConnected?"Private Blob connected · uploads disabled":"Private Blob not linked"}</b>
       <p>{mediaUploads?"Files are stored privately and served through authenticated routes only. Credential mode: "+mediaStorageMode+".":"A private Vercel Blob store was created for staging but is not yet linked to this preview. Uploads require an exact store-ID match and a separate opt-in flag. No file is uploaded while disabled."}</p></div>
+    {blobDiagnostic&&<div className="ag-ws-note">
+       <b>{blobDiagnostic.storeConnected&&blobDiagnostic.checkedLive?"Verified private Blob read":"Storage not verified"}</b>
+       <p>Live checked: {blobDiagnostic.checkedLive?"yes":"no"} · Connection: {blobDiagnostic.status} · Uploads: {blobDiagnostic.uploadsEnabled?"enabled":"disabled"}</p>
+      </div>}
     <div className="ag-social-actions"><input aria-label="Select social image" type="file" accept="image/jpeg,image/png,image/webp" disabled={!mediaUploads||busy} onChange={e=>setSelectedMedia(e.target.files?.[0]||null)}/>
       <button className="ag-primary" disabled={!mediaUploads||!selectedMedia||busy} onClick={()=>void uploadMedia()}>{busy?"Saving…":"Upload privately"}</button></div>
     <p className="ag-footnote">Image limit: 4 MB. Video and SVG uploads are disabled. Private media cannot be used as a public social-platform publishing URL.</p>
