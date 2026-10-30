@@ -49,3 +49,16 @@ Existing `AGENCY_PORTAL_PASSWORD_SHA256` and `AGENCY_PORTAL_SESSION_SECRET` are 
 ## Release boundary
 
 Production deployment and database remain unchanged. No GHL scan/import, social provider OAuth/publishing, emails, media uploads, or billing is enabled. The private staging Blob store remains unlinked.
+
+## Staging administrator access configuration
+
+A high-entropy temporary staging administrator password was generated, and the SHA-256 digest plus an independent session-signing secret were set as **sensitive environment variables for the five-seat preview branch only**. Neither secret was committed to source or added to production.
+
+- `AGENCY_PORTAL_PASSWORD_SHA256`: branch-scoped SHA-256 digest.
+- `AGENCY_PORTAL_SESSION_SECRET`: branch-scoped random session signing key.
+- The username is not a separate email account; the login remains the pre-existing single-admin password form.
+- Preview deployment must be rebuilt after the environment change before the credentials become active.
+- The temporary password should be rotated after first verification and before enabling real users.
+- The private Blob store remains unlinked; uploads are disabled.
+
+**Security note:** This does not make the individual-reservation roster a multi-user login service. Current reservations are not able to authenticate.
