@@ -18,6 +18,7 @@ const NAV:{id:View;label:string;icon:string}[]=[
 ];
 export default function Home() {
   const [view,setView]=useState<View>("overview");
+  useEffect(()=>{if(new URLSearchParams(window.location.search).get("social")==="connections")setView("social");},[]);
   const [selected,setSelected]=useState("sample-web");
   const [session,setSession]=useState({configured:false,authenticated:false,loaded:false});
   const [password,setPassword]=useState("");
