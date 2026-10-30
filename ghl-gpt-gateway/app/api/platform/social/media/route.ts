@@ -31,7 +31,7 @@ export async function POST(req:NextRequest){
  const path="social-staging/"+workspaceId+"/"+id+"."+mediaSuffix(file.type);
  let stored=false;
  try{
-   const result=await put(path,data,{access:"private",contentType:file.type,addRandomSuffix:false});
+   const result=await put(path,file,{access:"private",contentType:file.type,addRandomSuffix:false});
    stored=true;
    const item=await createMedia({id,workspaceId,name,mime:file.type,size:data.byteLength,blobPath:result.pathname});
    if(!item){await del(result.pathname).catch(()=>{});return reply({error:"Workspace not found"},404);}
