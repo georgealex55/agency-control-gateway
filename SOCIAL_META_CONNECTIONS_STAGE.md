@@ -77,3 +77,17 @@ Meta documentation references:
 - https://www.postman.com/meta/instagram/collection/6yqw8pt/instagram-api
 - https://www.postman.com/meta/instagram/folder/1z5vxzu/instagram-api-with-instagram-login
 - https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login/
+
+## Durable token lifecycle and current infrastructure (additional staged work)
+
+- Facebook and Instagram short-lived authorization code tokens are exchanged on the server for extended-life tokens before the application stages any account for selection.
+- The Instagram `graph.instagram.com/access_token` exchange uses `ig_exchange_token`; the Facebook `graph.facebook.com/{version}/oauth/access_token` exchange uses `fb_exchange_token`. Both run on pinned trusted HTTPS hosts, refuse redirects and have request timeouts.
+- The parser tolerates Meta's single-element wrapped Instagram token response and **rejects ambiguous token arrays**. Both long-lived exchanges fail closed if the provider does not supply an expiration or the returned lifetime is under 24 hours.
+- Saved connections include expiry and last-read-verification timestamps. The administrator can press **Verify read access** to confirm the connected account is still reachable. Verification only performs read-only provider requests.
+- Expired pending consent tokens are pruned on account-inventory reads, and obsolete one-time OAuth flow records are pruned on new consent requests.
+- Two independent cryptographically generated Vercel sensitive variables have been configured **only on the single-admin staging branch**: `SOCIAL_META_OAUTH_STATE_SECRET` (HMAC signing) and `SOCIAL_META_TOKEN_KEY` (AES-256-GCM encryption). Neither secret was committed to Git nor emitted in the response.
+- Developer app IDs and secrets, `SOCIAL_META_GRAPH_VERSION`, and exact stable `SOCIAL_META_REDIRECT_URI` are **still missing**. The branch-only `SOCIAL_META_CONNECTIONS_ENABLED=false` flag has not been enabled.
+- A synthetic Neon SQL test confirmed that a pending account can be selected exactly once; a second consumption found no candidate, and all synthetic changes were rolled back. No real credentials or connected accounts were used.
+- The GitHub `tests/social-meta-token-lifecycle.test.mjs` suite validates fixed hosts, long-lived token parsing, expiry requirements and fail-closed behavior.
+
+**Important:** The OAuth connections here do not have refresh scheduling yet. Reauthorization is required if a token expires or is revoked. They also do not grant publishing, messaging, or post creation.
