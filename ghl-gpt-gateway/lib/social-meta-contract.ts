@@ -29,5 +29,11 @@ export function buildMetaAuthorizeURL(input:{provider:MetaProvider;clientId:stri
 export function metaConfigured(env:Record<string,string|undefined>,provider:MetaProvider):boolean{
  const id=provider==="facebook_pages"?env.SOCIAL_META_FACEBOOK_CLIENT_ID:env.SOCIAL_META_INSTAGRAM_CLIENT_ID;
  const secret=provider==="facebook_pages"?env.SOCIAL_META_FACEBOOK_CLIENT_SECRET:env.SOCIAL_META_INSTAGRAM_CLIENT_SECRET;
- return Boolean(id&&secret&&env.SOCIAL_META_OAUTH_STATE_SECRET&&env.SOCIAL_META_TOKEN_KEY&&validGraphVersion(env.SOCIAL_META_GRAPH_VERSION)&&validMetaRedirect(env.SOCIAL_META_REDIRECT_URI));
+ return Boolean(
+   typeof id==="string"&&/^[0-9]{6,32}$/.test(id)&&
+   typeof secret==="string"&&secret.length>=8&&secret.length<=1024&&
+   typeof env.SOCIAL_META_OAUTH_STATE_SECRET==="string"&&env.SOCIAL_META_OAUTH_STATE_SECRET.length>=32&&
+   typeof env.SOCIAL_META_TOKEN_KEY==="string"&&/^[A-Za-z0-9_-]{43}$/.test(env.SOCIAL_META_TOKEN_KEY)&&
+   validGraphVersion(env.SOCIAL_META_GRAPH_VERSION)&&validMetaRedirect(env.SOCIAL_META_REDIRECT_URI)
+  );
 }
