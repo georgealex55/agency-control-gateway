@@ -37,6 +37,8 @@ export default function SocialStudio(){
  const [providers,setProviders]=useState<ProviderReadiness[]>([]);
  const [metaReadiness,setMetaReadiness]=useState<MetaReadiness[]>([]);
  const [mediaAssets,setMediaAssets]=useState<MediaAsset[]>([]);
+ const [linkTargetPost,setLinkTargetPost]=useState("");
+ const [linkedMedia,setLinkedMedia]=useState<MediaAsset[]>([]);
  const [mediaUploads,setMediaUploads]=useState(false);
  const [mediaStorageConnected,setMediaStorageConnected]=useState(false);
  const [mediaStorageMode,setMediaStorageMode]=useState("none");
@@ -47,7 +49,8 @@ export default function SocialStudio(){
  useEffect(()=>{
   fetch("/api/platform/workspaces",{credentials:"same-origin",cache:"no-store"}).then(async r=>{const j=await r.json();if(!r.ok)throw Error(j.error||"Workspaces unavailable");return j;}).then(j=>{const list=Array.isArray(j.workspaces)?j.workspaces:[];setWorkspaces(list);setWorkspaceId(list[0]?.id||"");}).catch(e=>setMessage(e.message)).finally(()=>setLoading(false));
  },[]);
- useEffect(()=>{if(workspaceId){setSelectedMedia(null);void refresh(workspaceId);void refreshJobs(workspaceId);void refreshInsights(workspaceId);void refreshProviders(workspaceId);void refreshMedia(workspaceId);void refreshMeta(workspaceId);}else {setPosts([]);setJobs([]);setInternalInsights(null);setProviders([]);setMediaAssets([]);setMetaReadiness([]);}},[workspaceId]);
+ useEffect(()=>{setLinkTargetPost("");setLinkedMedia([]);if(workspaceId){setSelectedMedia(null);void refresh(workspaceId);void refreshJobs(workspaceId);void refreshInsights(workspaceId);void refreshProviders(workspaceId);void refreshMedia(workspaceId);void refreshMeta(workspaceId);}else {setPosts([]);setJobs([]);setInternalInsights(null);setProviders([]);setMediaAssets([]);setMetaReadiness([]);}},[workspaceId]);
+ useEffect(()=>{if(workspaceId&&linkTargetPost){void refreshLinkedMedia(workspaceId,linkTargetPost);}else setLinkedMedia([]);},[workspaceId,linkTargetPost]);
  useEffect(()=>{if(workspaceId){void refreshCalendar(workspaceId,calendarMonth);void refreshMonitor(workspaceId);}else {setCalendarPosts([]);setMonitor(null);}},[workspaceId,calendarMonth]);
  async function refresh(id=workspaceId){
   if(!id)return;
@@ -140,6 +143,35 @@ export default function SocialStudio(){
    const j=await r.json();if(!r.ok)throw Error(j.error||"Meta readiness unavailable");
    setMetaReadiness(Array.isArray(j.connections)?j.connections:[]);
   }catch(e){setMediaStatus(e instanceof Error?e.message:"Meta readiness unavailable");}
+ }
+ async function refreshLinkedMedia(workspace=workspaceId,post=linkTargetPost){
+  if(!workspace||!post)return;
+  try{
+   const r=await fetch("/api/platform/social/"+encodeURIComponent(post)+"/media?workspaceId="+encodeURIComponent(workspace),{credentials:"same-origin",cache:"no-store"});
+   const j=await r.json();if(!r.ok)throw Error(j.error||"Post media unavailable");
+   setLinkedMedia(Array.isArray(j.media)?j.media:[]);
+  }catch(e){setMediaStatus(e instanceof Error?e.message:"Could not read linked media");}
+ }
+ async function attachAsset(mediaId:string){
+  if(!workspaceId||!linkTargetPost||busy)return;setBusy(true);setMediaStatus("");
+  try{
+   const r=await fetch("/api/platform/social/"+encodeURIComponent(linkTargetPost)+"/media",{
+    method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",
+    body:JSON.stringify({workspaceId,mediaId})
+   });
+   const j=await r.json();if(!r.ok)throw Error(j.error||"Could not attach media");
+   await refreshLinkedMedia();setMediaStatus("Image linked to the selected post. Nothing was published.");
+  }catch(e){setMediaStatus(e instanceof Error?e.message:"Attachment failed");}finally{setBusy(false);}
+ }
+ async function unlinkAsset(mediaId:string){
+  if(!workspaceId||!linkTargetPost||busy)return;setBusy(true);setMediaStatus("");
+  try{
+   const r=await fetch("/api/platform/social/"+encodeURIComponent(linkTargetPost)+"/media/"+encodeURIComponent(mediaId)+"?workspaceId="+encodeURIComponent(workspaceId),{
+    method:"DELETE",credentials:"same-origin"
+   });
+   const j=await r.json();if(!r.ok)throw Error(j.error||"Could not detach media");
+   await refreshLinkedMedia();setMediaStatus("Image unlinked. The original private file remains in the media library.");
+  }catch(e){setMediaStatus(e instanceof Error?e.message:"Unlink failed");}finally{setBusy(false);}
  }
  async function uploadMedia(){
   if(!selectedMedia||!workspaceId)return;setBusy(true);setMediaStatus("");
@@ -262,16 +294,25 @@ export default function SocialStudio(){
     <div className="ag-platform-bar"><div><h2>Private media library</h2><p>Isolated, workspace-owned JPEG, PNG and WebP files. No media is public or sent to social channels.</p></div>
       <button className="ag-secondary" onClick={()=>void refreshMedia()} disabled={busy}>Refresh files</button></div>
     <div className="ag-ws-note"><b>{mediaUploads?"Private uploads enabled":mediaStorageConnected?"Private Blob connected · uploads disabled":"Private Blob not linked"}</b>
-      <p>{mediaUploads?"Files are stored privately and served through authenticated routes only. Credential mode: {mediaStorageMode}.":"A private Vercel Blob store was created for staging but is not yet linked to this preview. Uploads require an exact store-ID match and a separate opt-in flag. No file is uploaded while disabled."}</p></div>
+      <p>{mediaUploads?"Files are stored privately and served through authenticated routes only. Credential mode: "+mediaStorageMode+".":"A private Vercel Blob store was created for staging but is not yet linked to this preview. Uploads require an exact store-ID match and a separate opt-in flag. No file is uploaded while disabled."}</p></div>
     <div className="ag-social-actions"><input aria-label="Select social image" type="file" accept="image/jpeg,image/png,image/webp" disabled={!mediaUploads||busy} onChange={e=>setSelectedMedia(e.target.files?.[0]||null)}/>
       <button className="ag-primary" disabled={!mediaUploads||!selectedMedia||busy} onClick={()=>void uploadMedia()}>{busy?"Saving…":"Upload privately"}</button></div>
     <p className="ag-footnote">Image limit: 4 MB. Video and SVG uploads are disabled. Private media cannot be used as a public social-platform publishing URL.</p>
     {mediaStatus&&<div className="ag-ws-note" role="status">{mediaStatus}</div>}
+    <div className="ag-platform-bar"><div><h3>Attach images to a post</h3><p>Select a content item to link private media. The post revision updates, but nothing is published.</p></div>
+      <select aria-label="Select post to attach media" value={linkTargetPost} onChange={e=>setLinkTargetPost(e.target.value)}>
+       <option value="">Select an existing post</option>
+       {posts.map(post=><option key={post.id} value={post.id}>{post.state.toUpperCase()} — {post.content.slice(0,55)}</option>)}
+      </select></div>
+    {Boolean(linkTargetPost)&&<div className="ag-ws-note"><b>Linked images ({linkedMedia.length}/10)</b>
+      <div className="ag-social-targets">{linkedMedia.map(file=><span key={file.id}>{file.name} <button className="ag-secondary" disabled={busy} onClick={()=>void unlinkAsset(file.id)}>Unlink</button></span>)}</div>
+      {linkedMedia.length===0&&<p>This post has no images attached yet.</p>}</div>}
     <div className="ag-modulegrid">
       {mediaAssets.map(file=><div className="ag-card" key={file.id}>
        <img alt={file.name} src={"/api/platform/social/media/"+encodeURIComponent(file.id)+"/file?workspaceId="+encodeURIComponent(workspaceId)} style={{width:"100%",height:156,objectFit:"contain",borderRadius:8}}/>
        <b>{file.name}</b><small>{file.mime} · {(file.size/1048576).toFixed(2)} MB</small>
        <small>Private · {new Date(file.createdAt).toLocaleDateString()}</small>
+       <button className="ag-secondary" disabled={!linkTargetPost||busy||linkedMedia.some(item=>item.id===file.id)||linkedMedia.length>=10} onClick={()=>void attachAsset(file.id)}>{linkedMedia.some(item=>item.id===file.id)?"Linked ✓":"Attach to post"}</button>
       </div>)}
     </div>
     {mediaAssets.length===0&&<div className="ag-social-empty">No private images in this workspace.</div>}
