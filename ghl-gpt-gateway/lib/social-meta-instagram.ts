@@ -1,4 +1,4 @@
-import {validGraphVersion} from "./social-meta-contract";
+const validGraphVersion=(v:unknown):v is string=>typeof v==="string"&&/^v[0-9]{1,2}\.[0-9]{1,2}$/.test(v);
 /**
  * Read-only Instagram Professional profile contract (Instagram Login API).
  * No OAuth initiation, tokens persisted, posting, comments, or message routes.
