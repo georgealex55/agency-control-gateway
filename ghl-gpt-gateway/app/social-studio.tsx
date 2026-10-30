@@ -221,7 +221,7 @@ export default function SocialStudio(){
    });
    const j=await r.json();if(!r.ok)throw Error(j.error||j.note||"Private round-trip unavailable");
    setMediaStatus(j.roundTripVerified===true?"Verified: synthetic image uploaded privately, read back and deleted. No public file or social post was created.":"Round-trip did not complete.");
-   await checkBlobStorage();
+   await refreshMedia();
   }catch(e){setMediaStatus(e instanceof Error?e.message:"Private media round-trip failed");}
   finally{setBusy(false);}
  }
