@@ -36,3 +36,16 @@ test("storage diagnostics prove an actual private read instead of guessing from 
  assert(source.includes("checkedLive:true"));
  assert(!source.includes("BLOB_READ_WRITE_TOKEN"));
 });
+
+test("private image round-trip never returns a direct Blob URL and always attempts cleanup",()=>{
+ const route=readFileSync(new URL("../ghl-gpt-gateway/app/api/platform/social/media/diagnostics/route.ts",import.meta.url),"utf8");
+ assert(route.includes("gate(req,true)"));
+ assert(route.includes("storage.uploadAllowed"));
+ assert(route.includes('access:"private"'));
+ assert(route.includes("received?.statusCode===200"));
+ assert(route.includes("bytes.equals(original)"));
+ assert(route.includes("finally"));
+ assert(route.includes("await del(savedPath)"));
+ assert(route.includes("roundTripVerified:success"));
+ assert(!route.includes("return reply({url:"));
+});
