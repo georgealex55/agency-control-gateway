@@ -19,7 +19,8 @@ test("media uploads fail closed without a private store and an explicit flag",()
  assert(!uploadAllowed({}));
  assert(!uploadAllowed({SOCIAL_MEDIA_UPLOADS_ENABLED:"true"}));
  assert(!uploadAllowed({BLOB_READ_WRITE_TOKEN:"secret"}));
- assert(uploadAllowed({SOCIAL_MEDIA_UPLOADS_ENABLED:"true",BLOB_READ_WRITE_TOKEN:"secret"}));
+ assert(!uploadAllowed({SOCIAL_MEDIA_UPLOADS_ENABLED:"true",BLOB_READ_WRITE_TOKEN:"secret"}));
+ assert(uploadAllowed({SOCIAL_MEDIA_UPLOADS_ENABLED:"true",BLOB_READ_WRITE_TOKEN:"secret",BLOB_STORE_ID:"store_test0001",SOCIAL_MEDIA_STAGING_STORE_ID:"store_test0001"}));
 });
 test("Meta authorization builders separate two providers and only request read scopes",()=>{
  const common={clientId:"123456789012345",redirectUri:"https://staging.example.com/api/platform/social/meta/callback",state:"abcdefghijklmnopqrstuvwxyz0123456789",graphVersion:"v27.0"};
