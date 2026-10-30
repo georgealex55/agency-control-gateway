@@ -1,7 +1,7 @@
 import {createHash,timingSafeEqual} from "node:crypto";
 import {NextRequest,NextResponse} from "next/server";
 import {stageEnabled} from "@/lib/social-contract";
-import {metaConfigured} from "@/lib/social-meta-contract";
+import {metaConfigured,metaSetupStatus} from "@/lib/social-meta-contract";
 import {verifyMetaConsent} from "@/lib/social-meta-crypto";
 import {consumeMetaFlow,stageMetaCandidates} from "@/lib/social-meta-connection-store";
 import {oauthSettings,exchangeMetaCode} from "@/lib/social-meta-oauth-server";
@@ -34,7 +34,8 @@ export async function GET(req:NextRequest){
  if(!parsed||!cookie||!sameNonce(cookie,parsed.nonce))return toSocial(req,"failed");
  if(!metaConfigured(process.env,parsed.provider))return toSocial(req,"failed");
  const settings=oauthSettings(process.env,parsed.provider);
- if(new URL(settings.redirectUri).origin!==req.nextUrl.origin)return toSocial(req,"failed");
+ const setup=metaSetupStatus(process.env,parsed.provider,req.nextUrl.origin);
+ if(!setup.isCanonicalHost||!setup.branchMatches)return toSocial(req,"failed");
  try{
   if(!await consumeMetaFlow(parsed.workspaceId,parsed.provider,parsed.nonce))return toSocial(req,"failed");
   if(req.nextUrl.searchParams.has("error")||req.nextUrl.searchParams.has("error_reason"))return toSocial(req,"canceled");

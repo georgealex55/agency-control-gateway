@@ -2,7 +2,7 @@ import {randomBytes} from "node:crypto";
 import {NextRequest} from "next/server";
 import {gate,reply} from "@/lib/social-api";
 import {validId,stageEnabled} from "@/lib/social-contract";
-import {isMetaProvider,metaConfigured,buildMetaAuthorizeURL} from "@/lib/social-meta-contract";
+import {isMetaProvider,metaConfigured,metaSetupStatus,buildMetaAuthorizeURL} from "@/lib/social-meta-contract";
 import {signMetaConsent} from "@/lib/social-meta-crypto";
 import {createMetaFlow} from "@/lib/social-meta-connection-store";
 import {oauthSettings} from "@/lib/social-meta-oauth-server";
@@ -15,7 +15,11 @@ export async function POST(req:NextRequest){
  if(!input||!validId(input.workspaceId)||!isMetaProvider(input.provider))return reply({error:"Valid workspace and Meta provider required"},400);
  if(!metaConfigured(process.env,input.provider))return reply({error:"Meta Developer app credentials are not configured for this provider"},503);
  const settings=oauthSettings(process.env,input.provider);
- if(new URL(settings.redirectUri).origin!==req.nextUrl.origin)return reply({error:"OAuth redirect must match the active staging host"},503);
+ const setup=metaSetupStatus(process.env,input.provider,req.nextUrl.origin);
+ if(!setup.isCanonicalHost||!setup.branchMatches)return reply({
+  error:"OAuth must start from the verified staging branch URL, not a unique deployment or production hostname",
+  canonicalStagingUrl:setup.callbackUrl?new URL(setup.callbackUrl).origin:null
+ },409);
  const nonce=randomBytes(32).toString("base64url"),expires=Date.now()+10*60*1000;
  try{
   if(!await createMetaFlow(input.workspaceId,input.provider,nonce,expires))return reply({error:"Invalid workspace or too many connection attempts"},429);
