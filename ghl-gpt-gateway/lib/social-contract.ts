@@ -19,7 +19,7 @@ export function parseSocialInput(v:unknown,now=Date.now()):SocialInput{
   return {content:o.content.trim(),state:o.state,channels:o.channels as SocialChannel[],scheduledAt};
 }
 export function stageEnabled(env:Record<string,string|undefined>):boolean{
-  return env.VERCEL_ENV==="preview" && env.VERCEL_GIT_COMMIT_REF==="feature/social-vercel-native-stage-20261029" && env.SOCIAL_STAGING_ENABLED==="true";
+  return env.VERCEL_ENV==="preview" && ["feature/social-vercel-native-stage-20261029","feature/social-meta-media-stage-20261029"].includes(env.VERCEL_GIT_COMMIT_REF||"") && env.SOCIAL_STAGING_ENABLED==="true";
 }
 export function socialReadiness(env:Record<string,string|undefined>){
  return {mode:"staging",publishingEnabled:false,connected:false,requiresPostiz:false,workspaceIsolation:true,scanEnabled:false,ghlImportEnabled:false};
