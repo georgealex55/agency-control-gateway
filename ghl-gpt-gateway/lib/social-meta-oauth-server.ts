@@ -1,12 +1,6 @@
 import type {MetaProvider} from "@/lib/social-meta-contract";
 import {validGraphVersion} from "@/lib/social-meta-contract";
-type ResponseShape=Record<string,unknown>;
-function tokenResult(o:unknown):{token:string;expiresAt:string|null}{
- const data=o&&typeof o==="object"&&!Array.isArray(o)?o as ResponseShape:null;
- if(!data||typeof data.access_token!=="string"||data.access_token.length<10||data.access_token.length>4096)throw Error("Provider token response was invalid");
- const ttl=typeof data.expires_in==="number"&&Number.isFinite(data.expires_in)&&data.expires_in>0&&data.expires_in<10_000_000?data.expires_in:null;
- return {token:data.access_token,expiresAt:ttl?new Date(Date.now()+ttl*1000).toISOString():null};
-}
+import {parseMetaTokenPayload} from "@/lib/social-meta-token-lifecycle";
 export function oauthSettings(env:Record<string,string|undefined>,provider:MetaProvider){
  const clientId=provider==="facebook_pages"?env.SOCIAL_META_FACEBOOK_CLIENT_ID:env.SOCIAL_META_INSTAGRAM_CLIENT_ID;
  const clientSecret=provider==="facebook_pages"?env.SOCIAL_META_FACEBOOK_CLIENT_SECRET:env.SOCIAL_META_INSTAGRAM_CLIENT_SECRET;
@@ -30,5 +24,5 @@ export async function exchangeMetaCode(provider:MetaProvider,code:string,setting
   response=await fetcher("https://api.instagram.com/oauth/access_token",{method:"POST",body:form,redirect:"error",cache:"no-store",signal:AbortSignal.timeout(10000)});
  }
  if(!response.ok)throw Error("Meta authorization code exchange failed");
- return tokenResult(await response.json());
+ return parseMetaTokenPayload(await response.json());
 }
