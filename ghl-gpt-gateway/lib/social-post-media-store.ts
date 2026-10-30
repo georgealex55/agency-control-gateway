@@ -20,6 +20,7 @@ export async function attachPostMedia(workspaceId:string,postId:string,mediaId:s
   "ON m.workspace_id=p.workspace_id WHERE p.workspace_id=$1::uuid AND p.id=$2::uuid AND m.id=$3::uuid "+
   "AND (SELECT count(*) FROM agency_social_post_media x WHERE x.post_id=p.id)<10 "+
   "ON CONFLICT(post_id,media_id) DO NOTHING RETURNING workspace_id,post_id,media_id), "+
+  "bumped AS (UPDATE agency_social_posts p SET updated_at=now() FROM attached a WHERE p.id=a.post_id AND p.workspace_id=a.workspace_id RETURNING p.id), "+
   "audited AS (INSERT INTO agency_platform_audit_events(workspace_id,action,detail) "+
   "SELECT workspace_id,'social.media.attached',jsonb_build_object('post_id',post_id,'media_id',media_id) "+
   "FROM attached RETURNING id) SELECT media_id FROM attached",
@@ -32,6 +33,7 @@ export async function detachPostMedia(workspaceId:string,postId:string,mediaId:s
  const removed=rows<{media_id:string}>(await db.query(
   "WITH detached AS (DELETE FROM agency_social_post_media WHERE workspace_id=$1::uuid "+
   "AND post_id=$2::uuid AND media_id=$3::uuid RETURNING workspace_id,post_id,media_id), "+
+  "bumped AS (UPDATE agency_social_posts p SET updated_at=now() FROM detached a WHERE p.id=a.post_id AND p.workspace_id=a.workspace_id RETURNING p.id), "+
   "audited AS (INSERT INTO agency_platform_audit_events(workspace_id,action,detail) "+
   "SELECT workspace_id,'social.media.detached',jsonb_build_object('post_id',post_id,'media_id',media_id) "+
   "FROM detached RETURNING id) SELECT media_id FROM detached",
