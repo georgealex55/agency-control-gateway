@@ -3,12 +3,13 @@ import {NextRequest,NextResponse} from "next/server";
 import {gate,reply,workspaceFromQuery} from "@/lib/social-api";
 import {validId} from "@/lib/social-contract";
 import {mediaRecord} from "@/lib/social-media-store";
+import {mediaStorageStatus} from "@/lib/social-media-contract";
 export const runtime="nodejs";export const dynamic="force-dynamic";
 export async function GET(req:NextRequest,{params}:{params:Promise<{id:string}>}){
  const denied=gate(req);if(denied)return denied;
  const {id}=await params,workspaceId=workspaceFromQuery(req);
  if(!validId(id)||!workspaceId)return reply({error:"Invalid media or workspace"},400);
- if(!process.env.BLOB_READ_WRITE_TOKEN?.trim())return reply({error:"Private Blob storage unavailable"},503);
+ if(!mediaStorageStatus(process.env).readAllowed)return reply({error:"Private staging Blob storage is not connected"},503);
  try{
   const file=await mediaRecord(workspaceId,id);
   if(!file)return reply({error:"Media not found"},404);

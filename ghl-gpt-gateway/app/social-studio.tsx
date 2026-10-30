@@ -29,6 +29,8 @@ export default function SocialStudio(){
  const [metaReadiness,setMetaReadiness]=useState<MetaReadiness[]>([]);
  const [mediaAssets,setMediaAssets]=useState<MediaAsset[]>([]);
  const [mediaUploads,setMediaUploads]=useState(false);
+ const [mediaStorageConnected,setMediaStorageConnected]=useState(false);
+ const [mediaStorageMode,setMediaStorageMode]=useState("none");
  const [selectedMedia,setSelectedMedia]=useState<File|null>(null);
  const [mediaStatus,setMediaStatus]=useState("");
  const [dispatchNote,setDispatchNote]=useState("Nothing has been dispatched in staging.");
@@ -36,7 +38,7 @@ export default function SocialStudio(){
  useEffect(()=>{
   fetch("/api/platform/workspaces",{credentials:"same-origin",cache:"no-store"}).then(async r=>{const j=await r.json();if(!r.ok)throw Error(j.error||"Workspaces unavailable");return j;}).then(j=>{const list=Array.isArray(j.workspaces)?j.workspaces:[];setWorkspaces(list);setWorkspaceId(list[0]?.id||"");}).catch(e=>setMessage(e.message)).finally(()=>setLoading(false));
  },[]);
- useEffect(()=>{if(workspaceId){void refresh(workspaceId);void refreshJobs(workspaceId);void refreshInsights(workspaceId);void refreshProviders(workspaceId);void refreshMedia(workspaceId);void refreshMeta(workspaceId);}else {setPosts([]);setJobs([]);setInternalInsights(null);setProviders([]);setMediaAssets([]);setMetaReadiness([]);}},[workspaceId]);
+ useEffect(()=>{if(workspaceId){setSelectedMedia(null);void refresh(workspaceId);void refreshJobs(workspaceId);void refreshInsights(workspaceId);void refreshProviders(workspaceId);void refreshMedia(workspaceId);void refreshMeta(workspaceId);}else {setPosts([]);setJobs([]);setInternalInsights(null);setProviders([]);setMediaAssets([]);setMetaReadiness([]);}},[workspaceId]);
  async function refresh(id=workspaceId){
   if(!id)return;
   try{
@@ -92,7 +94,7 @@ export default function SocialStudio(){
   try{
    const r=await fetch("/api/platform/social/media?workspaceId="+encodeURIComponent(id),{credentials:"same-origin",cache:"no-store"});
    const j=await r.json();if(!r.ok)throw Error(j.error||"Media library unavailable");
-   setMediaAssets(Array.isArray(j.media)?j.media:[]);setMediaUploads(j.uploadsEnabled===true);
+   setMediaAssets(Array.isArray(j.media)?j.media:[]);setMediaUploads(j.uploadsEnabled===true);setMediaStorageConnected(j.storageConnected===true);setMediaStorageMode(j.storageMode||"none");
   }catch(e){setMediaStatus(e instanceof Error?e.message:"Media library unavailable");}
  }
  async function refreshMeta(id=workspaceId){
@@ -175,8 +177,8 @@ export default function SocialStudio(){
 {tab==="media"&&<section className="ag-card">
     <div className="ag-platform-bar"><div><h2>Private media library</h2><p>Isolated, workspace-owned JPEG, PNG and WebP files. No media is public or sent to social channels.</p></div>
       <button className="ag-secondary" onClick={()=>void refreshMedia()} disabled={busy}>Refresh files</button></div>
-    <div className="ag-ws-note"><b>{mediaUploads?"Private Blob configured":"Private Blob not connected"}</b>
-      <p>{mediaUploads?"Uploads are staged in a private Vercel Blob store, with access through authenticated server routes only.":"A separate private Blob store and branch-only upload flag are required. No file will be uploaded until that staging configuration exists."}</p></div>
+    <div className="ag-ws-note"><b>{mediaUploads?"Private uploads enabled":mediaStorageConnected?"Private Blob connected · uploads disabled":"Private Blob not linked"}</b>
+      <p>{mediaUploads?"Files are stored privately and served through authenticated routes only. Credential mode: {mediaStorageMode}.":"A private Vercel Blob store was created for staging but is not yet linked to this preview. Uploads require an exact store-ID match and a separate opt-in flag. No file is uploaded while disabled."}</p></div>
     <div className="ag-social-actions"><input aria-label="Select social image" type="file" accept="image/jpeg,image/png,image/webp" disabled={!mediaUploads||busy} onChange={e=>setSelectedMedia(e.target.files?.[0]||null)}/>
       <button className="ag-primary" disabled={!mediaUploads||!selectedMedia||busy} onClick={()=>void uploadMedia()}>{busy?"Saving…":"Upload privately"}</button></div>
     <p className="ag-footnote">Image limit: 4 MB. Video and SVG uploads are disabled. Private media cannot be used as a public social-platform publishing URL.</p>

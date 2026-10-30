@@ -9,7 +9,23 @@ export function validMediaBytes(data:Uint8Array,mime:MediaMime):boolean {
  if(mime==="image/webp")return String.fromCharCode(...data.slice(0,4))==="RIFF"&&String.fromCharCode(...data.slice(8,12))==="WEBP";
  return false;
 }
-export function uploadAllowed(env:Record<string,string|undefined>):boolean{
- return env.SOCIAL_MEDIA_UPLOADS_ENABLED==="true"&&Boolean(env.BLOB_READ_WRITE_TOKEN?.trim());
+export type MediaStorageStatus={uploadAllowed:boolean;readAllowed:boolean;configured:boolean;mode:"oidc"|"token"|"none";storeIdMatches:boolean;reason:"ready"|"disabled"|"wrong-store"|"not-connected";};
+/**
+ * Never use a project's ambient Blob credentials unless they target the
+ * specifically provisioned PRIVATE staging store. Production has no access
+ * through this feature and Vercel preview's branch must be authorized first.
+ */
+export function mediaStorageStatus(env:Record<string,string|undefined>):MediaStorageStatus{
+ const expected=env.SOCIAL_MEDIA_STAGING_STORE_ID?.trim()||"";
+ const actual=env.BLOB_STORE_ID?.trim()||"";
+ const storeIdMatches=/^store_[A-Za-z0-9]+$/.test(expected)&&actual===expected;
+ const oidc=Boolean(env.VERCEL_OIDC_TOKEN?.trim()&&actual);
+ const bearer=Boolean(env.BLOB_READ_WRITE_TOKEN?.trim());
+ const mode=oidc?"oidc":bearer?"token":"none";
+ const configured=storeIdMatches&&(oidc||bearer);
+ const uploadAllowed=configured&&env.SOCIAL_MEDIA_UPLOADS_ENABLED==="true";
+ const reason=uploadAllowed?"ready":!storeIdMatches&&expected&&actual?"wrong-store":!configured?"not-connected":"disabled";
+ return {uploadAllowed,readAllowed:configured,configured,mode,storeIdMatches,reason};
 }
+export function uploadAllowed(env:Record<string,string|undefined>):boolean{return mediaStorageStatus(env).uploadAllowed;}
 export function mediaSuffix(mime:MediaMime):string{return mime==="image/jpeg"?"jpg":mime==="image/png"?"png":"webp";}

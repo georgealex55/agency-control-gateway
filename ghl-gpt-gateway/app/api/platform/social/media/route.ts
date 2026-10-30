@@ -2,13 +2,13 @@ import {put,del} from "@vercel/blob";
 import {NextRequest} from "next/server";
 import {gate,reply,workspaceFromQuery} from "@/lib/social-api";
 import {validId} from "@/lib/social-contract";
-import {MEDIA_MAX_BYTES,validMime,validMediaBytes,mediaSuffix,uploadAllowed} from "@/lib/social-media-contract";
-import {listMedia,createMedia,newMediaId} from "@/lib/social-media-store";
+import {MEDIA_MAX_BYTES,validMime,validMediaBytes,mediaSuffix,uploadAllowed,mediaStorageStatus} from "@/lib/social-media-contract";
+import {listMedia,createMedia,newMediaId,mediaWorkspaceExists} from "@/lib/social-media-store";
 export const runtime="nodejs";export const dynamic="force-dynamic";
 export async function GET(req:NextRequest){
  const denied=gate(req);if(denied)return denied;
  const workspaceId=workspaceFromQuery(req);if(!workspaceId)return reply({error:"Valid workspace ID required"},400);
- try{return reply({media:await listMedia(workspaceId),uploadsEnabled:uploadAllowed(process.env),private:true});}
+ try{const storage=mediaStorageStatus(process.env);return reply({media:await listMedia(workspaceId),uploadsEnabled:storage.uploadAllowed,storageConnected:storage.configured,storageMode:storage.mode,storageStatus:storage.reason,private:true});}
  catch{return reply({error:"Media library unavailable"},503);}
 }
 export async function POST(req:NextRequest){
@@ -27,6 +27,8 @@ export async function POST(req:NextRequest){
  const data=new Uint8Array(await file.arrayBuffer());
  if(!validMediaBytes(data,file.type))return reply({error:"File contents do not match the declared image format"},400);
  const name=file.name.slice(0,140).replace(/[\u0000-\u001F\u007F]/g," ").trim()||"upload";
+ try{if(!await mediaWorkspaceExists(workspaceId))return reply({error:"Workspace not found"},404);}
+ catch{return reply({error:"Workspace lookup unavailable"},503);}
  const id=newMediaId();
  const path="social-staging/"+workspaceId+"/"+id+"."+mediaSuffix(file.type);
  let stored=false;
