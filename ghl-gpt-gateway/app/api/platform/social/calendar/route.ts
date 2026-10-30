@@ -7,7 +7,7 @@ export async function GET(req:NextRequest){
  const denied=gate(req);if(denied)return denied;
  const workspaceId=workspaceFromQuery(req);
  const start=req.nextUrl.searchParams.get("start"),end=req.nextUrl.searchParams.get("end");
- if(!workspaceId||!validCalendarRange(start,end))return reply({error:"Valid workspace and 1–45 day UTC calendar bounds required"},400);
+ if(!workspaceId||!start||!end||!validCalendarRange(start,end))return reply({error:"Valid workspace and 1–45 day UTC calendar bounds required"},400);
  try{return reply({...await listSocialCalendar(workspaceId,{start,end}),externalPublishing:false});}
  catch{return reply({error:"Calendar unavailable"},503);}
 }
