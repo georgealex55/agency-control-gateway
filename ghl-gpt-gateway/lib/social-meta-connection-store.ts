@@ -10,6 +10,7 @@ export type MetaPending={id:string;provider:MetaProvider;candidates:MetaCandidat
 const digest=(value:string)=>createHash("sha256").update(value).digest("hex");
 export async function createMetaFlow(workspaceId:string,provider:MetaProvider,nonce:string,expires:number):Promise<boolean>{
  const db=await readySql();
+ await db.query("DELETE FROM agency_social_meta_oauth_flows WHERE workspace_id=$1::uuid AND expires_at<now()-interval '1 day'",[workspaceId]);
  const inserted=rows<{id:string}>(await db.query(
   "INSERT INTO agency_social_meta_oauth_flows(id,workspace_id,provider,nonce_hash,expires_at) "+
   "SELECT $1::uuid,w.id,$3,$4,to_timestamp($5::double precision/1000) FROM agency_platform_workspaces w "+
@@ -38,6 +39,8 @@ export async function stageMetaCandidates(workspaceId:string,provider:MetaProvid
 }
 export async function getMetaInventory(workspaceId:string):Promise<{connections:MetaConnection[];pending:MetaPending[]}>{
  const db=await readySql();
+ // Remove expired encrypted pending consent data during authorized inventory reads.
+ await db.query("DELETE FROM agency_social_meta_pending WHERE workspace_id=$1::uuid AND expires_at<=now()",[workspaceId]);
  const [linked,waiting]=await Promise.all([
  db.query("SELECT id,provider,provider_account_id,provider_display_name,connected_at,expires_at,last_verified_at "+
   "FROM agency_social_meta_connections WHERE workspace_id=$1::uuid ORDER BY connected_at DESC LIMIT 100",[workspaceId]),
