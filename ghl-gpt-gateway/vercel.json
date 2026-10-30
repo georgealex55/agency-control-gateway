@@ -1,0 +1,12 @@
+{
+  "functions": {
+    "app/api/queues/social-dry-run/route.ts": {
+      "experimentalTriggers": [
+        {
+          "type": "queue/v2beta",
+          "topic": "agency-social-dry-run-v1"
+        }
+      ]
+    }
+  }
+}

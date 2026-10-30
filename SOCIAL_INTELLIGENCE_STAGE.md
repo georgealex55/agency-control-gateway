@@ -60,3 +60,8 @@ Existing agency admin secrets are not configured in Vercel yet. Configure `AGENC
 - No real Postiz deployment or verified social API credentials are present yet. Do not describe the current integration as publishing-ready.
 - No synthetic social reach/engagement metrics are shown as live analytics.
 - Stage may be promoted **only after** identity, tenant isolation, rate-limiting, OAuth, API scopes and independent Postiz staging service are validated.
+
+
+## 2026-10-29 Vercel-native update
+
+Further development moved to `feature/social-vercel-native-stage-20261029` and `SOCIAL_VERCEL_NATIVE_STAGE.md`. The Postiz backend is no longer the hosting dependency. It is retained as a pinned research/reference checkout only.

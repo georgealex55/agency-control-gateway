@@ -7,7 +7,7 @@ export type PlatformService = {
   runtime:string;
   capabilities:string[];
   status:"source-pinned"|"deferred";
-  deployment:"external";
+  deployment:"external"|"vercel-native";
 };
 export const PLATFORM_SERVICES:readonly PlatformService[]=[
   {
@@ -29,7 +29,7 @@ export const PLATFORM_SERVICES:readonly PlatformService[]=[
   },
   {
     id:"social",title:"Social Intelligence",summary:"Social scheduling, connected accounts, post metrics and campaign reporting.",
-    upstream:["gitroomhq/postiz-app"],runtime:"Postiz + PostgreSQL + Redis + workers",status:"source-pinned",deployment:"external",
+    upstream:["gitroomhq/postiz-app"],runtime:"Vercel Functions + Vercel Queues + Neon PostgreSQL",status:"source-pinned",deployment:"vercel-native",
     capabilities:["Content calendar","Draft/approval flow","Social integrations","Analytics","Campaign summaries"]
   },
   {

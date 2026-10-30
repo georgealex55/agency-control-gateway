@@ -15,7 +15,7 @@ test("draft and planned content contracts validate schedule and channels",()=>{
  assert.throws(()=>parseSocialInput({...good,channels:["unknown"]},now),/channels/);
 });
 test("staging gate fails closed in production and on unreviewed branches",()=>{
- const required={VERCEL_ENV:"preview",VERCEL_GIT_COMMIT_REF:"feature/social-intelligence-stage-20261029",SOCIAL_STAGING_ENABLED:"true"};
+ const required={VERCEL_ENV:"preview",VERCEL_GIT_COMMIT_REF:"feature/social-vercel-native-stage-20261029",SOCIAL_STAGING_ENABLED:"true"};
  assert.equal(stageEnabled(required),true);
  assert.equal(stageEnabled({...required,VERCEL_ENV:"production"}),false);
  assert.equal(stageEnabled({...required,VERCEL_GIT_COMMIT_REF:"main"}),false);

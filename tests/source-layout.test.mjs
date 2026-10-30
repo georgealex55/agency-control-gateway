@@ -24,7 +24,7 @@ test("product services use pinned upstream repositories",()=>{
  assert.equal(new Set(PLATFORM_SERVICES.map(s=>s.id)).size,PLATFORM_SERVICES.length);
  for(const s of PLATFORM_SERVICES) {
   assert(s.upstream.length>0);
-  assert.equal(s.deployment,"external");
+  assert(["external","vercel-native"].includes(s.deployment));
   assert(s.upstream.every(origin=>origins.has(origin)),"Unpinned source "+s.id);
  }
 });
