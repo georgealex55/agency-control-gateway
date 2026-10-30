@@ -1,3 +1,5 @@
+> **SUPERSEDED (October 29, 2026):** The active staging design is now **one administrator only**. See [SINGLE_ADMIN_STAGE.md](./SINGLE_ADMIN_STAGE.md). This document records a historical five-seat experiment and is not an active feature plan. The User Seats interface and reservation endpoints are disabled.
+
 # Five-user staging limit — Agency Control
 
 ## Decision
