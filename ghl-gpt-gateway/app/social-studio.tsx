@@ -4,6 +4,7 @@ import {SOCIAL_CHANNELS,type SocialChannel,type SocialState} from "@/lib/social-
 type Post={id:string;workspaceId:string;content:string;state:SocialState;channels:string[];scheduledAt:string|null;createdAt:string};
 type Workspace={id:string;name:string;slug:string};
 type DispatchJob={id:string;postId:string;channel:string;status:string;attempts:number;nextAttemptAt:string|null;lastErrorCode:string|null;createdAt:string;completedAt:string|null};
+type ProviderReadiness={id:string;name:string;auth:string;accounts:string;scopes:string[];publishScopes:string[];appSetup:string;connectionStatus:"not_connected";oauthEnabled:false;publishingEnabled:false;};
 type InternalInsights={drafts:Record<SocialState,number>;dispatch:Record<"pending"|"queued"|"simulated"|"canceled",number>;retryExhausted:number;scheduledNextSevenDays:number;overdueApproved:number;channelPlans:{channel:string;count:number}[];externalReach:null;externalEngagement:null;metricsAvailable:false;};
 const networkNames:Record<string,string>={instagram:"Instagram",facebook:"Facebook",linkedin:"LinkedIn",threads:"Threads",tiktok:"TikTok",youtube:"YouTube",x:"X",pinterest:"Pinterest"};
 function localDate(offset:number){const d=new Date(Date.now()+offset*60000);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);}
@@ -22,12 +23,13 @@ export default function SocialStudio(){
  const [editing,setEditing]=useState<string|null>(null);
  const [jobs,setJobs]=useState<DispatchJob[]>([]);
  const [internalInsights,setInternalInsights]=useState<InternalInsights|null>(null);
+ const [providers,setProviders]=useState<ProviderReadiness[]>([]);
  const [dispatchNote,setDispatchNote]=useState("Nothing has been dispatched in staging.");
- const [tab,setTab]=useState<"composer"|"calendar"|"insights"|"metrics">("composer");
+ const [tab,setTab]=useState<"composer"|"calendar"|"insights"|"metrics"|"providers">("composer");
  useEffect(()=>{
   fetch("/api/platform/workspaces",{credentials:"same-origin",cache:"no-store"}).then(async r=>{const j=await r.json();if(!r.ok)throw Error(j.error||"Workspaces unavailable");return j;}).then(j=>{const list=Array.isArray(j.workspaces)?j.workspaces:[];setWorkspaces(list);setWorkspaceId(list[0]?.id||"");}).catch(e=>setMessage(e.message)).finally(()=>setLoading(false));
  },[]);
- useEffect(()=>{if(workspaceId){void refresh(workspaceId);void refreshJobs(workspaceId);void refreshInsights(workspaceId);}else {setPosts([]);setJobs([]);setInternalInsights(null);}},[workspaceId]);
+ useEffect(()=>{if(workspaceId){void refresh(workspaceId);void refreshJobs(workspaceId);void refreshInsights(workspaceId);void refreshProviders(workspaceId);}else {setPosts([]);setJobs([]);setInternalInsights(null);setProviders([]);}},[workspaceId]);
  async function refresh(id=workspaceId){
   if(!id)return;
   try{
@@ -71,6 +73,13 @@ export default function SocialStudio(){
    const j=await r.json();if(!r.ok)throw Error(j.error||"Internal insights unavailable");setInternalInsights(j as InternalInsights);
   }catch(e){setDispatchNote(e instanceof Error?e.message:"Internal insights unavailable");}
  }
+ async function refreshProviders(id=workspaceId){
+  if(!id)return;
+  try{
+   const r=await fetch("/api/platform/social/providers?workspaceId="+encodeURIComponent(id),{credentials:"same-origin",cache:"no-store"});
+   const j=await r.json();if(!r.ok)throw Error(j.error||"Provider readiness unavailable");setProviders(Array.isArray(j.connections)?j.connections:[]);
+  }catch(e){setDispatchNote(e instanceof Error?e.message:"Provider readiness unavailable");}
+ }
  async function dryRun(){
   if(!workspaceId)return;setBusy(true);setDispatchNote("Preparing due approved posts…");
   try{
@@ -89,7 +98,7 @@ export default function SocialStudio(){
   {message&&<p className="ag-ws-note" role="status">{message}</p>}
   {!workspaceId?<section className="ag-card"><h2>No client workspace exists yet</h2><p>Create a synthetic workspace using the Workspaces menu. Social content will be stored there, not in a GHL account.</p></section>:<>
    <div className="ag-social-stats">{[["Draft content",counts.draft,"Edit anytime"],["Planned posts",counts.planned,"Not queued to publish"],["Approved internally",counts.approved,"Not sent"],["Dry-run deliveries",jobs.filter(j=>j.status==="simulated").length,"No external sends"]].map(([label,count,sub])=><div className="ag-metric" key={String(label)}><div><span>{label}</span><i>◈</i></div><strong>{count}</strong><small>{sub}</small></div>)}</div>
-   <div className="ag-social-tabs">{[["composer","Content Studio"],["calendar","Publishing Calendar"],["insights","Delivery Operations"],["metrics","Internal Insights"]].map(([key,label])=><button key={key} className={tab===key?"active":""} onClick={()=>setTab(key as typeof tab)}>{label}</button>)}</div>
+   <div className="ag-social-tabs">{[["composer","Content Studio"],["calendar","Publishing Calendar"],["insights","Delivery Operations"],["metrics","Internal Insights"],["providers","Social Connections"]].map(([key,label])=><button key={key} className={tab===key?"active":""} onClick={()=>setTab(key as typeof tab)}>{label}</button>)}</div>
    {tab==="composer"&&<div className="ag-social-columns"><section className="ag-card"><h2>{editing?"Edit content":"Create content"}</h2><p>Draft and plan content without connecting a social account.</p>
     <form onSubmit={save} className="ag-social-form"><label>Post content<textarea rows={7} maxLength={3000} required value={content} onChange={e=>setContent(e.target.value)} placeholder="Write a post or start with a clear campaign idea…"/></label><div className="ag-social-count">{content.length}/3000</div><label>Stage<select value={state} onChange={e=>setState(e.target.value as SocialState)}><option value="draft">Draft</option><option value="planned">Planned (not published)</option><option value="approved">Approved for later integration</option></select></label><label>Target date (local time)<input type="datetime-local" value={schedule} onChange={e=>setSchedule(e.target.value)}/></label><fieldset><legend>Channel targets (planning only)</legend><div className="ag-social-channels">{SOCIAL_CHANNELS.map(c=><label key={c}><input type="checkbox" checked={channels.includes(c)} onChange={e=>setChannels(v=>e.target.checked?[...v,c]:v.filter(x=>x!==c))}/>{networkNames[c]}</label>)}</div></fieldset><div className="ag-social-actions"><button className="ag-primary" disabled={busy||!content.trim()}>{busy?"Saving…":editing?"Save changes":"Save in staging"}</button>{editing&&<button type="button" className="ag-secondary" onClick={reset}>Cancel edit</button>}</div></form></section>
    <section className="ag-card"><h2>Content library</h2><p>Everything here remains inside staging.</p><div className="ag-social-list">{posts.length===0?<div className="ag-social-empty">No content yet. Draft your first social post.</div>:posts.map(p=><article key={p.id} className="ag-social-post"><div className="ag-social-post-meta"><span className={"ag-social-post-badge "+p.state}>{p.state}</span><span>{dateHuman(p.scheduledAt)}</span></div><p>{p.content}</p><div className="ag-social-targets">{p.channels.map(c=><span key={c}>{networkNames[c]||c}</span>)}</div><div className="ag-social-actions"><button className="ag-secondary" disabled={busy} onClick={()=>edit(p)}>Edit</button><button className="ag-secondary" disabled={busy} onClick={()=>void remove(p.id)}>Delete</button></div></article>)}</div></section></div>}
@@ -117,6 +126,12 @@ export default function SocialStudio(){
       <div><h3>Dispatch status</h3>{Object.entries(internalInsights.dispatch).map(([key,value])=><div className="ag-status" key={key}><span>{key}</span><b>{value}</b></div>)}<div className="ag-ws-note"><b>External reach and engagement unavailable.</b> This module does not invent or estimate social-platform results.</div></div>
      </div>
     </>}
+   </section>}
+{tab==="providers"&&<section className="ag-card">
+    <div className="ag-platform-bar"><div><h2>Social connection center</h2><p>Provider requirements and permissions for the future direct integrations. No accounts are connected in staging.</p></div><button className="ag-secondary" onClick={()=>void refreshProviders()} disabled={busy}>Refresh requirements</button></div>
+    <div className="ag-ws-note"><b>Provider connections are disabled.</b> Separate app registration, OAuth configuration, workspace-scoped tokens, and provider review are required before connecting live social accounts. Nothing will be published.</div>
+    <div className="ag-modulegrid">{providers.map(p=><div className="ag-module" key={p.id}><span>↗</span><b>{p.name}</b><small>{p.accounts}</small><small>Authorization: {p.auth}</small><small>Setup: {p.appSetup}</small><div className="ag-social-targets"><span>Not connected</span><span>Publishing disabled</span></div></div>)}</div>
+    {providers.length===0&&<div className="ag-social-empty">The staging provider registry is unavailable.</div>}
    </section>}
    <p className="ag-footnote">Social Intelligence staging: drafts and content plans are real database records. The queue consumer writes only simulation/audit rows. No external posting, messaging, GHL scan, import, domain change, or billing is permitted.</p>
   </>}
