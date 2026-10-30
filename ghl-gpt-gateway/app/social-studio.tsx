@@ -44,6 +44,7 @@ export default function SocialStudio(){
  const [metaReadiness,setMetaReadiness]=useState<MetaReadiness[]>([]);
  const [metaInventory,setMetaInventory]=useState<MetaInventory|null>(null);
  const [metaMessage,setMetaMessage]=useState("");
+ const [metaCallbackPreview,setMetaCallbackPreview]=useState("");
  const [mediaAssets,setMediaAssets]=useState<MediaAsset[]>([]);
  const [linkTargetPost,setLinkTargetPost]=useState("");
  const [linkedMedia,setLinkedMedia]=useState<MediaAsset[]>([]);
@@ -57,6 +58,7 @@ export default function SocialStudio(){
  const [probeMessage,setProbeMessage]=useState("Queue delivery has not been tested from this browser.");
  const [blobDiagnostic,setBlobDiagnostic]=useState<BlobDiagnostic|null>(null);
  const [tab,setTab]=useState<"composer"|"calendar"|"insights"|"metrics"|"providers"|"media">("composer");
+ useEffect(()=>{setMetaCallbackPreview(window.location.origin+"/api/platform/social/meta/callback");},[]);
  useEffect(()=>{if(new URLSearchParams(window.location.search).get("social")==="connections"){
   setTab("providers");
   const status=new URLSearchParams(window.location.search).get("meta");
@@ -407,6 +409,13 @@ export default function SocialStudio(){
     <div className="ag-platform-bar"><div><h2>Social Connections</h2><p>Connect selected Facebook Pages or Instagram Professional accounts for read-only account discovery. No publishing permissions are requested.</p></div>
       <button className="ag-secondary" disabled={busy} onClick={()=>void refreshMeta()}>Refresh connections</button></div>
     <div className="ag-ws-note"><b>Single-administrator mode.</b> Developer credentials must be set in this staging preview before connecting. All tokens stay encrypted in Neon, and publishing remains disabled.</div>
+    <div className="ag-ws-note">
+      <b>Meta Developer App setup</b>
+      <p>Configure Facebook Login for Business and Instagram Login separately. Provide their app IDs and app secrets as staging-only Vercel secrets; keep the app in the appropriate testing mode until review requirements are met.</p>
+      <p>OAuth callback path: <code>/api/platform/social/meta/callback</code>. Your current preview's callback URL is <code>{metaCallbackPreview}</code>.</p>
+      <p><b>Important:</b> Deployment-specific preview addresses change after code updates. Set up a stable, staging-only HTTPS hostname and register its exact callback URL in Meta before enabling OAuth. Do not use the production domain.</p>
+      <p>Only after app approval, exact redirect, and staging-only environment settings are verified should the feature flag be enabled.</p>
+    </div>
     {metaMessage&&<div className="ag-ws-note" role="status">{metaMessage}</div>}
     <div className="ag-modulegrid">
       {metaReadiness.map(m=><div className="ag-card" key={m.provider}>
