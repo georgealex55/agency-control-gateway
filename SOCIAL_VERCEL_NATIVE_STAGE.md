@@ -57,3 +57,23 @@ The synthetic post \`11111111-1111-4111-8111-111111111111\` produced two unique 
 7. Validate terms/limits and actual analytics metrics. Do not report synthetic reach or engagement.
 
 **No customer content published, GHL import run, billing activated or production branch merged by this milestone.**
+
+## Staging reliability and intelligence update — October 29, 2026
+
+The dispatcher now uses a PostgreSQL lease rather than selecting pending jobs without claiming them. FOR UPDATE SKIP LOCKED atomically leases up to 25 due records per request with a two-minute claim. Each claim increments an attempt count. A failed Vercel send records QUEUE_SEND_FAILED, schedules a delayed retry, and releases the lease. At five failed claims, automatic retry stops and the delivery ledger flags exhausted attempts. The receiving worker remains simulation-only.
+
+The isolated staging table agency_social_dispatch_jobs gained additive fields: claim_until, next_attempt_at, attempts and last_error_code. The production database was untouched.
+
+A concurrent SQL smoke test with one synthetic approved LinkedIn target produced one lease in the first request and zero in a competing request. A simulated send failure recorded one attempt and a future retry deadline. The earlier approval-revocation smoke test recorded one simulated and one canceled delivery, both audited.
+
+The Social Studio now includes Internal Insights from actual staging database records: drafts, approved content, next-seven-day schedules, overdue approvals, channel targets, simulated deliveries and exhausted retries. The endpoint deliberately returns externalReach=null, externalEngagement=null and metricsAvailable=false; it never fabricates provider analytics. Every data query is scoped to workspace ID.
+
+A Social Connections tab lists the app-registration and OAuth requirements for Facebook Pages, Instagram Professional, LinkedIn, TikTok, YouTube, X, Threads and Pinterest. All accounts remain not_connected and all authorization and publishing actions are disabled. Instagram professional OAuth requires instagram_business_basic, while Facebook Pages use pages_show_list and pages_read_engagement for eventual read access. Do not conflate the two Meta login flows.
+
+### Outstanding validation boundaries
+
+- A passing Next.js build or mock test does NOT prove the real Vercel Queue callback was delivered over the network.
+- Admin login is not configured for this preview. No bypass has been created.
+- Provider API authentication, posting and external analytics have not been exercised.
+- A stale queued job after message TTL expiry requires a future reconciliation policy; old queued records should be flagged for manual review.
+- Do not activate client-facing connections, billing, publishing, GHL imports, or production Cron without separate authorization and security testing.
