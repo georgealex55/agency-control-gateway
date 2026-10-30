@@ -41,7 +41,7 @@ export function verifyMetaConsent(value:string,secret:string,now:number):{worksp
  if(a.length!==b.length||!timingSafeEqual(a,b))return null;
  try{
   const parsed=JSON.parse(Buffer.from(parts[0],"base64url").toString("utf8")) as Record<string,unknown>;
-  if(typeof parsed.workspaceId!=="string"||!/^[a-f0-9-]{36}$/i.test(parsed.workspaceId)||!(parsed.provider==="facebook_pages"||parsed.provider==="instagram_professional")||typeof parsed.expires!=="number"||!Number.isSafeInteger(parsed.expires)||parsed.expires<=now||parsed.expires>now+10*60||typeof parsed.nonce!=="string"||!/^[A-Za-z0-9_-]{32,128}$/.test(parsed.nonce))return null;
+  if(typeof parsed.workspaceId!=="string"||!/^[a-f0-9-]{36}$/i.test(parsed.workspaceId)||!(parsed.provider==="facebook_pages"||parsed.provider==="instagram_professional")||typeof parsed.expires!=="number"||!Number.isSafeInteger(parsed.expires)||parsed.expires<=now||parsed.expires>now+10*60*1000||typeof parsed.nonce!=="string"||!/^[A-Za-z0-9_-]{32,128}$/.test(parsed.nonce))return null;
   return {workspaceId:parsed.workspaceId,provider:parsed.provider,expires:parsed.expires,nonce:parsed.nonce};
  }catch{return null;}
 }
