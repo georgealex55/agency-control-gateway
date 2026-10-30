@@ -4,16 +4,14 @@ import { MODULES, SAMPLE_TENANTS, type ModuleKey } from "@/lib/agency-platform";
 import PlatformWorkspaces from "./platform-workspaces";
 import ServiceCatalog from "./service-catalog";
 import SocialStudio from "./social-studio";
-import UserSeats from "./user-seats";
 
-type View="overview"|"discover"|"clients"|"features"|"services"|"social"|"users"|"settings";
+type View="overview"|"discover"|"clients"|"features"|"services"|"social"|"settings";
 type ScanLocation={id:string;name:string;locationId:string;features:Record<string,{status:string;count:number|null}>};
 const NAV:{id:View;label:string;icon:string}[]=[
   {id:"overview",label:"Overview",icon:"◫"},
   {id:"clients",label:"Workspaces",icon:"▦"},
   {id:"services",label:"Platform Studios",icon:"◈"},
   {id:"social",label:"Social Intelligence",icon:"↗"},
-  {id:"users",label:"User Seats (5)",icon:"♙"},
   {id:"features",label:"Feature Catalog",icon:"▧"},
   {id:"settings",label:"Settings",icon:"⚙"},
   {id:"discover",label:"GHL Migration (later)",icon:"◎"}
@@ -66,7 +64,7 @@ export default function Home() {
       <div className="ag-brand"><span className="ag-logo">A<span>•</span></span><div><b>Agency Control</b><small>UNIFIED WORKSPACE</small></div></div>
       <span className="ag-caption">PLATFORM</span>
       <nav aria-label="Main navigation">{NAV.map(n=><button key={n.id} className={"ag-nav "+(view===n.id?"current":"")} onClick={()=>setView(n.id)}><span className="ag-nav-icon">{n.icon}</span><span>{n.label}</span></button>)}</nav>
-      <div className="ag-side-foot"><span className="ag-signal"/> Independent platform core<small>Milestone 02 · Workspaces</small></div>
+      <div className="ag-side-foot"><span className="ag-signal"/> Single administrator mode<small>Social Intelligence staging</small></div>
     </aside>
     <div className="ag-main">
       <header className="ag-top"><div>Agency <span>/</span> <strong>{NAV.find(n=>n.id===view)?.label}</strong></div><div className="ag-topright"><span className="ag-stage"><span className="ag-signal"/> Preview foundation</span><button className="ag-avatar" onClick={()=>setView("settings")}>AC</button></div></header>
@@ -77,7 +75,7 @@ export default function Home() {
           <div className="ag-banner"><span>i</span><div><strong>Milestone 2 — independent platform core</strong><p>Platform workspaces and modules are independent of GHL. Agency scanning is reserved for the final migration.</p></div><button onClick={()=>setView("clients")}>Workspaces →</button></div>
           <div className="ag-metrics"><Metric title="Demo profiles" value="03" sub="Examples, not actual accounts" icon="▦"/><Metric title="Service modules" value="07" sub="Controlled feature access" icon="▧"/><Metric title="Proposed starter plan" value="$30" sub="Per month · planning only" icon="$"/><Metric title="Agency subaccounts found" value={locations?String(locations.length):"—"} sub={locations?"Read-only scan":"Scan not run"} icon="◎"/></div>
           <div className="ag-columns"><section className="ag-card"><Head title="Example client experiences" sub="Samples of the workspace templates."/><div className="ag-rows">{SAMPLE_TENANTS.map((t,i)=><button className="ag-tenant" key={t.id} onClick={()=>{setSelected(t.id);setView("clients");}}><span className={"ag-tenant-icon i"+i}>{["◈","▤","↗"][i]}</span><span><b>{t.name}</b><small>{t.category}</small></span><i>DEMO</i><em>›</em></button>)}</div></section>
-          <section className="ag-card"><Head title="Replacement roadmap" sub="Build independently before importing anything."/><div className="ag-steps"><Step number="01" title="Agency scan & inventory" sub="Discover subaccounts through your main connection." active/><Step number="02" title="Open-source service engines" sub="Pinned Frappe, Postiz and workflow sources."/><Step number="03" title="Client access & billing" sub="Account invitations and server-side grants."/><Step number="04" title="GHL migration last" sub="Only after replacement features are proven." /></div></section></div>
+          <section className="ag-card"><Head title="Replacement roadmap" sub="Build independently before importing anything."/><div className="ag-steps"><Step number="01" title="Independent staging workspaces" sub="Use synthetic workspaces without GHL scanning." active/><Step number="02" title="Open-source service engines" sub="Pinned Frappe, Postiz and workflow sources."/><Step number="03" title="Social and media infrastructure" sub="Single-administrator tools; no additional logins."/><Step number="04" title="GHL migration last" sub="Only after replacement features are proven." /></div></section></div>
         </>}
         {view==="discover"&&<>
           <div className="ag-eyebrow">FINAL PHASE · NOT CONNECTING</div><h1>GHL migration comes last.</h1>
@@ -97,9 +95,6 @@ export default function Home() {
           {!session.authenticated&&<section className="ag-card"><Head title="Example workspace types" sub="Design references only; they are not real client accounts."/><div className="ag-rows">{SAMPLE_TENANTS.map(t=><div className="ag-tenant" key={t.id}><span className="ag-tenant-icon">▦</span><span><b>{t.name}</b><small>{t.category} · SAMPLE</small></span></div>)}</div></section>}
         </>}
         {view==="services"&&<ServiceCatalog/>}
-        {view==="users"&&(!session.authenticated?<section className="ag-card"><h2>Agency administrator login required</h2><p>Only the agency administrator can reserve or disable user seats.</p>
-          {!session.configured?<p>Administrator credentials must be configured in the staging Vercel environment.</p>:<form onSubmit={login} className="ag-login"><label htmlFor="seats-adminpass">Administrator password</label><div><input id="seats-adminpass" type="password" minLength={12} autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)} placeholder="Administrator password"/><button className="ag-primary" disabled={loading}>{loading?"Signing in…":"Sign in"}</button></div></form>}
-          {error&&<p className="ag-error" role="alert">{error}</p>}</section>:<UserSeats/>)}
         {view==="social"&&(!session.authenticated?<section className="ag-card"><h2>Agency administrator access required</h2>
           {!session.configured?<p>Configure administrator access in the staging Vercel environment before managing real social drafts.</p>:<form onSubmit={login} className="ag-login"><label htmlFor="social-adminpass">Administrator password</label><div><input id="social-adminpass" type="password" minLength={12} autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)} placeholder="Administrator password"/><button className="ag-primary" disabled={loading}>{loading?"Signing in…":"Unlock Social Intelligence"}</button></div></form>}
           {error&&<p className="ag-error" role="alert">{error}</p>}
@@ -110,7 +105,7 @@ export default function Home() {
         </>}
         {view==="settings"&&<>
           <div className="ag-eyebrow">PLATFORM SETUP</div><h1>Secure by default.</h1><p className="ag-subhead">Integration and account controls for the first milestone.</p>
-          <div className="ag-columns"><section className="ag-card"><Head title="Admin access"/><Status title="Administrator login" value={session.configured?"Configured":"Setup required"}/><Status title="Active session" value={session.authenticated?"Authenticated":"Not signed in"}/><Status title="Scanner" value="Read only"/><Status title="Client login" value="Not enabled"/></section><section className="ag-card"><Head title="Integration readiness"/><Status title="GHL migration" value="Deferred to final phase"/><Status title="Feature requests" value="Preview only"/><Status title="Stripe billing" value="Not connected"/><Status title="Frappe / Postiz" value="Not connected"/></section></div>
+          <div className="ag-columns"><section className="ag-card"><Head title="Admin access"/><Status title="Administrator login" value={session.configured?"Configured":"Setup required"}/><Status title="Active session" value={session.authenticated?"Authenticated":"Not signed in"}/><Status title="Scanner" value="Deferred"/><Status title="User access" value="Single administrator only"/></section><section className="ag-card"><Head title="Integration readiness"/><Status title="GHL migration" value="Deferred to final phase"/><Status title="Feature requests" value="Preview only"/><Status title="Stripe billing" value="Not connected"/><Status title="Frappe / Postiz" value="Not connected"/></section></div>
           <section className="ag-card"><Head title="Required Vercel secrets" sub="Never put secret values in the GitHub repo."/><code className="ag-code">AGENCY_PORTAL_PASSWORD_SHA256 = SHA-256 hash of a strong admin password</code><code className="ag-code">AGENCY_PORTAL_SESSION_SECRET = separate 32+ character random secret</code><p className="ag-footnote">Enable Vercel access protection / edge rate limits before using administrator login broadly. Existing gateway OAuth and API routes remain unchanged.</p></section>
         </>}
       </main><footer className="ag-footer">AGENCY CONTROL <span>·</span> Milestone 02 <span>·</span> No GHL migration</footer>
