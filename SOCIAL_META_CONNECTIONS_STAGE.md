@@ -91,3 +91,26 @@ Meta documentation references:
 - The GitHub `tests/social-meta-token-lifecycle.test.mjs` suite validates fixed hosts, long-lived token parsing, expiry requirements and fail-closed behavior.
 
 **Important:** The OAuth connections here do not have refresh scheduling yet. Reauthorization is required if a token expires or is revoked. They also do not grant publishing, messaging, or post creation.
+
+
+## Canonical staging address — verified October 29, 2026
+
+Vercel's stable Git branch alias was verified against the deployment and Git source records. It is a non-production preview branch:
+- Stable staging app: `https://agency-control-gateway-git-b83544-georgealex1925-2750s-projects.vercel.app`
+- Exact Meta callback: `https://agency-control-gateway-git-b83544-georgealex1925-2750s-projects.vercel.app/api/platform/social/meta/callback`
+- Git branch: `feature/agency-five-seats-stage-20261029` (historical name, now single administrator)
+- Staging-only `SOCIAL_META_REDIRECT_URI` is set to the verified callback; commit-specific preview addresses cannot initiate OAuth.
+
+The OAuth server enforces exact canonical request origin plus Vercel's generated branch address, when present. The Social Connections UI shows the exact callback and the names of missing Vercel settings, not their secret values. This removes the changing-commit-URL blocker but does not activate OAuth.
+
+Meta Graph API v26.0 was released July 29, 2026 and was the latest available version verified on October 29, 2026. Staging-only `SOCIAL_META_GRAPH_VERSION=v26.0` is now configured. Confirm compatibility with each Meta developer app before connecting test accounts. See https://developers.facebook.com/docs/graph-api/changelog/versions/.
+
+Remaining developer credentials (not entered yet):
+- `SOCIAL_META_FACEBOOK_CLIENT_ID` (numeric Facebook app ID)
+- `SOCIAL_META_FACEBOOK_CLIENT_SECRET` (Sensitive; configure only in Vercel)
+- `SOCIAL_META_INSTAGRAM_CLIENT_ID` (numeric Instagram app ID)
+- `SOCIAL_META_INSTAGRAM_CLIENT_SECRET` (Sensitive; configure only in Vercel)
+
+Both Meta OAuth state-signing and token-encryption secrets already exist as staging-only sensitive environment variables. `SOCIAL_META_CONNECTIONS_ENABLED=false` remains explicitly set. No real social account is connected, and no user content can be published.
+
+Additional regression tests in `tests/social-meta-canonical-redirect.test.mjs` cover the canonical staging URL, wrong commit URL, wrong branch, disabled flag and safe missing-config reporting. Actual Meta OAuth consent and token verification still require the external app IDs, secrets and appropriate Meta tester permissions.
