@@ -5,6 +5,7 @@ import {metaConfigured} from "@/lib/social-meta-contract";
 import {verifyMetaConsent} from "@/lib/social-meta-crypto";
 import {consumeMetaFlow,stageMetaCandidates} from "@/lib/social-meta-connection-store";
 import {oauthSettings,exchangeMetaCode} from "@/lib/social-meta-oauth-server";
+import {exchangeFacebookLongLived,exchangeInstagramLongLived} from "@/lib/social-meta-token-lifecycle";
 import {listFacebookPages} from "@/lib/social-meta-pages";
 import {readInstagramProfessionalProfile} from "@/lib/social-meta-instagram";
 export const runtime="nodejs";export const dynamic="force-dynamic";
@@ -39,7 +40,10 @@ export async function GET(req:NextRequest){
   if(req.nextUrl.searchParams.has("error")||req.nextUrl.searchParams.has("error_reason"))return toSocial(req,"canceled");
   const code=req.nextUrl.searchParams.get("code");
   if(!code)return toSocial(req,"failed");
-  const authorized=await exchangeMetaCode(parsed.provider,code,settings);
+  const shortLived=await exchangeMetaCode(parsed.provider,code,settings);
+  const authorized=parsed.provider==="facebook_pages"?
+   await exchangeFacebookLongLived({shortLivedToken:shortLived.token,appId:settings.clientId,appSecret:settings.clientSecret,graphVersion:settings.version}):
+   await exchangeInstagramLongLived({shortLivedToken:shortLived.token,appSecret:settings.clientSecret});
   const candidates=parsed.provider==="facebook_pages"?
    (await listFacebookPages({token:authorized.token,version:settings.version})).map(p=>({id:p.id,name:p.name,tasks:p.tasks})):
    [await readInstagramProfessionalProfile({token:authorized.token,version:settings.version})].map(p=>({id:p.id,name:"@"+p.username,accountType:p.accountType}));
