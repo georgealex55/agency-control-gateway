@@ -9,7 +9,7 @@ type QueueProbe={id:string;workspaceId:string;status:"prepared"|"sent"|"acknowle
 type BlobDiagnostic={storeCreated:boolean;storeConnected:boolean;checkedLive:boolean;uploadsEnabled:boolean;status:string;mode:string;private:true};
 type DeliveryMonitor={summary:{queuedOverHour:number;leasesOverdue:number;retryScheduled:number;retryExhausted:number;readyPending:number;outdatedRevision:number;attention:number};items:{id:string;postId:string;channel:string;status:string;reason:string;attempts:number;lastUpdated:string}[];autoRecoveryEnabled:false};
 type MediaAsset={id:string;workspaceId:string;name:string;mime:string;size:number;createdAt:string};
-type MetaReadiness={provider:"facebook_pages"|"instagram_professional";appConfigured:boolean;permissions:string[];accessType:"read_only";launchEnabled:boolean;};
+type MetaReadiness={provider:"facebook_pages"|"instagram_professional";appConfigured:boolean;permissions:string[];accessType:"read_only";launchEnabled:boolean;callbackUrl:string|null;missingSettings:string[];isCanonicalHost:boolean;branchMatches:boolean;featureEnabled:boolean;};
 type MetaCandidate={id:string;name:string;tasks?:string[];accountType?:string};
 type MetaPending={id:string;provider:"facebook_pages"|"instagram_professional";candidates:MetaCandidate[];expiresAt:string};
 type MetaConnection={id:string;provider:"facebook_pages"|"instagram_professional";accountId:string;name:string;connectedAt:string;expiresAt:string|null;lastVerifiedAt:string|null;expired:boolean};
@@ -44,7 +44,6 @@ export default function SocialStudio(){
  const [metaReadiness,setMetaReadiness]=useState<MetaReadiness[]>([]);
  const [metaInventory,setMetaInventory]=useState<MetaInventory|null>(null);
  const [metaMessage,setMetaMessage]=useState("");
- const [metaCallbackPreview,setMetaCallbackPreview]=useState("");
  const [mediaAssets,setMediaAssets]=useState<MediaAsset[]>([]);
  const [linkTargetPost,setLinkTargetPost]=useState("");
  const [linkedMedia,setLinkedMedia]=useState<MediaAsset[]>([]);
@@ -58,7 +57,6 @@ export default function SocialStudio(){
  const [probeMessage,setProbeMessage]=useState("Queue delivery has not been tested from this browser.");
  const [blobDiagnostic,setBlobDiagnostic]=useState<BlobDiagnostic|null>(null);
  const [tab,setTab]=useState<"composer"|"calendar"|"insights"|"metrics"|"providers"|"media">("composer");
- useEffect(()=>{setMetaCallbackPreview(window.location.origin+"/api/platform/social/meta/callback");},[]);
  useEffect(()=>{if(new URLSearchParams(window.location.search).get("social")==="connections"){
   setTab("providers");
   const status=new URLSearchParams(window.location.search).get("meta");
@@ -412,7 +410,7 @@ export default function SocialStudio(){
     <div className="ag-ws-note">
       <b>Meta Developer App setup</b>
       <p>Configure Facebook Login for Business and Instagram Login separately. Provide their app IDs and app secrets as staging-only Vercel secrets; keep the app in the appropriate testing mode until review requirements are met.</p>
-      <p>OAuth callback path: <code>/api/platform/social/meta/callback</code>. Your current preview's callback URL is <code>{metaCallbackPreview}</code>.</p>
+      <p>Register the <b>exact branch-specific callback URL</b> shown below in each Meta app. Never register a unique commit URL or the production site.</p>
       <p><b>Important:</b> Deployment-specific preview addresses change after code updates. Set up a stable, staging-only HTTPS hostname and register its exact callback URL in Meta before enabling OAuth. Do not use the production domain.</p>
       <p>Only after app approval, exact redirect, and staging-only environment settings are verified should the feature flag be enabled.</p>
     </div>
@@ -420,7 +418,17 @@ export default function SocialStudio(){
     <div className="ag-modulegrid">
       {metaReadiness.map(m=><div className="ag-card" key={m.provider}>
        <h3>{m.provider==="facebook_pages"?"Facebook Pages":"Instagram Professional"}</h3>
-       <small>{m.appConfigured?"Meta developer app configured":"Meta developer app credentials missing"}</small>
+       <small>{m.appConfigured?"Developer app and encryption settings configured":"Connection setup incomplete"}</small>
+       <p><b>Configured callback:</b> <code style={{overflowWrap:"anywhere"}}>{m.callbackUrl||"Not configured"}</code></p>
+       {m.missingSettings.length>0&&<div className="ag-ws-note"><b>Still required:</b>
+        <ul>{m.missingSettings.map(setting=><li key={setting}><code>{setting}</code></li>)}</ul>
+        <small>Set secrets in Vercel's branch-scoped environment settings, never in this dashboard.</small>
+       </div>}
+       {!m.isCanonicalHost&&m.callbackUrl&&<p className="ag-footnote">
+        This deployment URL cannot start OAuth. <a href={new URL(m.callbackUrl).origin+"/?social=connections"}>Open the stable staging address</a> instead.
+       </p>}
+       {!m.branchMatches&&<p className="ag-footnote">The callback host does not match the verified Vercel branch alias. Authorization is blocked.</p>}
+       {!m.featureEnabled&&<p className="ag-footnote">OAuth connection switch: disabled until developer app validation.</p>}
        <p>Read-only permissions: {m.permissions.join(", ")}</p>
        <button className="ag-primary" disabled={!m.launchEnabled||busy} onClick={()=>void connectMeta(m.provider)}>
          {m.launchEnabled?"Authorize and select account":"Connection not configured"}
