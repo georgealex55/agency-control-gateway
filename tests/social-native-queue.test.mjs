@@ -9,8 +9,8 @@ test("queue payload cannot reference malformed or missing workspace",()=>{
 });
 test("queue is explicitly a simulation only and cannot be enabled on production",()=>{
  assert.equal(SOCIAL_DRY_TOPIC,"agency-social-dry-run-v1");
- assert.equal(stageEnabled({VERCEL_ENV:"production",VERCEL_GIT_COMMIT_REF:"feature/social-vercel-native-stage-20261029",SOCIAL_STAGING_ENABLED:"true"}),false);
- assert.equal(stageEnabled({VERCEL_ENV:"preview",VERCEL_GIT_COMMIT_REF:"feature/social-vercel-native-stage-20261029",SOCIAL_STAGING_ENABLED:"true"}),true);
+ assert.equal(stageEnabled({VERCEL_ENV:"production",VERCEL_GIT_COMMIT_REF:"feature/social-meta-media-stage-20261029",SOCIAL_STAGING_ENABLED:"true"}),false);
+ assert.equal(stageEnabled({VERCEL_ENV:"preview",VERCEL_GIT_COMMIT_REF:"feature/social-meta-media-stage-20261029",SOCIAL_STAGING_ENABLED:"true"}),true);
  const readiness=socialReadiness({});
  assert.equal(readiness.publishingEnabled,false);
  assert.equal(readiness.requiresPostiz,false);
