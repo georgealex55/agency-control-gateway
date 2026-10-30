@@ -6,6 +6,7 @@ on:
       - feature/social-vercel-native-stage-20261029
       - feature/social-meta-media-stage-20261029
       - feature/social-private-blob-security-20261029
+      - feature/agency-five-seats-stage-20261029
   pull_request:
     branches:
       - feature/origin-layout-platform-services-20261029
@@ -24,7 +25,7 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: "22"
-      - run: node --experimental-strip-types --test tests/agency-contracts.test.mjs tests/platform-core.test.mjs tests/source-layout.test.mjs tests/social-intelligence.test.mjs tests/social-native-queue.test.mjs tests/social-provider-readiness.test.mjs tests/social-meta-media.test.mjs tests/social-private-storage.test.mjs tests/social-meta-pages.test.mjs
+      - run: node --experimental-strip-types --test tests/agency-contracts.test.mjs tests/platform-core.test.mjs tests/source-layout.test.mjs tests/social-intelligence.test.mjs tests/social-native-queue.test.mjs tests/social-provider-readiness.test.mjs tests/social-meta-media.test.mjs tests/social-private-storage.test.mjs tests/social-meta-pages.test.mjs tests/agency-five-seats.test.mjs tests/social-calendar-ops.test.mjs tests/social-post-media.test.mjs tests/social-meta-instagram.test.mjs tests/social-queue-probe.test.mjs tests/social-meta-connections.test.mjs tests/social-meta-token-lifecycle.test.mjs tests/social-meta-canonical-redirect.test.mjs
   next-build:
     runs-on: ubuntu-latest
     defaults:
