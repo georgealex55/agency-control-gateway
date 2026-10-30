@@ -9,7 +9,11 @@ type QueueProbe={id:string;workspaceId:string;status:"prepared"|"sent"|"acknowle
 type BlobDiagnostic={storeCreated:boolean;storeConnected:boolean;checkedLive:boolean;uploadsEnabled:boolean;status:string;mode:string;private:true};
 type DeliveryMonitor={summary:{queuedOverHour:number;leasesOverdue:number;retryScheduled:number;retryExhausted:number;readyPending:number;outdatedRevision:number;attention:number};items:{id:string;postId:string;channel:string;status:string;reason:string;attempts:number;lastUpdated:string}[];autoRecoveryEnabled:false};
 type MediaAsset={id:string;workspaceId:string;name:string;mime:string;size:number;createdAt:string};
-type MetaReadiness={provider:"facebook_pages"|"instagram_professional";appConfigured:boolean;permissions:string[];connected:false;launchEnabled:false;};
+type MetaReadiness={provider:"facebook_pages"|"instagram_professional";appConfigured:boolean;permissions:string[];accessType:"read_only";launchEnabled:boolean;};
+type MetaCandidate={id:string;name:string;tasks?:string[];accountType?:string};
+type MetaPending={id:string;provider:"facebook_pages"|"instagram_professional";candidates:MetaCandidate[];expiresAt:string};
+type MetaConnection={id:string;provider:"facebook_pages"|"instagram_professional";accountId:string;name:string;connectedAt:string;expiresAt:string|null;expired:boolean};
+type MetaInventory={connections:MetaConnection[];pending:MetaPending[];readOnly:true;publishingEnabled:false};
 type ProviderReadiness={id:string;name:string;auth:string;accounts:string;scopes:string[];publishScopes:string[];appSetup:string;connectionStatus:"not_connected";oauthEnabled:false;publishingEnabled:false;};
 type InternalInsights={drafts:Record<SocialState,number>;dispatch:Record<"pending"|"queued"|"simulated"|"canceled",number>;retryExhausted:number;scheduledNextSevenDays:number;overdueApproved:number;channelPlans:{channel:string;count:number}[];externalReach:null;externalEngagement:null;metricsAvailable:false;};
 const networkNames:Record<string,string>={instagram:"Instagram",facebook:"Facebook",linkedin:"LinkedIn",threads:"Threads",tiktok:"TikTok",youtube:"YouTube",x:"X",pinterest:"Pinterest"};
@@ -38,6 +42,8 @@ export default function SocialStudio(){
  const [internalInsights,setInternalInsights]=useState<InternalInsights|null>(null);
  const [providers,setProviders]=useState<ProviderReadiness[]>([]);
  const [metaReadiness,setMetaReadiness]=useState<MetaReadiness[]>([]);
+ const [metaInventory,setMetaInventory]=useState<MetaInventory|null>(null);
+ const [metaMessage,setMetaMessage]=useState("");
  const [mediaAssets,setMediaAssets]=useState<MediaAsset[]>([]);
  const [linkTargetPost,setLinkTargetPost]=useState("");
  const [linkedMedia,setLinkedMedia]=useState<MediaAsset[]>([]);
@@ -51,10 +57,17 @@ export default function SocialStudio(){
  const [probeMessage,setProbeMessage]=useState("Queue delivery has not been tested from this browser.");
  const [blobDiagnostic,setBlobDiagnostic]=useState<BlobDiagnostic|null>(null);
  const [tab,setTab]=useState<"composer"|"calendar"|"insights"|"metrics"|"providers"|"media">("composer");
+ useEffect(()=>{if(new URLSearchParams(window.location.search).get("social")==="connections"){
+  setTab("providers");
+  const status=new URLSearchParams(window.location.search).get("meta");
+  if(status==="select")setMetaMessage("Meta authorization completed. Select the account you want to connect below.");
+  if(status==="failed")setMetaMessage("Meta authorization did not complete. Check developer-app permissions and redirect URL.");
+  if(status==="canceled")setMetaMessage("Authorization canceled. No account was connected.");
+ }},[]);
  useEffect(()=>{
   fetch("/api/platform/workspaces",{credentials:"same-origin",cache:"no-store"}).then(async r=>{const j=await r.json();if(!r.ok)throw Error(j.error||"Workspaces unavailable");return j;}).then(j=>{const list=Array.isArray(j.workspaces)?j.workspaces:[];setWorkspaces(list);setWorkspaceId(list[0]?.id||"");}).catch(e=>setMessage(e.message)).finally(()=>setLoading(false));
  },[]);
- useEffect(()=>{setLinkTargetPost("");setLinkedMedia([]);if(workspaceId){setSelectedMedia(null);void refresh(workspaceId);void refreshJobs(workspaceId);void refreshInsights(workspaceId);void refreshProviders(workspaceId);void refreshMedia(workspaceId);void refreshMeta(workspaceId);void refreshQueueProbes(workspaceId);setBlobDiagnostic(null);}else {setQueueProbes([]);setBlobDiagnostic(null);setPosts([]);setJobs([]);setInternalInsights(null);setProviders([]);setMediaAssets([]);setMetaReadiness([]);}},[workspaceId]);
+ useEffect(()=>{setLinkTargetPost("");setLinkedMedia([]);if(workspaceId){setSelectedMedia(null);void refresh(workspaceId);void refreshJobs(workspaceId);void refreshInsights(workspaceId);void refreshProviders(workspaceId);void refreshMedia(workspaceId);void refreshMeta(workspaceId);void refreshQueueProbes(workspaceId);setBlobDiagnostic(null);}else {setQueueProbes([]);setBlobDiagnostic(null);setPosts([]);setJobs([]);setInternalInsights(null);setProviders([]);setMediaAssets([]);setMetaReadiness([]);setMetaInventory(null);}},[workspaceId]);
  useEffect(()=>{if(workspaceId&&linkTargetPost){void refreshLinkedMedia(workspaceId,linkTargetPost);}else setLinkedMedia([]);},[workspaceId,linkTargetPost]);
  useEffect(()=>{if(workspaceId){void refreshCalendar(workspaceId,calendarMonth);void refreshMonitor(workspaceId);}else {setCalendarPosts([]);setMonitor(null);}},[workspaceId,calendarMonth]);
  async function refresh(id=workspaceId){
@@ -146,8 +159,45 @@ export default function SocialStudio(){
   try{
    const r=await fetch("/api/platform/social/meta/readiness?workspaceId="+encodeURIComponent(id),{credentials:"same-origin",cache:"no-store"});
    const j=await r.json();if(!r.ok)throw Error(j.error||"Meta readiness unavailable");
-   setMetaReadiness(Array.isArray(j.connections)?j.connections:[]);
+   setMetaReadiness(Array.isArray(j.connections)?j.connections:[]);await refreshMetaInventory(id);
   }catch(e){setMediaStatus(e instanceof Error?e.message:"Meta readiness unavailable");}
+ }
+ async function refreshMetaInventory(id=workspaceId){
+  if(!id)return;
+  try{
+   const r=await fetch("/api/platform/social/meta/connections?workspaceId="+encodeURIComponent(id),{credentials:"same-origin",cache:"no-store"});
+   const j=await r.json();if(!r.ok)throw Error(j.error||"Meta accounts unavailable");
+   setMetaInventory(j as MetaInventory);
+  }catch(e){setMetaMessage(e instanceof Error?e.message:"Meta account listing unavailable");}
+ }
+ async function connectMeta(provider:"facebook_pages"|"instagram_professional"){
+  if(!workspaceId||busy)return;setBusy(true);setMetaMessage("Starting read-only authorization…");
+  try{
+   const r=await fetch("/api/platform/social/meta/start",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",body:JSON.stringify({workspaceId,provider})});
+   const j=await r.json();if(!r.ok)throw Error(j.error||"Meta authorization unavailable");
+   if(typeof j.authorizeUrl!=="string")throw Error("Invalid authorization link");
+   window.location.assign(j.authorizeUrl);
+  }catch(e){setMetaMessage(e instanceof Error?e.message:"Meta connection unavailable");setBusy(false);}
+ }
+ async function selectMetaAccount(pendingId:string,accountId:string){
+  if(!workspaceId||busy)return;setBusy(true);setMetaMessage("");
+  try{
+   const r=await fetch("/api/platform/social/meta/connections",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",
+    body:JSON.stringify({workspaceId,pendingId,accountId})});
+   const j=await r.json();if(!r.ok)throw Error(j.error||"Unable to select account");
+   setMetaMessage("Connected for read-only account discovery. Publishing remains disabled.");
+   await refreshMetaInventory();
+  }catch(e){setMetaMessage(e instanceof Error?e.message:"Account selection failed");}finally{setBusy(false);}
+ }
+ async function disconnectMetaAccount(connectionId:string){
+  if(!workspaceId||busy||!window.confirm("Disconnect this account from Agency Control? This clears the locally stored token; you can also revoke app access at Meta."))return;
+  setBusy(true);setMetaMessage("");
+  try{
+   const r=await fetch("/api/platform/social/meta/connections",{method:"DELETE",headers:{"Content-Type":"application/json"},credentials:"same-origin",body:JSON.stringify({workspaceId,connectionId})});
+   const j=await r.json();if(!r.ok)throw Error(j.error||"Unable to disconnect account");
+   setMetaMessage("Account disconnected locally. For complete revocation, also remove app access in Meta settings.");
+   await refreshMetaInventory();
+  }catch(e){setMetaMessage(e instanceof Error?e.message:"Disconnect failed");}finally{setBusy(false);}
  }
  async function refreshLinkedMedia(workspace=workspaceId,post=linkTargetPost){
   if(!workspace||!post)return;
@@ -343,15 +393,42 @@ export default function SocialStudio(){
     </>}
    </section>}
 {tab==="providers"&&<section className="ag-card">
-    <div className="ag-platform-bar"><div><h2>Social connection center</h2><p>Provider requirements and permissions for the future direct integrations. No accounts are connected in staging.</p></div><button className="ag-secondary" onClick={()=>void refreshProviders()} disabled={busy}>Refresh requirements</button></div>
-    <div className="ag-ws-note"><b>Provider connections are disabled.</b> Separate app registration, OAuth configuration, workspace-scoped tokens, and provider review are required before connecting live social accounts. Nothing will be published.</div>
-    <div className="ag-modulegrid">{providers.map(p=><div className="ag-module" key={p.id}><span>↗</span><b>{p.name}</b><small>{p.accounts}</small><small>Authorization: {p.auth}</small><small>Setup: {p.appSetup}</small><div className="ag-social-targets"><span>Not connected</span><span>Publishing disabled</span></div></div>)}</div>
-    {providers.length===0&&<div className="ag-social-empty">The staging provider registry is unavailable.</div>}
-<div className="ag-social-insights"><div><h3>Meta account connection readiness</h3>
-      {metaReadiness.map(m=><div className="ag-social-calendar" key={m.provider}><div><b>{m.provider==="facebook_pages"?"Facebook Pages":"Instagram Professional"}</b><small>{m.appConfigured?"App configured":"App credentials missing"}</small></div>
-      <div><small>Read-only permissions: {m.permissions.join(", ")}</small></div><span className="ag-source-status deferred">OAuth not active</span></div>)}
-      <p className="ag-footnote">This staging build cannot connect real accounts. No Page or Instagram token has been stored.</p>
-     </div><div><h3>Privacy and approval</h3><p>Facebook Page permissions and Instagram Professional login are handled separately. Each workspace will require its own consent and encrypted tokens before read-only integration is activated.</p></div></div>
+    <div className="ag-platform-bar"><div><h2>Social Connections</h2><p>Connect selected Facebook Pages or Instagram Professional accounts for read-only account discovery. No publishing permissions are requested.</p></div>
+      <button className="ag-secondary" disabled={busy} onClick={()=>void refreshMeta()}>Refresh connections</button></div>
+    <div className="ag-ws-note"><b>Single-administrator mode.</b> Developer credentials must be set in this staging preview before connecting. All tokens stay encrypted in Neon, and publishing remains disabled.</div>
+    {metaMessage&&<div className="ag-ws-note" role="status">{metaMessage}</div>}
+    <div className="ag-modulegrid">
+      {metaReadiness.map(m=><div className="ag-card" key={m.provider}>
+       <h3>{m.provider==="facebook_pages"?"Facebook Pages":"Instagram Professional"}</h3>
+       <small>{m.appConfigured?"Meta developer app configured":"Meta developer app credentials missing"}</small>
+       <p>Read-only permissions: {m.permissions.join(", ")}</p>
+       <button className="ag-primary" disabled={!m.launchEnabled||busy} onClick={()=>void connectMeta(m.provider)}>
+         {m.launchEnabled?"Authorize and select account":"Connection not configured"}
+       </button>
+       <small>Account access only. Posts, messages, comments and publishing are not enabled.</small>
+      </div>)}
+    </div>
+    <h3>Choose from newly authorized accounts</h3>
+    {!metaInventory?.pending.length&&<div className="ag-social-empty">No pending account selections. Authorize Facebook or Instagram first.</div>}
+    {metaInventory?.pending.map(pending=><div className="ag-card" key={pending.id}>
+      <b>{pending.provider==="facebook_pages"?"Available Facebook Pages":"Available Instagram accounts"}</b>
+      <small>Selection expires {new Date(pending.expiresAt).toLocaleString()}</small>
+      <div className="ag-social-list">{pending.candidates.map(account=><div className="ag-social-calendar" key={account.id}>
+       <span><b>{account.name}</b><small>{account.accountType||"Page"} · {account.id}</small></span>
+       <button className="ag-secondary" disabled={busy} onClick={()=>void selectMetaAccount(pending.id,account.id)}>Connect read-only</button>
+      </div>)}</div>
+      <p className="ag-footnote">Only the selected account will be connected. To connect another Page, authorize again.</p>
+    </div>)}
+    <h3>Connected accounts</h3>
+    {!metaInventory?.connections.length&&<div className="ag-social-empty">No Facebook or Instagram accounts are connected yet.</div>}
+    {metaInventory?.connections.map(account=><div className="ag-social-calendar" key={account.id}>
+      <div><b>{account.name}</b><small>{account.provider==="facebook_pages"?"Facebook Page":"Instagram Professional"} · Read-only</small></div>
+      <div><small>{account.expired?"Token expired":account.expiresAt?"Token expires "+new Date(account.expiresAt).toLocaleDateString():"Token expiry not supplied"}</small></div>
+      <button className="ag-secondary" disabled={busy} onClick={()=>void disconnectMetaAccount(account.id)}>Disconnect</button>
+    </div>)}
+    <div className="ag-ws-note"><b>Additional channels planned</b>
+      <p>LinkedIn, TikTok, YouTube, X, Threads and Pinterest require independent developer applications. Their OAuth connections are not active in this milestone.</p>
+    </div>
    </section>}
 {tab==="media"&&<section className="ag-card">
     <div className="ag-platform-bar"><div><h2>Private media library</h2><p>Isolated, workspace-owned JPEG, PNG and WebP files. No media is public or sent to social channels.</p></div>
