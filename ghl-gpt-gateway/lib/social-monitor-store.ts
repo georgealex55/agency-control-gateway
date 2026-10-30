@@ -15,26 +15,34 @@ export async function inspectSocialDelivery(workspaceId:string):Promise<{summary
   "WHEN j.status='pending' AND j.next_attempt_at>now() THEN 'retry_scheduled' "+
   "WHEN j.status='pending' AND (j.next_attempt_at IS NULL OR j.next_attempt_at<=now()) AND j.claim_until IS NULL THEN 'ready_pending' "+
   "ELSE 'healthy' END AS reason, "+
-  "CASE WHEN p.updated_at IS DISTINCT FROM j.post_revision THEN TRUE ELSE FALSE END AS outdated "+
+  "CASE WHEN j.status IN ('pending','queued') AND (p.updated_at IS DISTINCT FROM j.post_revision OR p.state IS DISTINCT FROM 'approved') THEN TRUE ELSE FALSE END AS outdated "+
   "FROM agency_social_dispatch_jobs j LEFT JOIN agency_social_posts p ON p.id=j.post_id AND p.workspace_id=j.workspace_id "+
   "WHERE j.workspace_id=$1::uuid) "+
   "SELECT id,post_id,channel,status,attempts,updated_at,reason,outdated FROM observations "+
   "ORDER BY CASE reason WHEN 'queued_over_hour' THEN 0 WHEN 'retry_exhausted' THEN 1 WHEN 'lease_expired' THEN 2 WHEN 'ready_pending' THEN 3 ELSE 4 END,updated_at ASC LIMIT 200";
  const result=rows<RecordRow>(await db.query(statement,[workspaceId]));
- const summary:MonitorSummary={queuedOverHour:0,leasesOverdue:0,retryScheduled:0,retryExhausted:0,readyPending:0,outdatedRevision:0,attention:0};
+ const aggregate=rows<RecordRow>(await db.query(
+  "SELECT "+
+  "count(*) FILTER(WHERE j.status='queued' AND j.updated_at<now()-interval '60 minutes')::int AS queued_over_hour, "+
+  "count(*) FILTER(WHERE j.status='pending' AND j.claim_until<now())::int AS leases_overdue, "+
+  "count(*) FILTER(WHERE j.status='pending' AND j.next_attempt_at>now())::int AS retry_scheduled, "+
+  "count(*) FILTER(WHERE j.status='pending' AND j.attempts>=5)::int AS retry_exhausted, "+
+  "count(*) FILTER(WHERE j.status='pending' AND j.next_attempt_at IS NULL AND j.claim_until IS NULL AND j.attempts<5)::int AS ready_pending, "+
+  "count(*) FILTER(WHERE j.status IN ('pending','queued') AND (p.updated_at IS DISTINCT FROM j.post_revision OR p.state IS DISTINCT FROM 'approved'))::int AS outdated_revision, "+
+  "count(*) FILTER(WHERE (j.status='queued' AND j.updated_at<now()-interval '60 minutes') OR "+
+  "(j.status='pending' AND (j.claim_until<now() OR j.attempts>=5)) OR "+
+  "(j.status IN ('pending','queued') AND (p.updated_at IS DISTINCT FROM j.post_revision OR p.state IS DISTINCT FROM 'approved')))::int AS attention "+
+  "FROM agency_social_dispatch_jobs j LEFT JOIN agency_social_posts p ON p.id=j.post_id AND p.workspace_id=j.workspace_id "+
+  "WHERE j.workspace_id=$1::uuid",[workspaceId]
+ ))[0]||{};
+
+ const summary:MonitorSummary={queuedOverHour:Number(aggregate.queued_over_hour||0),leasesOverdue:Number(aggregate.leases_overdue||0),retryScheduled:Number(aggregate.retry_scheduled||0),retryExhausted:Number(aggregate.retry_exhausted||0),readyPending:Number(aggregate.ready_pending||0),outdatedRevision:Number(aggregate.outdated_revision||0),attention:Number(aggregate.attention||0)};
  const items:MonitorItem[]=[];
  for(const row of result){
   const reason=String(row.reason||"healthy"),outdated=row.outdated===true;
-  if(reason==="queued_over_hour")summary.queuedOverHour++;
-  if(reason==="lease_expired")summary.leasesOverdue++;
-  if(reason==="retry_scheduled")summary.retryScheduled++;
-  if(reason==="retry_exhausted")summary.retryExhausted++;
-  if(reason==="ready_pending")summary.readyPending++;
-  if(outdated)summary.outdatedRevision++;
   if(reason==="queued_over_hour"||reason==="lease_expired"||reason==="retry_exhausted"||outdated){
    items.push({id:String(row.id),postId:String(row.post_id),channel:String(row.channel),status:String(row.status),reason:outdated?"post_revision_changed":reason,attempts:Number(row.attempts||0),lastUpdated:new Date(String(row.updated_at)).toISOString()});
   }
  }
- summary.attention=items.length;
  return {summary,items,externalPublishing:false,autoRecoveryEnabled:false};
 }
