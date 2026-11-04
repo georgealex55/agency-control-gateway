@@ -64,8 +64,8 @@ export default function UpstreamIntegrations(){
        <b>Read-only sample from {current?.name||"workspace"}</b>
        <div className="ag-source-list">{status?.sampleNames?.map((name,i)=><div key={i}>{name}</div>)}</div>
       </div>}
-      {setup?.missingKeys?.length>0&&<details><summary>Missing setup ({setup.missingKeys.length})</summary>
-       <ul>{setup.missingKeys.map(k=><li key={k}><code>{k}</code></li>)}</ul>
+      {Boolean(setup?.missingKeys?.length)&&<details><summary>Missing setup ({setup?.missingKeys?.length||0})</summary>
+       <ul>{setup?.missingKeys?.map(k=><li key={k}><code>{k}</code></li>)}</ul>
       </details>}
       <div className="ag-social-actions">
        <button className="ag-secondary" disabled={!selected||!setup?.configured||busy!==null}
