@@ -1,0 +1,71 @@
+name: REACH GoHyperLevel synthetic POC
+
+on:
+  push:
+    branches:
+      - experiment/gohyperlevel-synthetic-poc-20261104
+    paths:
+      - .github/workflows/gohyperlevel-poc.yml
+      - scripts/gohyperlevel-poc-smoke.mjs
+      - docs/gohyperlevel-runtime-poc.md
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reach-pghl-synthetic-poc
+  cancel-in-progress: true
+
+jobs:
+  upstream-runtime:
+    name: Pinned source, API tests and isolated SQLite persistence
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout Agency Control staging experiment
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          submodules: false
+
+      - name: Checkout pinned GoHyperLevel source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: BAISESYSTEMS/GoHyperLevel
+          ref: 24ea786b85c3240ae4f24dcad6f657749730c56e
+          path: _upstream/gohyperlevel
+          persist-credentials: false
+          submodules: false
+
+      - name: Confirm exact source revision
+        working-directory: _upstream/gohyperlevel
+        run: test "$(git rev-parse HEAD)" = "24ea786b85c3240ae4f24dcad6f657749730c56e"
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+
+      - name: Install upstream dependencies
+        working-directory: _upstream/gohyperlevel
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck server, web and scripts
+        working-directory: _upstream/gohyperlevel
+        run: npm run typecheck
+
+      - name: Run upstream API integration tests with synthetic data
+        working-directory: _upstream/gohyperlevel
+        run: npx vitest run tests/api.test.ts
+
+      - name: Build original UI and server
+        working-directory: _upstream/gohyperlevel
+        run: npm run build
+
+      - name: Validate distributed dependency licenses
+        working-directory: _upstream/gohyperlevel
+        run: npm run licenses
+
+      - name: Verify isolated runtime and SQLite persistence after restart
+        run: node scripts/gohyperlevel-poc-smoke.mjs _upstream/gohyperlevel
