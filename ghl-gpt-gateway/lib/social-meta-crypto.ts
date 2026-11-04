@@ -8,7 +8,7 @@ export function parseMetaKey(value:string|undefined):Buffer{
  return b;
 }
 function bind(workspaceId:string,provider:MetaProvider,accountId:string):Buffer{
- if(!/^[a-f0-9-]{36}$/i.test(workspaceId)||!/^[0-9]{2,40}$/.test(accountId))throw Error("Invalid token owner");
+ if(!/^[a-f0-9-]{36}$/i.test(workspaceId)||!(/^[0-9]{2,40}$/.test(accountId)||/^[0-9a-f]{8}-[0-9a-f-]{27,36}$/i.test(accountId)))throw Error("Invalid token owner");
  return Buffer.from("meta:"+workspaceId+":"+provider+":"+accountId,"utf8");
 }
 export function encryptMetaToken(token:string,keyString:string,workspaceId:string,provider:MetaProvider,accountId:string):string{

@@ -39,3 +39,14 @@
 .ag-social-analytics{padding:14px;background:#f6f8fb;color:#3c5879;font-size:10px;white-space:pre-wrap;overflow-wrap:anywhere;border-radius:8px;max-height:400px;overflow:auto}
 @media(max-width:1250px){.ag-social-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.ag-social-columns,.ag-social-insights{grid-template-columns:1fr}}
 @media(max-width:700px){.ag-social-calendar{grid-template-columns:1fr}.ag-social-channels{grid-template-columns:1fr}.ag-social-top{align-items:flex-start}.ag-social-tabs button{padding:12px}}
+
+/* Compact local-month calendar: the selected day controls the detailed list */
+.ag-calendar-weekdays{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px;margin-top:20px;margin-bottom:7px}
+.ag-calendar-weekdays b{text-align:center;font-size:11px;color:#7889a4}
+.ag-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px}
+.ag-calendar-day{display:flex;flex-direction:column;align-items:flex-start;min-height:98px;padding:9px;border:1px solid #e2e9f2;background:#fff;border-radius:9px;text-align:left;gap:5px;overflow:hidden}
+.ag-calendar-day:hover{border-color:#758fe3}.ag-calendar-day.selected{outline:2px solid #496ae5;background:#f8faff}
+.ag-calendar-day strong{font-size:13px;color:#334d74}.ag-calendar-day small{font-size:10px;color:#889bb3}
+.ag-calendar-pill{display:block;width:100%;padding:4px 6px;font-size:9px;color:#53617e;background:#eef1fa;border-radius:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ag-calendar-pill.approved{background:#e2f7ed;color:#187e52}.ag-calendar-pill.planned{background:#fff0db;color:#97651f}
+@media(max-width:760px){.ag-calendar-grid{gap:4px}.ag-calendar-day{min-height:62px;padding:5px}.ag-calendar-day .ag-calendar-pill{display:none}.ag-calendar-weekdays b{font-size:9px}}

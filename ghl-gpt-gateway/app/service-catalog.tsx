@@ -1,5 +1,7 @@
 "use client";
 import {useState} from "react";
+import UpstreamIntegrations from "./upstream-integrations";
+import GoHyperLevelAudit from "./gohyperlevel-audit";
 import {PLATFORM_SERVICES,type PlatformServiceId} from "@/lib/platform-services";
 const icons:Record<PlatformServiceId,string>={website:"⌂",learning:"▤",crm:"◫",social:"↗",automation:"⚡"};
 export default function ServiceCatalog(){
@@ -12,7 +14,7 @@ export default function ServiceCatalog(){
     <div className="ag-modulegrid ag-modulecatalog">
       {PLATFORM_SERVICES.map(s=><button className={"ag-sourcecard "+(selected===s.id?"selected":"")} key={s.id} onClick={()=>setSelected(s.id)}>
         <span className="ag-source-icon">{icons[s.id]}</span><strong>{s.title}</strong><small>{s.summary}</small>
-        <span className={"ag-source-status "+(s.status==="deferred"?"deferred":"")}>{s.status==="deferred"?"Future phase":"Source ready"}</span>
+        <span className={"ag-source-status "+(s.status==="integration-staged"?"":"")}>{s.status==="integration-staged"?"API bridge staged":"Source pinned"}</span>
       </button>)}
     </div>
     <section className="ag-card">
@@ -22,6 +24,8 @@ export default function ServiceCatalog(){
         <div><h3>Original source repositories</h3><div className="ag-source-list">{active.upstream.map(name=><div key={name}><span>↳</span>{name}</div>)}</div><div className="ag-ws-note"><b>Required runtime:</b> {active.runtime}<p>Original source is pinned in /services/sources. Functionality becomes available only after an isolated backend deploy, integration tests and tenant authorization.</p></div></div>
       </div>
     </section>
-    <p className="ag-footnote">Source ready does not mean the service is running. GHL import and scans are deliberately excluded from this phase.</p>
+    <GoHyperLevelAudit/>
+    <UpstreamIntegrations/>
+    <p className="ag-footnote">Upstream API integration code is staged; full original service runtimes must be deployed and verified separately. GHL migration remains deferred.</p>
   </div>;
 }

@@ -32,5 +32,7 @@ test("consent state is time-limited, signed and cannot be retargeted",()=>{
  assert.equal(verified?.provider,"instagram_professional");
  assert.equal(verifyMetaConsent(state,secret,now+180001),null);
  assert.equal(verifyMetaConsent(state,randomBytes(48).toString("base64url"),now),null);
- assert.equal(verifyMetaConsent(state.replace(/.$/,"A"),secret,now),null);
+ const tampered=state.slice(0,-1)+(state.endsWith("A")?"B":"A");
+ assert.notEqual(tampered,state);
+ assert.equal(verifyMetaConsent(tampered,secret,now),null);
 });

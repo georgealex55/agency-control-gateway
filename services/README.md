@@ -39,11 +39,11 @@ agency-control-gateway/                    (main GitHub repository)
 
 | Product module | Backend sources | Runtime | Status |
 |---|---|---|---|
-| Website Studio | Frappe, Builder | Python/Frappe, MariaDB, Redis, workers | Source pinned; integration pending |
-| Learning Studio | Frappe, LMS, Payments | Frappe service; file/media storage | Source pinned; integration pending |
-| CRM & scheduling | Frappe, CRM | Frappe service | Source pinned; integration pending |
-| Social Intelligence | Native Vercel service; Postiz retained as reference | Next.js Functions, Vercel Queues, Neon PostgreSQL | Dry-run staging only; no social publishing |
-| Workflow Studio | Activepieces | Separate application and worker stack | Source pinned; **deferred** |
+| Website Studio | Frappe, Builder | Python/Frappe, MariaDB, Redis, workers | Read-only Frappe Builder API bridge staged; runtime unconnected |
+| Learning Studio | Frappe, LMS, Payments | Frappe service; file/media storage | Read-only LMS API bridge staged; payments remain disabled |
+| CRM & scheduling | Frappe, CRM | Frappe service | Read-only CRM API bridge staged; runtime unconnected |
+| Social Intelligence | Postiz upstream API + existing Vercel planner | Postiz Node/PostgreSQL/Redis/workers outside Vercel; Vercel control plane + Neon | Read-only Postiz API bridge staged; upstream server not connected |
+| Workflow Studio | Activepieces API | Activepieces persistent application + worker stack | Read-only project/flow bridge staged; upstream server not connected |
 | Agency Admin | Next.js + dedicated Neon DB | Vercel | Existing independent platform core |
 
 **Frappe version constraints:** Frappe v16, CRM `main`, Learning `version-16`, Payments `version-16`, and a pinned Builder revision are the intended starting point. Compatibility must be verified on one dedicated test bench (frontend route collisions, permissions, migrations, app dependencies). Do not claim co-installation works until a test bench passes.
@@ -53,6 +53,14 @@ agency-control-gateway/                    (main GitHub repository)
 **Activepieces:** The upstream root license covers community parts; enterprise directories have additional license restrictions. Do not deploy enterprise-only source or advertise white-label embedded builders without verifying entitlements.
 
 **Frappe and Postiz cannot run inside the existing Vercel Next.js deployment.** The control-plane will use authenticated, tenant-scoped server-to-server adapters. The Next.js app is not a reverse proxy for arbitrary client-supplied URLs.
+
+## November 2026 all-engine API bridge
+
+The existing staging control plane has administrator-protected API adapters for **Postiz, Builder, CRM, Learning and Activepieces**, together with a unified Platform Studios verification screen. These adapters perform bounded, fixed-host, read-only upstream requests and are restricted to an explicitly mapped staging workspace. They do not replace or copy the original engine runtime. The complete source checkouts remain immutable Git submodules.
+
+See [UPSTREAM_ENGINES_INTEGRATION.md](../UPSTREAM_ENGINES_INTEGRATION.md) for exact Vercel environment variable names, Frappe/Postiz/Activepieces provisioning dependencies, per-service API contracts and acceptance tests.
+
+No upstream engine hostnames or credentials are currently configured. The upstream apps cannot be described as running or fully connected until persistent application servers, databases and background workers are provisioned and verified. Additional user access, GHL import, external publishing, payments and media uploads stay disabled.
 
 ## Development stages
 

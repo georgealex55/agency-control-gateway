@@ -4,7 +4,7 @@ import { scanAgency } from "@/lib/portal-scan";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 export async function POST(req:NextRequest) {
-  if(["feature/social-intelligence-stage-20261029","feature/social-vercel-native-stage-20261029","feature/social-meta-media-stage-20261029","feature/social-private-blob-security-20261029"].includes(process.env.VERCEL_GIT_COMMIT_REF||""))return NextResponse.json({error:"GHL scanning is deferred during Social Intelligence staging"},{status:403,headers:{"Cache-Control":"no-store"}});
+  if(["feature/social-intelligence-stage-20261029","feature/social-vercel-native-stage-20261029","feature/social-meta-media-stage-20261029","feature/social-private-blob-security-20261029","feature/agency-five-seats-stage-20261029"].includes(process.env.VERCEL_GIT_COMMIT_REF||""))return NextResponse.json({error:"GHL scanning is deferred during Social Intelligence staging"},{status:403,headers:{"Cache-Control":"no-store"}});
   if(!sameOrigin(req))return NextResponse.json({error:"Invalid request origin"},{status:403});
   if(!adminAuthenticated(req))return NextResponse.json({error:"Admin sign-in required"},{status:401});
   try {

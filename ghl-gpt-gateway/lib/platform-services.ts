@@ -6,35 +6,35 @@ export type PlatformService = {
   upstream:string[];
   runtime:string;
   capabilities:string[];
-  status:"source-pinned"|"deferred";
+  status:"integration-staged"|"integration-staged";
   deployment:"external"|"vercel-native";
 };
 export const PLATFORM_SERVICES:readonly PlatformService[]=[
   {
     id:"website",title:"Website Studio",summary:"Visual pages, reusable sections, forms, domain ownership and publishing.",
     upstream:["frappe/frappe","frappe/builder","frappe/frappe_docker"],
-    runtime:"Frappe v16 + MariaDB + Redis + worker",status:"source-pinned",deployment:"external",
+    runtime:"Frappe v16 + MariaDB + Redis + worker",status:"integration-staged",deployment:"external",
     capabilities:["Page/section editor","Asset library","Forms & appointments","Domain validation","Draft/preview/publish"]
   },
   {
     id:"learning",title:"Learning Studio",summary:"Structured courses, teachers, lessons, quizzes and students.",
     upstream:["frappe/frappe","frappe/lms","frappe/payments"],
-    runtime:"Frappe v16 + Learning + Payments",status:"source-pinned",deployment:"external",
+    runtime:"Frappe v16 + Learning + Payments",status:"integration-staged",deployment:"external",
     capabilities:["Instructor workspace","Courses & lessons","Quizzes","Student progress","Certificates"]
   },
   {
     id:"crm",title:"Customer Hub",summary:"Contacts, lead pipelines, follow-ups and appointment workflows.",
-    upstream:["frappe/frappe","frappe/crm"],runtime:"Frappe v16 + CRM",status:"source-pinned",deployment:"external",
+    upstream:["frappe/frappe","frappe/crm"],runtime:"Frappe v16 + CRM",status:"integration-staged",deployment:"external",
     capabilities:["Contacts & leads","Deal pipeline","Contact activity","Tasks","Appointments"]
   },
   {
     id:"social",title:"Social Intelligence",summary:"Social scheduling, connected accounts, post metrics and campaign reporting.",
-    upstream:["gitroomhq/postiz-app"],runtime:"Vercel Functions + Vercel Queues + Neon PostgreSQL",status:"source-pinned",deployment:"vercel-native",
+    upstream:["gitroomhq/postiz-app"],runtime:"Postiz Node + PostgreSQL + Redis + workers (separate from Vercel control plane)",status:"integration-staged",deployment:"external",
     capabilities:["Content calendar","Draft/approval flow","Social integrations","Analytics","Campaign summaries"]
   },
   {
     id:"automation",title:"Workflow Studio",summary:"Agency-approved automation recipes and AI-enabled follow-up.",
-    upstream:["activepieces/activepieces"],runtime:"Activepieces + separate workers",status:"deferred",deployment:"external",
+    upstream:["activepieces/activepieces"],runtime:"Activepieces + separate workers",status:"integration-staged",deployment:"external",
     capabilities:["Workflow recipes","Approvals","Rate limits","Audit trail","Usage metering"]
   }
 ] as const;

@@ -28,8 +28,8 @@ test("product services use pinned upstream repositories",()=>{
   assert(s.upstream.every(origin=>origins.has(origin)),"Unpinned source "+s.id);
  }
 });
-test("GHL and paid automation remain disabled",()=>{
+test("GHL import and external automation execution remain disabled",()=>{
  assert.equal(lock.noGhlImports,true);
- assert.equal(PLATFORM_SERVICES.find(x=>x.id==="automation")?.status,"deferred");
+ assert.equal(PLATFORM_SERVICES.find(x=>x.id==="automation")?.status,"integration-staged");
  assert(PLATFORM_SERVICES.every(s=>s.status!=="running"));
 });
