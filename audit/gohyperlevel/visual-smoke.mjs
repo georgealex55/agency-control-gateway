@@ -54,6 +54,54 @@ try{
   report.routes.push({kind:"api",path:"/api/"+key,status:res.status(),ok:res.ok()});
  }
 
+
+ // Deliberate synthetic-only end-to-end records: no integrations, outbound messages or real clients.
+ report.scenarios=[];
+ const headers={"x-location-id":workspaceId,"x-pghl":"1"};
+ async function createSynthetic(path,body,label){
+  const res=await context.request.post(base+path,{headers,data:body});
+  const value=await parse(res);
+  report.scenarios.push({name:label,status:res.status(),recordCreated:Boolean(value?.id)});
+  assert.equal(res.status(),200,label+" synthetic creation");
+  assert(typeof value?.id==="string",label+" synthetic ID");
+  return value;
+ }
+ const contact=await createSynthetic("/api/contacts",{
+  first_name:"Synthetic",last_name:"Audit",email:"synthetic-lead@example.invalid",tags:["audit-only"]
+ },"CRM contact");
+ const site=await createSynthetic("/api/funnels",{
+  name:"Synthetic Audit Landing Page",kind:"funnel",template:"leadmagnet"
+ },"Website/funnel");
+ const course=await createSynthetic("/api/courses",{
+  title:"Synthetic Test Course",description:"No real learners"
+ },"LMS course");
+ const draft=await createSynthetic("/api/workflows",{
+  name:"Synthetic Draft Workflow",
+  trigger:{type:"contact.tag_added",config:{tag:"never-trigger-audit"}},
+  steps:[{type:"add_tag",tags:["test-completed"]}]
+ },"Inactive workflow");
+ for(const [label,path] of [
+  ["CRM contact","/api/contacts/"+contact.id],
+  ["Website/funnel","/api/funnels/"+site.id],
+  ["LMS course","/api/courses/"+course.id],
+  ["Inactive workflow","/api/workflows/"+draft.id]
+ ]){
+  const read=await context.request.get(base+path,{headers});
+  report.scenarios.push({name:label+" readback",status:read.status(),recordCreated:false});
+  assert.equal(read.status(),200,label+" readback");
+ }
+ async function dismissOnboarding(page){
+  const prompt=page.getByText("What do you want to do?",{exact:true});
+  if(!await prompt.isVisible().catch(()=>false))return false;
+  const dismiss=page.getByRole("button",{name:/^Later$/i});
+  if(!await dismiss.count())throw new Error("Onboarding overlay blocks module audit and cannot be dismissed");
+  await dismiss.first().click({timeout:4000});
+  await page.waitForTimeout(400);
+  if(await prompt.isVisible().catch(()=>false))throw new Error("Onboarding overlay remained open after dismissal");
+  return true;
+ }
+ report.onboardingDismissals=0;
+
  const page=await context.newPage();
  page.on("pageerror",error=>report.pageErrors.push({path:new URL(page.url()).pathname,message:String(error.message).slice(0,300)}));
  const pages=["dashboard","contacts","opportunities","funnels","courses","workflows","social"];
@@ -62,6 +110,7 @@ try{
   const response=await page.goto(base+path,{waitUntil:"domcontentloaded",timeout:20000});
   await page.waitForFunction(()=>Boolean(window.__pghlMounted),null,{timeout:10000}).catch(()=>{});
   await page.waitForTimeout(650);
+  if(await dismissOnboarding(page))report.onboardingDismissals++;
   const body=await page.locator("body").innerText({timeout:5000}).catch(()=>"");
   report.routes.push({kind:"ui",path,status:response?.status()||0,title:await page.title(),bodyLength:body.length,
     mounted:await page.evaluate(()=>Boolean(window.__pghlMounted)).catch(()=>false)});
@@ -74,6 +123,7 @@ try{
   const path="/app/"+route;
   await page.goto(base+path,{waitUntil:"domcontentloaded",timeout:20000});
   await page.waitForTimeout(850);
+  if(await dismissOnboarding(page))report.onboardingDismissals++;
   const size=await page.evaluate(()=>({document:document.documentElement.scrollWidth,viewport:window.innerWidth}));
   report.routes.push({kind:"mobile",path,horizontalOverflowPx:Math.max(0,size.document-size.viewport)});
   const screenshot=safeFile("mobile-"+route);
@@ -83,7 +133,7 @@ try{
  if(report.routes.some(r=>r.kind==="ui"&&(r.status>=500||r.bodyLength<25)))report.warnings.push("One or more UI routes have server errors or low rendered content");
  if(report.routes.some(r=>r.kind==="mobile"&&r.horizontalOverflowPx>20))report.warnings.push("Mobile horizontal overflow detected");
  if(report.pageErrors.length)report.warnings.push("Uncaught browser exceptions recorded");
- console.log(JSON.stringify({health:report.health,auth:report.auth,routes:report.routes.map(r=>({kind:r.kind,path:r.path,status:r.status,bodyLength:r.bodyLength,mounted:r.mounted,horizontalOverflowPx:r.horizontalOverflowPx})),warnings:report.warnings,screenshotCount:report.screenshots.length},null,2));
+ console.log(JSON.stringify({health:report.health,auth:report.auth,routes:report.routes.map(r=>({kind:r.kind,path:r.path,status:r.status,bodyLength:r.bodyLength,mounted:r.mounted,horizontalOverflowPx:r.horizontalOverflowPx})),warnings:report.warnings,scenarios:report.scenarios,onboardingDismissals:report.onboardingDismissals,screenshotCount:report.screenshots.length},null,2));
 }finally{
  writeFileSync(join(dir,"audit-summary.json"),JSON.stringify(report,null,2)+"\n");
  await browser.close();

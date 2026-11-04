@@ -132,4 +132,5 @@ jobs:
         if: always()
         run: |
           docker rm --force gohyperlevel-qa 2>/dev/null || true
-          rm -rf "$RUNNER_TEMP/goh-synthetic-data" "$RUNNER_TEMP/goh-visual"
+          sudo rm -rf "$RUNNER_TEMP/goh-synthetic-data"
+          rm -rf "$RUNNER_TEMP/goh-visual"
