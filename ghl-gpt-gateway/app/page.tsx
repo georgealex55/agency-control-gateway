@@ -95,7 +95,14 @@ export default function Home() {
           {session.authenticated&&<PlatformWorkspaces/>}
           {!session.authenticated&&<section className="ag-card"><Head title="Example workspace types" sub="Design references only; they are not real client accounts."/><div className="ag-rows">{SAMPLE_TENANTS.map(t=><div className="ag-tenant" key={t.id}><span className="ag-tenant-icon">▦</span><span><b>{t.name}</b><small>{t.category} · SAMPLE</small></span></div>)}</div></section>}
         </>}
-        {view==="services"&&<ServiceCatalog/>}
+        {view==="services"&&(!session.authenticated?
+          <section className="ag-card"><h2>Administrator sign-in required</h2>
+           {!session.configured?<p>Configure staging administrator access first.</p>:
+            <form onSubmit={login} className="ag-login"><label htmlFor="engines-adminpass">Administrator password</label><div>
+             <input id="engines-adminpass" type="password" minLength={12} autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)} placeholder="Administrator password"/>
+             <button className="ag-primary" disabled={loading}>{loading?"Signing in…":"Unlock Platform Studios"}</button></div></form>}
+           {error&&<p className="ag-error" role="alert">{error}</p>}
+          </section>:<ServiceCatalog/>)} 
         {view==="social"&&(!session.authenticated?<section className="ag-card"><h2>Agency administrator access required</h2>
           {!session.configured?<p>Configure administrator access in the staging Vercel environment before managing real social drafts.</p>:<form onSubmit={login} className="ag-login"><label htmlFor="social-adminpass">Administrator password</label><div><input id="social-adminpass" type="password" minLength={12} autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)} placeholder="Administrator password"/><button className="ag-primary" disabled={loading}>{loading?"Signing in…":"Unlock Social Intelligence"}</button></div></form>}
           {error&&<p className="ag-error" role="alert">{error}</p>}
