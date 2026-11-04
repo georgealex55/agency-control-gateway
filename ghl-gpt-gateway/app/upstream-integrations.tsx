@@ -60,9 +60,9 @@ export default function UpstreamIntegrations(){
       <p>{def.runtime}</p>
       <strong>{status?status.state.replaceAll("_"," "):setup?.configured?"Configured — not yet verified":"Awaiting upstream configuration"}</strong>
       {status?.detail&&<p>{status.detail}</p>}
-      {status?.sampleNames?.length>0&&<div className="ag-ws-note">
+      {Boolean(status?.sampleNames?.length)&&<div className="ag-ws-note">
        <b>Read-only sample from {current?.name||"workspace"}</b>
-       <div className="ag-source-list">{status.sampleNames.map((name,i)=><div key={i}>{name}</div>)}</div>
+       <div className="ag-source-list">{status?.sampleNames?.map((name,i)=><div key={i}>{name}</div>)}</div>
       </div>}
       {setup?.missingKeys?.length>0&&<details><summary>Missing setup ({setup.missingKeys.length})</summary>
        <ul>{setup.missingKeys.map(k=><li key={k}><code>{k}</code></li>)}</ul>

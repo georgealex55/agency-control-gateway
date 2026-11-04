@@ -29,7 +29,7 @@ export const PLATFORM_SERVICES:readonly PlatformService[]=[
   },
   {
     id:"social",title:"Social Intelligence",summary:"Social scheduling, connected accounts, post metrics and campaign reporting.",
-    upstream:["gitroomhq/postiz-app"],runtime:"Postiz Node + PostgreSQL + Redis + workers (separate from Vercel control plane)",status:"integration-staged",deployment:"vercel-native",
+    upstream:["gitroomhq/postiz-app"],runtime:"Postiz Node + PostgreSQL + Redis + workers (separate from Vercel control plane)",status:"integration-staged",deployment:"external",
     capabilities:["Content calendar","Draft/approval flow","Social integrations","Analytics","Campaign summaries"]
   },
   {
