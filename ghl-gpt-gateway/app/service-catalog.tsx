@@ -1,6 +1,7 @@
 "use client";
 import {useState} from "react";
 import UpstreamIntegrations from "./upstream-integrations";
+import GoHyperLevelAudit from "./gohyperlevel-audit";
 import {PLATFORM_SERVICES,type PlatformServiceId} from "@/lib/platform-services";
 const icons:Record<PlatformServiceId,string>={website:"⌂",learning:"▤",crm:"◫",social:"↗",automation:"⚡"};
 export default function ServiceCatalog(){
@@ -23,6 +24,7 @@ export default function ServiceCatalog(){
         <div><h3>Original source repositories</h3><div className="ag-source-list">{active.upstream.map(name=><div key={name}><span>↳</span>{name}</div>)}</div><div className="ag-ws-note"><b>Required runtime:</b> {active.runtime}<p>Original source is pinned in /services/sources. Functionality becomes available only after an isolated backend deploy, integration tests and tenant authorization.</p></div></div>
       </div>
     </section>
+    <GoHyperLevelAudit/>
     <UpstreamIntegrations/>
     <p className="ag-footnote">Upstream API integration code is staged; full original service runtimes must be deployed and verified separately. GHL migration remains deferred.</p>
   </div>;
