@@ -17,4 +17,4 @@ jobs:
         with:
           node-version: '22'
       - name: Run synthetic Neon boundary tests
-        run: node --test audit/neon/client-neon-config.test.mjs
+        run: node --test audit/neon/*.test.mjs
