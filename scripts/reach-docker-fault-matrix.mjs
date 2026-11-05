@@ -93,7 +93,10 @@ try {
     if(r.status===0 && r.stdout.trim()==='false'){stopped=true;break;}
     await sleep(250);
    }
-   assert(stopped,'fault hook did not terminate original application: '+String(attempt.stderr).slice(-350));
+   if(!stopped){
+     const serverLog=command(['logs','--tail','28',initial],{ignore:true});
+     throw Error('Fault hook missed: '+String(attempt.stderr).slice(-1250)+' SERVICE LOGS: '+String(serverLog.stdout+' '+serverLog.stderr).slice(-1800));
+   }
    command(['rm','-f',initial]);
    const before=offline(volume);
    assert.equal(before.phase,'offline');
