@@ -3,10 +3,10 @@ export function createClientPoolRegistry(bindings, poolFactory) {
   if (!Array.isArray(bindings) || !bindings.length || typeof poolFactory !== 'function') throw new TypeError('Bindings and factory required');
   const registry = new Map(), projects = new Map();
   for (const b of bindings) {
-    if (!b || typeof b.clientId !== 'string' || !/^[\\w-]{3,80}$/.test(b.clientId) ||
-        typeof b.projectId !== 'string' || !/^[\\w-]{3,120}$/.test(b.projectId) ||
+    if (!b || typeof b.clientId !== 'string' || !/^[\w-]{3,80}$/.test(b.clientId) ||
+        typeof b.projectId !== 'string' || !/^[\w-]{3,120}$/.test(b.projectId) ||
         !['app','migration'].includes(b.role) || typeof b.secretRef !== 'string' ||
-        !/^secret:[\\w/-]{3,180}$/.test(b.secretRef)) throw new TypeError('Invalid client pool binding');
+        !/^secret:[\w/-]{3,180}$/.test(b.secretRef)) throw new TypeError('Invalid client pool binding');
     const key = b.clientId + ':' + b.role;
     if (registry.has(key)) throw new Error('Duplicate client role');
     if (projects.has(b.clientId) && projects.get(b.clientId) !== b.projectId) throw new Error('Client project mismatch');
