@@ -22,6 +22,7 @@ const helper=[
   "  console.error('[REACH-FAULT-MATCH]', JSON.stringify({stepId:step.id,type:step.type,stage,priorMarker:reachFaultExists(marker)}));",
   '  reachFaultWrite(marker, JSON.stringify({stage, stepId:step.id, runId:run.id}) + String.fromCharCode(10));',
   "  process.kill(process.pid, 'SIGKILL');",
+  "  process.exit(137); // Fallback: no request may continue past the fault point",
   '}',
   ''
 ].join('\n');
