@@ -106,13 +106,16 @@ try{
  output(['volume','create',providerVolume]);providerCreated=true;
  runApp(first);await healthy(first);
  const started=apiPhase(first,'setup');
- assert.equal(started.cases,6);
+ assert.equal(started.cases,7);
+ assert.equal(started.unsafeTargetsRejected,4,'all unsafe external targets rejected');
  const m=manifest();
- assert.equal(m.cases.length,6);
- report.setup={outboxRows:started.cases,channels:started.channels,realDispatches:0};
+ assert.equal(m.cases.length,7);
+ report.setup={outboxRows:started.cases,channels:started.channels,
+  unsafeTargetsRejected:started.unsafeTargetsRejected,realDispatches:0};
  const cases=[
   {key:'email_before_accept',crash:'before_accept',expected:73,state:'delivered'},
   {key:'sms_after_accept',crash:'after_accept',expected:74,state:'delivered'},
+  {key:'email_key_only_replay',crash:'after_accept',expected:74,state:'delivered'},
   {key:'webhook_after_accept',crash:'after_accept',expected:74,state:'delivered'},
   {key:'postiz_after_accept',crash:'after_accept',expected:74,state:'delivered'},
   {key:'webhook_unresolvable',crash:'after_accept',expected:74,state:'review_required'},
@@ -176,7 +179,7 @@ try{
   noDuplicateAfterSecondAppRestart:true};
  report.status='PASS';
  console.log(JSON.stringify({result:'PASS',fakeChannels:4,
-  providerWorkerCrashCases:6,unknownOutcomesForHumanReview:2,
+  providerWorkerCrashCases:7,unsafeTargetsRejected:4,unknownOutcomesForHumanReview:2,
   fakeRemoteDuplicates:0,appKillRecovery:true,oneQueuedIntentAfterAppCrash:true,
   network:'none'},null,2));
 }catch(e){
