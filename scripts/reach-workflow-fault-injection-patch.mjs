@@ -16,6 +16,7 @@ const helper=[
   '/** Fault injection requires an explicit synthetic-only environment flag. */',
   'function reachFault(run: RunState, step: Step | undefined, stage: string): void {',
   "  if (process.env.REACH_FAULT_SYNTHETIC !== 'yes') return;",
+  "  if (process.env.REACH_FAULT_SYNTHETIC === 'yes') console.error('[REACH-FAULT-HOOK]', JSON.stringify({actualStage:stage,actualStep:step?.id,wantedStage:process.env.REACH_FAULT_STAGE,wantedStep:process.env.REACH_FAULT_STEP_ID}));",
   '  if (!step || step.id !== process.env.REACH_FAULT_STEP_ID || stage !== process.env.REACH_FAULT_STAGE) return;',
   "  const marker = '/data/reach-fault-fired';",
   '  if (reachFaultExists(marker)) return;',
