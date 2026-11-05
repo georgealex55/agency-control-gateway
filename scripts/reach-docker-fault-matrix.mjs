@@ -99,7 +99,8 @@ try {
    }
    if(!stopped){
      const serverLog=command(['logs','--tail','28',initial],{ignore:true});
-     throw Error('Fault hook missed: '+String(attempt.stderr).slice(-1250)+' SERVICE LOGS: '+String(serverLog.stdout+' '+serverLog.stderr).slice(-1800));
+     const hookLines=String(serverLog.stdout+'\n'+serverLog.stderr).split('\n').filter(l=>l.includes('[REACH-FAULT-HOOK]'));
+     throw Error('Fault hook missed; seenHooks='+JSON.stringify(hookLines).slice(-1100)+' armError='+String(attempt.stderr).slice(-450));
    }
    command(['rm','-f',initial]);
    const before=offline(volume);
