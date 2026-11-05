@@ -8,6 +8,7 @@ on:
       - .github/workflows/gohyperlevel-poc.yml
       - scripts/gohyperlevel-poc-smoke.mjs
       - scripts/reach-security-patch.mjs
+      - scripts/reach-workflow-idempotency-patch.mjs
       - audit/gohyperlevel/**
       - docs/gohyperlevel-runtime-poc.md
   workflow_dispatch:
@@ -53,8 +54,10 @@ jobs:
         working-directory: _upstream/gohyperlevel
         run: npm ci --no-audit --no-fund
 
-      - name: Apply verified REACH member-bound key security patch to disposable source
-        run: node scripts/reach-security-patch.mjs _upstream/gohyperlevel
+      - name: Apply verified REACH member-bound key and internal action idempotency patches
+        run: |
+          node scripts/reach-security-patch.mjs _upstream/gohyperlevel
+          node scripts/reach-workflow-idempotency-patch.mjs _upstream/gohyperlevel
 
       - name: Typecheck server, web and scripts
         working-directory: _upstream/gohyperlevel
