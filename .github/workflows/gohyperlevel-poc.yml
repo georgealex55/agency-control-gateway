@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/gohyperlevel-poc.yml
       - scripts/gohyperlevel-poc-smoke.mjs
+      - scripts/reach-security-patch.mjs
       - audit/gohyperlevel/**
       - docs/gohyperlevel-runtime-poc.md
   workflow_dispatch:
@@ -52,6 +53,9 @@ jobs:
         working-directory: _upstream/gohyperlevel
         run: npm ci --no-audit --no-fund
 
+      - name: Apply verified REACH member-bound key security patch to disposable source
+        run: node scripts/reach-security-patch.mjs _upstream/gohyperlevel
+
       - name: Typecheck server, web and scripts
         working-directory: _upstream/gohyperlevel
         run: npm run typecheck
@@ -61,11 +65,13 @@ jobs:
         run: npx vitest run tests/api.test.ts
 
       - name: Inject QA test into throwaway upstream checkout
-        run: cp audit/gohyperlevel/reach-functional.test.ts _upstream/gohyperlevel/tests/reach-functional.test.ts
+        run: |
+          cp audit/gohyperlevel/reach-functional.test.ts _upstream/gohyperlevel/tests/reach-functional.test.ts
+          cp audit/gohyperlevel/reach-security.test.ts _upstream/gohyperlevel/tests/reach-security.test.ts
 
       - name: Run REACH funnel, LMS, workflow, and tenant-isolation gates
         working-directory: _upstream/gohyperlevel
-        run: npx vitest run tests/reach-functional.test.ts --reporter=verbose
+        run: npx vitest run tests/reach-functional.test.ts tests/reach-security.test.ts --reporter=verbose
         timeout-minutes: 15
 
       - name: Build original upstream UI and server
