@@ -7,7 +7,9 @@
 
 **Initial successful integration:** https://github.com/georgealex55/agency-control-gateway/actions/runs/41950865657
 **Initial synthetic evidence:** https://github.com/georgealex55/agency-control-gateway/actions/runs/41950865657/artifacts/13381510294
-**Expanded verification:** https://github.com/georgealex55/agency-control-gateway/actions/runs/41951402760
+**Expanded verification (SUCCESS):** https://github.com/georgealex55/agency-control-gateway/actions/runs/41951402760
+**Expanded evidence artifact:** https://github.com/georgealex55/agency-control-gateway/actions/runs/41951402760/artifacts/13381127821
+**Expanded outcome:** 7/7 synthetic provider-worker crash cases passed, 4/4 unsafe outbound targets rejected, zero fake duplicate deliveries, two unreconcilable actions moved to review_required, and the actual app-process crash recovered one queued intent without duplication. TypeScript checks and the Docker job passed.
 
 ## 1. Purpose and strict isolation
 
@@ -51,9 +53,10 @@ The suite also killed the actual GoHyperLevel app process **after the outbox row
 
 **First successful run:** six worker crash tests PASS, one application crash recovery PASS, zero fake provider duplicates, and two intentionally unresolved states held for manual review.
 
-The expanded verification run adds:
-1. A provider with idempotency-key enforcement but **without receipt lookup**: an ambiguous acceptance must be safely retried with the original key and yield only one remote receipt.
-2. Negative guards for unsafe real-looking email addresses, SMS phone numbers, webhook hosts and Postiz integration IDs: each must fail before queueing an intent.
+The **expanded verification run succeeded** and added:
+1. An email provider with idempotency-key enforcement but **without receipt lookup**. After simulated acknowledgment loss, retrying with the original key produced one accepted fake provider receipt, zero duplicates.
+2. Four negative target guards (real-looking email, phone, webhook host and Postiz integration ID). All four workflows failed closed and wrote zero outbound intents. No real delivery occurred.
+3. The original six provider cases and the real app-service after-enqueue crash test all passed again. **Totals: seven worker crash cases passed, four unsafe targets rejected, zero duplicates, two review_required cases.**
 
 ## 4. Committed staging files
 
