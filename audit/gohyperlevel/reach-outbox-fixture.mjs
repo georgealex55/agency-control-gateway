@@ -35,6 +35,8 @@ const choices=[
   step:{id:'reach-external-email',type:'send_email',subject:'REACH test',body:'Synthetic message for {{contact.first_name}}'}},
  {key:'sms_after_accept',channel:'send_sms',
   step:{id:'reach-external-sms',type:'send_sms',body:'REACH synthetic SMS only'}},
+ {key:'email_key_only_replay',channel:'send_email',lookupUnavailable:true,
+  step:{id:'reach-external-email-key-only',type:'send_email',subject:'REACH fake retry',body:'Same idempotency key on retry'}},
  {key:'webhook_after_accept',channel:'webhook',
   step:{id:'reach-external-webhook',type:'webhook',method:'POST',url:'https://fake.reach.invalid/hook'}},
  {key:'postiz_after_accept',channel:'social_post',
@@ -75,16 +77,44 @@ async function setup(){
   assert.equal(entries[0].channel,c.channel);
   const item={key:c.key,channel:c.channel,outboxId:entries[0].id,
    runId:runs.runs[0].id,contactId:contact.id,workflowId:w.id,unreliable:!!c.unreliable};
-  if(c.unreliable){
-   const change=d.prepare('UPDATE reach_synthetic_outbox SET provider_supports_idempotency=0, provider_supports_lookup=0 WHERE id=?').run(item.outboxId);
+  if(c.unreliable||c.lookupUnavailable){
+   const change=d.prepare('UPDATE reach_synthetic_outbox SET provider_supports_idempotency=?, provider_supports_lookup=0 WHERE id=?').run(c.unreliable?0:1,item.outboxId);
    assert.equal(change.changes,1);
   }
   manifest.cases.push(item);
  }
+ // Negative safety gates: non-synthetic targets must NEVER create any outbound row.
+ const unsafe=[
+  {key:'real-domain-email',email:'forbidden@example.com',phone:'+15550001999',
+   action:{type:'send_email',subject:'Reject',body:'Never sent'}},
+  {key:'real-domain-webhook',email:'reject-webhook@example.invalid',phone:'+15550001999',
+   action:{type:'webhook',url:'https://example.com/never-send'}},
+  {key:'real-postiz-channel',email:'reject-postiz@example.invalid',phone:'+15550001999',
+   action:{type:'social_post',integration_ids:['real-postiz-channel'],body:'Never publish'}},
+  {key:'real-phone-sms',email:'reject-sms@example.invalid',phone:'+17770000000',
+   action:{type:'send_sms',body:'Never send'}}
+ ];
+ for(const item of unsafe){
+  const c=await request(s,'POST','/api/contacts',{
+   first_name:'Reject',last_name:item.key,email:item.email,phone:item.phone
+  });
+  const w=await request(s,'POST','/api/workflows',{
+   name:'REACH unsafe guard '+item.key,trigger:{type:'manual',config:{}},
+   steps:[item.action],settings:{stop_on_error:true}
+  });
+  await request(s,'PATCH','/api/workflows/'+w.id,{status:'active'});
+  await request(s,'POST','/api/workflows/'+w.id+'/enroll',{contact_ids:[c.id]});
+  const runs=await request(s,'GET','/api/workflows/'+w.id+'/runs');
+  assert.equal(runs.runs.length,1);
+  assert.equal(runs.runs[0].status,'failed','unsafe channel input must fail closed');
+  assert.equal(d.prepare('SELECT COUNT(*) AS n FROM reach_synthetic_outbox WHERE run_id=?').get(runs.runs[0].id).n,0,
+   'unsafe input must not be queued');
+ }
  d.close();
  writeFileSync(statePath,JSON.stringify(manifest,null,2)+'\n',{mode:0o600});
  console.log(JSON.stringify({phase:'setup',cases:manifest.cases.length,
-  channels:manifest.cases.map(c=>c.channel),fakeOnly:true,status:'pending'}));
+  channels:manifest.cases.map(c=>c.channel),unsafeTargetsRejected:unsafe.length,
+  fakeOnly:true,status:'pending'}));
 }
 async function armCrash(){
  const s=await login(),contact=await request(s,'POST','/api/contacts',{
