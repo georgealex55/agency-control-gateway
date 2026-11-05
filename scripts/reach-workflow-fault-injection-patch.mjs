@@ -19,7 +19,7 @@ const helper=[
   "  if (process.env.REACH_FAULT_SYNTHETIC === 'yes') console.error('[REACH-FAULT-HOOK]', JSON.stringify({actualStage:stage,actualStep:step?.id,wantedStage:process.env.REACH_FAULT_STAGE,wantedStep:process.env.REACH_FAULT_STEP_ID}));",
   "  if (!step || !['create_task', 'add_note'].includes(step.type) || stage !== process.env.REACH_FAULT_STAGE) return;",
   "  const marker = '/data/reach-fault-fired';",
-  '  if (reachFaultExists(marker)) return;',
+  "  console.error('[REACH-FAULT-MATCH]', JSON.stringify({stepId:step.id,type:step.type,stage,priorMarker:reachFaultExists(marker)}));",
   '  reachFaultWrite(marker, JSON.stringify({stage, stepId:step.id, runId:run.id}) + String.fromCharCode(10));',
   "  process.kill(process.pid, 'SIGKILL');",
   '}',
