@@ -18,7 +18,7 @@ test('authorized contact read is parameterized and scoped to client',async()=>{
  const f=fixture();
  assert.deepEqual(await f.service.list('valid','alpha'),{clientId:'alpha',contacts:[{id:'1',displayName:'Synthetic A',email:null}],nextCursor:null});
  assert.deepEqual(f.events[1].values,[25,0]);
- assert.match(f.events[1].text,/LIMIT \\$1 OFFSET \\$2/);
+ assert.equal(f.events[1].text.includes('LIMIT $1 OFFSET $2'),true);
  await f.registry.close();
 });
 test('cross-client access and invalid sessions never open pools',async()=>{
