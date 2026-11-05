@@ -82,6 +82,10 @@ try {
    command(['volume','create',volume]);created=true;
    start(initial,volume,c.stage,c.kind);
    await healthy(initial);
+   const inspectCode="const fs=require('fs');const code=fs.readFileSync('/app/dist-server/server/services/workflow-engine.js','utf8');console.log(JSON.stringify({faultHook:code.includes('REACH-FAULT-HOOK'),receipt:code.includes('reach_workflow_internal_receipts'),stage:process.env.REACH_FAULT_STAGE,synthetic:process.env.REACH_FAULT_SYNTHETIC}))";
+   const inspection=JSON.parse(command(['exec',initial,'node','-e',inspectCode]).stdout.trim());
+   assert(inspection.faultHook&&inspection.receipt&&inspection.synthetic==='yes','Original runtime missing fault overlay: '+JSON.stringify(inspection));
+   console.log('Compiled fault instrumentation confirmed: '+JSON.stringify(inspection));
    // This command is expected to lose its application connection (SIGKILL).
    const attempt=command(['exec','-i','-e','PGHL_ADMIN_PASSWORD',initial,
      'node','--no-warnings','--input-type=module','-','arm'],{
