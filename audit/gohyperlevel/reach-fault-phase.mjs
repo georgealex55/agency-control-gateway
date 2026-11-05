@@ -71,7 +71,9 @@ async function arm(){
      headers:{cookie:s.cookie,'x-location-id':s.location,'x-pghl':'1','content-type':'application/json'},
      body:JSON.stringify({contact_ids:[contact.id]}),signal:AbortSignal.timeout(4000)});
    const body=await r.text();
-   throw Error('Fault injection did not interrupt service, HTTP '+r.status+' response='+body.slice(0,350)+' stage='+process.env.REACH_FAULT_STAGE+' step='+process.env.REACH_FAULT_STEP_ID+' armed='+process.env.REACH_FAULT_SYNTHETIC);
+   const workflowRuns=await api(s,'GET','/api/workflows/'+workflow.id+'/runs');
+   const saved=await api(s,'GET','/api/workflows/'+workflow.id);
+   throw Error('Fault injection did not interrupt service, HTTP '+r.status+' response='+body.slice(0,300)+' run='+JSON.stringify(workflowRuns).slice(0,450)+' savedSteps='+JSON.stringify(saved.steps).slice(0,350)+' stage='+process.env.REACH_FAULT_STAGE+' step='+process.env.REACH_FAULT_STEP_ID+' armed='+process.env.REACH_FAULT_SYNTHETIC);
  }catch(e){
    if(String(e).includes('Fault injection did not'))throw e;
  }
