@@ -10,3 +10,12 @@
 - SKIPPED: creating Neon projects, credentials, any real client DB access, production changes, real provider calls; no authorization.
 - AWAITING USER: choose shared app with per-client databases vs independent per-client app deployments. Continue architecture-neutral development meanwhile.
 - Next: inspect CI; test routing against fake injected connection factories, deny cross-client connection selection, and document migrations/health/backup contract.
+
+## Execution 2 — 2026-11-05 UTC
+- Starting SHA: `0d8963a78400debf04256db1116ea47ebf63159f`. Inspected current branch tree, prior ledger, Neon validator/tests and workflow runs. Previous Neon workflow [42033097165](https://github.com/georgealex55/agency-control-gateway/actions/runs/42033097165) concluded **success**.
+- Implemented `audit/neon/client-router.mjs`: staging-only authorized client routing with injected connection factory; deny unknown clients, unauthorized principals and malformed requests before connection creation; close connection after success or thrown operation; return redacted client metadata. No network or real credentials.
+- Added `audit/neon/client-router.test.mjs` with four synthetic test cases: authorized routing/close, cross-client denial without factory invocation, cleanup on error, invalid config/factory. Updated `.github/workflows/reach-neon-binding.yml` to run all Neon tests.
+- Commits: `263f4e6519ba3a2622e4451bfb8cf1509b282d22`, `d852fa6d02b34207873aef137ca56dd79c0db3c2`, `03d789b92a7eba67c26447e045bfb0716074790b`. Tests are **CI-pending** until GitHub Actions confirms them; local execution unavailable in this session.
+- LIMITATION: The principal's `allowedClientIds` is assumed trusted and must be derived server-side from authenticated, revocable authorization. This is not an API auth middleware, connection pool, Postgres driver, Neon provisioning, project ownership verification, migration, or production routing.
+- SKIPPED: Neon connection/provisioning, live client accounts, production deployment, external providers. AWAITING USER: shared application vs per-client application deployment.
+- Next: inspect CI, add negative tests for factory failure/connection cleanup and an authenticated principal derivation contract, then design isolated migrations and backups.
