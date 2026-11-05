@@ -1,0 +1,20 @@
+name: REACH Neon client binding validation
+on:
+  push:
+    branches: [experiment/gohyperlevel-synthetic-poc-20261104]
+    paths:
+      - 'audit/neon/**'
+      - '.github/workflows/reach-neon-binding.yml'
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run synthetic Neon boundary tests
+        run: node --test audit/neon/client-neon-config.test.mjs
