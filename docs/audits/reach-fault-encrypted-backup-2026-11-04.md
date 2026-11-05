@@ -6,7 +6,9 @@
 **Verified Docker fault + restore run:** https://github.com/georgealex55/agency-control-gateway/actions/runs/41949014934
 **Fault evidence:** https://github.com/georgealex55/agency-control-gateway/actions/runs/41949014934/artifacts/13379767599
 **Backup evidence:** see artifacts on the successful run (evidence JSON only; no archive or keys uploaded)
-**Extended functional test run:** https://github.com/georgealex55/agency-control-gateway/actions/runs/41949302259
+**Extended functional test run (SUCCESS):** https://github.com/georgealex55/agency-control-gateway/actions/runs/41949302259
+**Extended browser screenshots:** https://github.com/georgealex55/agency-control-gateway/actions/runs/41949302259/artifacts/13380695803
+**Final regression:** 23/23 upstream API, 14/14 REACH functional and security tests, typecheck, build, license check, SQLite restart persistence and Chromium browser editor PASS; zero browser page errors.
 
 ## 1. Root problem: non-atomic workflow action and checkpoint
 
@@ -70,7 +72,7 @@ The CI run passed. The encrypted archive itself and passphrase were not uploaded
 The targeted fault-injection and encrypted restore tests passed on the patched GoHyperLevel candidate.
 
 Before any real customer access:
-1. Confirm the updated full REACH functional/browser CI workflow passes with BOTH overlays.
+1. Updated full REACH functional/browser CI with BOTH overlays PASSED; retain this as a mandatory future gate.
 2. Re-run the original broad upstream suite and classify earlier failures; the new tests do not resolve those independent regressions.
 3. Add provider-specific idempotency keys, persistent outbox/reconciliation and manual review for ambiguous sends (email/SMS/webhooks/Postiz), with isolated fake transports first.
 4. Test frequent encrypted backup schedule, offsite retention, KMS/passphrase separation, key rotation, backup corruption detection and recovery objectives.
