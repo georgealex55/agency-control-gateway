@@ -81,7 +81,7 @@ beforeAll(async()=>{
   };
   mineId=await mk('Member synthetic opportunity',777,memberId);
   foreignId=await mk('Other synthetic opportunity',50000,
-    t.app.db.get<{id:string}>('SELECT id FROM users WHERE email = ?',synthetic('restricted-member'))!.id);
+    t.app.db.get<{id:string}>('SELECT id FROM users WHERE email = ?', 'chef@example.com')!.id);
   await ok('put','/api/sales/access',{
     enabled:true,rules:{default:{levels:{deals:'own'},
       hidden:{deals:['value'],contacts:['custom.internal_budget']}}}
