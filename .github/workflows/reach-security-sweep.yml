@@ -1,0 +1,62 @@
+name: REACH exhaustive tenant and MCP security staging sweep
+
+on:
+  push:
+    branches:
+      - experiment/gohyperlevel-synthetic-poc-20261104
+    paths:
+      - .github/workflows/reach-security-sweep.yml
+      - scripts/reach-security-patch.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reach-security-sweep
+  cancel-in-progress: true
+
+jobs:
+  tenant-mcp:
+    name: Exhaustive tenant roles and all MCP tools, patched source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 32
+    steps:
+      - name: Checkout REACH experiment
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - name: Checkout immutable GoHyperLevel candidate
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: BAISESYSTEMS/GoHyperLevel
+          ref: 24ea786b85c3240ae4f24dcad6f657749730c56e
+          path: _upstream/gohyperlevel
+          persist-credentials: false
+
+      - name: Verify candidate
+        working-directory: _upstream/gohyperlevel
+        run: test "$(git rev-parse HEAD)" = "24ea786b85c3240ae4f24dcad6f657749730c56e"
+
+      - name: Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+
+      - name: Install pinned dependencies
+        working-directory: _upstream/gohyperlevel
+        run: npm ci --no-audit --no-fund
+
+      - name: Apply verified member-bound API key security overlay
+        run: node scripts/reach-security-patch.mjs _upstream/gohyperlevel
+
+      - name: Sweep role, user, mobile device, and API key tenant boundaries
+        working-directory: _upstream/gohyperlevel
+        run: npx vitest run tests/tenant-isolation.test.ts --reporter=verbose
+        timeout-minutes: 18
+
+      - name: Sweep every MCP tool against synthetic tenant boundaries
+        working-directory: _upstream/gohyperlevel
+        run: npx vitest run tests/mcp-sweep.test.ts --reporter=verbose
+        timeout-minutes: 14
