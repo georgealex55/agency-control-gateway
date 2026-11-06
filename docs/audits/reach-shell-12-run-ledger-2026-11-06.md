@@ -32,3 +32,13 @@
 - **Startup:** `python3 -m http.server 8080 --directory reach-shell` then open `http://localhost:8080` on a machine with the branch checked out.
 - **Skipped:** live providers, customer data, production deployment, Neon/Vercel provisioning, real AI, telephony and Google connections.
 - **Next run:** Run 4: interactive offline unified inbox with synthetic conversations, selection, search/filter, draft reply vs simulated-send clarity, persistence and smoke tests. Verify Node suite and browser when an execution environment is available.
+
+## Run 4 / 12 — 2026-11-06 UTC
+- **Starting checkpoint:** Run 3 ledger; last known source commit `6694607cde8e467d5a4281bd13fa12423a07fbec` (not verified as branch HEAD). Inspected plan, ledger, complete shell and smoke suite; queried recent repository commits and GitHub combined status. Prior Vercel status is not shell CI.
+- **Source commit:** `ccf013ddd91ac8d36c8c0b98690bb06b026853a2` — `reach-shell/index.html`: added offline unified inbox with three explicitly synthetic SMS, email and website-chat conversations; search, channel/unread filter, conversation selection/unread acknowledgement, saved draft and simulated reply history with status `simulated · not delivered`. Uses existing localStorage persistence and HTML escaping; no external messaging.
+- **Test commit:** `0490fbdc5bb3ba64b7e47e7952acf62fe2dfdf21` — `reach-shell/shell.test.cjs`: two new smoke tests for inbox content and local draft/simulated reply, total 10 test cases.
+- **Validation:** V8 JavaScript parsing of inline shell script and test source **PASS**. Node test runner and real-browser interaction **NOT EXECUTED** in this connector-only execution; no independent pass claim. CI status on new commit not yet verified. No real provider interactions.
+- **Functional checklist:** #8 conversation selection, #9 saved draft/simulated reply, #10 inbox search/filter implemented but not independently browser-tested; prior 0/24 independently verified count remains unchanged. 11/11 menu IDs retained, browser navigation still unverified.
+- **Files:** `reach-shell/index.html`, `reach-shell/shell.test.cjs`, this ledger. Startup: `python3 -m http.server 8080 --directory reach-shell` and visit `http://localhost:8080`.
+- **Skipped:** production, real accounts, provider APIs, Neon/Vercel provisioning, real AI and outbound sends.
+- **Next:** Run 5 synthetic calls, missed-call follow-up, forwarding/fallback settings; execute Node/browser tests when runtime available.
