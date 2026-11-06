@@ -71,6 +71,54 @@ function contactsContent(){
  return '<div class="grid">'+form+list+'</div>';
 }
 
+
+/* Local-only synthetic automation receipts. No timers, external calls, or message delivery. */
+const demoRules=[
+ {id:'missed-call',name:'Missed call follow-up',event:'missed-call',description:'Create a callback task for a synthetic missed call'},
+ {id:'new-inquiry',name:'New inquiry review',event:'new-inquiry',description:'Create a task to review a synthetic inbox inquiry'},
+ {id:'hours-check',name:'Business hours review',event:'hours-check',description:'Create a task for a fictional Google hours discrepancy'}
+];
+const demoEvents=[
+ {id:'call-1',event:'missed-call',label:'Jordan Lee · missed call'},
+ {id:'call-3',event:'missed-call',label:'Taylor Brooks · missed call'},
+ {id:'conv-1',event:'new-inquiry',label:'Jordan Lee · inbox inquiry'},
+ {id:'conv-3',event:'new-inquiry',label:'Taylor Brooks · website chat'},
+ {id:'google-hours',event:'hours-check',label:'Fictional Google hours discrepancy'}
+];
+function automationData(){
+ if(!state.automations||typeof state.automations!=='object')state.automations={enabled:{'missed-call':true,'new-inquiry':true,'hours-check':false},receipts:[],selectedEvent:'call-1'};
+ const a=state.automations;
+ if(!a.enabled||typeof a.enabled!=='object')a.enabled={};
+ if(!Array.isArray(a.receipts))a.receipts=[];
+ if(!demoEvents.some(e=>e.id===a.selectedEvent))a.selectedEvent='call-1';
+ return a;
+}
+function simulateAutomation(ruleId,eventId){
+ const a=automationData(),rule=demoRules.find(r=>r.id===ruleId),event=demoEvents.find(e=>e.id===eventId);
+ if(!rule||!event||rule.event!==event.event)return {status:'invalid',message:'Choose a matching sample event.'};
+ if(a.enabled[ruleId]!==true)return {status:'disabled',message:'Enable this rule before simulating.'};
+ const receiptId=ruleId+':'+eventId;
+ if(a.receipts.some(r=>r.id===receiptId))return {status:'duplicate',message:'Already processed: existing local receipt reused. No duplicate task created.'};
+ const taskId='automation-'+receiptId;
+ const taskText=ruleId==='missed-call'?'Review sample missed call: '+event.label:ruleId==='new-inquiry'?'Review sample inquiry: '+event.label:'Verify sample business hours mismatch';
+ if(!Array.isArray(state.tasks))state.tasks=[];
+ if(!state.tasks.some(t=>String(t.id)===taskId))state.tasks.push({id:taskId,text:taskText,done:false});
+ a.receipts.unshift({id:receiptId,ruleId,eventId,taskId,status:'simulated · local only',action:taskText});
+ a.receipts=a.receipts.slice(0,40);
+ save();
+ return {status:'created',message:'Local task created and receipt saved. No message or external action sent.'};
+}
+function automationsContent(){
+ const a=automationData();
+ const ruleCards=demoRules.map(r=>'<div class="card"><h3>'+esc(r.name)+'</h3><p>'+esc(r.description)+'</p><label><input type="checkbox" style="width:auto;margin-right:8px" data-rule-toggle="'+esc(r.id)+'" '+(a.enabled[r.id]===true?'checked':'')+'>Enabled for local simulation</label><p class="muted">Fixture trigger: '+esc(r.event)+' · no live service</p></div>').join('');
+ const selected=demoEvents.find(e=>e.id===a.selectedEvent)||demoEvents[0];
+ const match=demoRules.find(r=>r.event===selected.event);
+ const options=demoEvents.map(e=>'<option value="'+esc(e.id)+'" '+(e.id===selected.id?'selected':'')+'>'+esc(e.label)+'</option>').join('');
+ const simulator=card('Safe event simulator','<p class="muted">Choose a synthetic event. A successful simulation creates one local task and one durable receipt; rerunning the same event is deduplicated.</p><label for="automationEvent">Sample trigger event</label><select id="automationEvent">'+options+'</select><p><button id="automationRun" '+(a.enabled[match.id]===true?'':'disabled title="Enable matching rule first"')+'>Simulate '+esc(match.name)+'</button></p><p class="status" id="automationFeedback" role="status">'+esc(state.automationFeedback||'No event executed in this session.')+'</p>','wide');
+ const history=card('Local execution history',a.receipts.length?a.receipts.map(r=>'<p><strong>'+esc(r.status)+'</strong><br>'+esc(r.action)+'<br><span class="muted">Receipt '+esc(r.id)+'</span></p>').join(''):'<p>No simulations have been run. Receipts will appear here.</p>','wide');
+ return '<p class="status">DEMO ONLY · Rules never call phone, SMS, Google, AI or external workflows.</p><div class="grid">'+ruleCards+simulator+history+'</div>';
+}
+
 function current(){const key=location.hash.replace(/^#\/?/,'').split('/')[0];return pages.some(p=>p[0]===key)?key:'dashboard'}
 function card(title,body,extra=''){return '<section class="card '+extra+'"><h3>'+title+'</h3>'+body+'</section>'}
 function render(){
@@ -84,6 +132,7 @@ function render(){
  bind(key);
 }
 function content(key){
+ if(key==='automations')return automationsContent();
  if(key==='contacts')return contactsContent();
  if(key==='appointments')return appointmentContent();
  if(key==='presence')return presenceContent();
@@ -100,6 +149,11 @@ function content(key){
 }
 function nameFor(key){return pages.find(p=>p[0]===key)?.[1]||'Dashboard'}
 function bind(key){
+ if(key==='automations'){
+  document.querySelectorAll('[data-rule-toggle]').forEach(input=>input.onchange=()=>{const a=automationData();a.enabled[input.dataset.ruleToggle]=input.checked;state.automationFeedback='Rule setting saved locally.';save();render()});
+  const event=document.getElementById('automationEvent');if(event)event.onchange=()=>{automationData().selectedEvent=event.value;state.automationFeedback='Sample event selected; nothing executed.';save();render()};
+  const run=document.getElementById('automationRun');if(run)run.onclick=()=>{const a=automationData(),ev=demoEvents.find(e=>e.id===a.selectedEvent),rule=demoRules.find(r=>r.event===ev?.event);const result=simulateAutomation(rule?.id,ev?.id);state.automationFeedback=result.message;save();render()};
+ }
  if(key==='contacts'){
   const search=document.getElementById('contactSearch');if(search)search.oninput=()=>{state.contactSearch=search.value;save();render();document.getElementById('contactSearch')?.focus()};
   const form=document.getElementById('contactForm');if(form)form.onsubmit=e=>{e?.preventDefault?.();const name=document.getElementById('contactName').value.trim(),email=document.getElementById('contactEmail').value.trim(),phone=document.getElementById('contactPhone').value.trim(),notes=document.getElementById('contactNotes').value.trim(),conversationId=document.getElementById('contactConversation').value,callId=document.getElementById('contactCall').value;if(!name||email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return;const rows=contactsData(),c=rows.find(x=>x.id===state.editContact);const fields={name,email,phone,notes,conversationId,callId};if(c)Object.assign(c,fields);else rows.push({id:'contact-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),...fields});state.editContact=null;save();render()};
