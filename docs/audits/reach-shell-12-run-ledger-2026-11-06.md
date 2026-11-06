@@ -96,3 +96,16 @@
 - **Local preview:** `python3 -m http.server 8080 --directory reach-shell`; open `http://localhost:8080`. Staging preview path `/reach-demo/index.html` on a READY staging branch deployment.
 - **Skipped:** main/production, real customer data, external workflows, real phone/Google/AI connections, Neon/Vercel provisioning and paid services.
 - **Next:** Run 10 Reports & Metrics source/range filters and deterministic demo assistant actions; prioritize running actual Node/browser suite before final acceptance count.
+
+
+## Run 10 / 12 — 2026-11-06T21:58:17.373Z
+- **Starting checkpoint:** Run 9 ledger commit `f1d4218dda93b74d59efb21669fce21ab56c412d` (last known completed ordinal). Read plan and ledger, inspected shell and tests, preview mirror, existing app location and previous Vercel status; Run 9 CI Vercel status success. Branch HEAD at exact start was not independently resolved.
+- **Source commit:** `54e59dab0d16026fe9e5d49e8397ad64195e5e44` — `reach-shell/index.html`. Added Reports & Metrics with persistent 7/30/90-day fixture selection, calls/inbox/appointments source filtering, explicitly static sample counts, and offline-only provenance/freshness labels. Added deterministic Assistant commands for navigating to calls, inbox, business presence and creating one deduplicated local dashboard task. No generative AI or provider connections.
+- **Test commit:** `51b8455bad5407725664320d264ef8405822e0fe` — `reach-shell/shell.test.cjs`. Two additional authored smoke cases for reports persistence and assistant task/navigation/deduplication, bringing authored suite to 23 tests.
+- **Preview mirror commit:** `f1373e0103d33a8542f8e40c420d4dc7cd57b3f0` — `ghl-gpt-gateway/public/reach-demo/index.html`. Verified source and mirror identical, blob SHA `1eec471ec476e331d99406c30d7654c689cf0e83`.
+- **Validation performed:** JavaScript V8 `new Function` parse PASS on full inline script; six static source checks PASS; new test file parsed PASS. Node `--test`, actual browser/mobile and Next.js build/typecheck **not executed**: container could not resolve GitHub raw host to retrieve source, and connector execution does not provide a Node runtime. The two new tests are authored, **not claimed passing**. Source-backed functions #21 and #22 are implemented but not independently browser-verified; conservative independent real-browser count remains 0/24. Eleven menu routes remain source-present.
+- **CI:** Run 9 commit Vercel status success; Run 10 preview mirror deployment `dpl_DWGt9CxgECFLAdWxCYrJSBHe8j4d` was QUEUED at inspection; latest GitHub commit statuses empty. Do not claim deployed or browser verified yet.
+- **Changed files:** `reach-shell/index.html`, `reach-shell/shell.test.cjs`, `ghl-gpt-gateway/public/reach-demo/index.html`, `docs/audits/reach-shell-12-run-ledger-2026-11-06.md`.
+- **Local startup:** `python3 -m http.server 8080 --directory reach-shell`; visit `http://localhost:8080`. Preview path `/reach-demo/index.html` on a READY staging deployment.
+- **Skipped:** production, real customer records, real AI/Google/phone/messaging, provider keys, paid services and infrastructure provisioning.
+- **Next:** Run 11 Settings/Connections, setup checklist, safe reset/export and accessibility; execute full tests and browser audit when possible.
