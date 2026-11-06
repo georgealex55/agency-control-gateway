@@ -90,3 +90,25 @@ test('inbox saves draft and simulates outbound reply without provider delivery',
  assert.equal(vm.runInContext("state.conversations[0].messages.at(-1).status",h.context),'simulated · not delivered');
  assert.match(h.element('app').innerHTML,/Demo response/);
 });
+
+test('calls screen displays synthetic history, filters and demo policy',()=>{
+ const h=harness();h.element('enter').click();h.location.hash='#/calls';h.listeners.hashchange();
+ assert.match(h.element('app').innerHTML,/Call history · Synthetic/);
+ assert.match(h.element('app').innerHTML,/Jordan Lee/);
+ assert.match(h.element('app').innerHTML,/No telephone account/);
+ h.element('callFilter').value='Missed';h.element('callFilter').onchange();
+ assert.equal(vm.runInContext('state.callFilter',h.context),'Missed');
+ h.element('callPolicy').value='callback';h.element('callPolicy').onchange();
+ assert.equal(vm.runInContext('state.callPolicy',h.context),'callback');
+ assert.match(h.element('app').innerHTML,/Create callback task/);
+});
+test('missed call callback creates durable dashboard task and can be resolved',()=>{
+ const h=harness();h.element('enter').click();h.location.hash='#/calls';h.listeners.hashchange();
+ vm.runInContext("const c=callsData()[0];c.followUp=true;state.tasks.push({id:'callback-'+c.id,text:'Call back '+c.name,done:false});save();render()",h.context);
+ assert.equal(vm.runInContext("state.calls[0].followUp",h.context),true);
+ h.location.hash='#/dashboard';h.listeners.hashchange();
+ assert.match(h.element('app').innerHTML,/Call back Jordan Lee/);
+ assert.match(h.element('app').innerHTML,/data-task="callback-call-1"/);
+ vm.runInContext("const t=state.tasks.find(t=>t.id==='callback-call-1');t.done=true;save();render()",h.context);
+ assert.equal(vm.runInContext("state.tasks.find(t=>t.id==='callback-call-1').done",h.context),true);
+});
