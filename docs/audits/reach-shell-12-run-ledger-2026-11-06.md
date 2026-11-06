@@ -64,3 +64,13 @@
 - **Startup:** `python3 -m http.server 8080 --directory reach-shell`, open `http://localhost:8080`. Preview route `/reach-demo/index.html` on staging Vercel deployment; check build readiness.
 - **Skipped:** production, Google API, live website checks, actual review data, real customer records, paid services.
 - **Next:** Run 7 appointments create, reschedule/cancel, persistent synthetic records and tests.
+
+
+## Run 7 / 12 — 2026-11-06T19:03 UTC
+- **Starting checkpoint:** Run 6 ledger, latest prior recorded staging commit `7496dcdb09a80af32e60582b0f6d47fa329b249e`; Vercel preview deployment for that commit reported READY. Read plan, ledger, current shell, tests, Next.js staging preview mirror and previous source. Starting branch HEAD not independently confirmed beyond latest checkpoint.
+- **Source commits:** `51a0b9ae9bfb417b7cb0a3d44d0ad7ada4f0b212` (appointments UI), `20de28f7e1eca85ba9fb1b3fcd61853a3355ece1` (fix datetime validation). **Tests:** `13c1baa70685bead2ac5e374a91318d72ba231d6` (2 authored smoke cases, 16 total). **Preview mirror:** `1e2fa87e2e83f6d46e3c65fe72da5219c39dd8a8`; source/mirror blob SHA equal `263d8219472613a03d17363d34797ed30be909ab`.
+- **Implemented:** Offline Appointments page, seeded Morgan Chen consultation linked to synthetic inbox conversation, create/edit/reschedule, cancel/restore, local date-time input and validation, browser-local persistence, empty state. No calendar invites or external sends.
+- **Validation actually executed:** V8 parse of inline script PASS. Direct JavaScript DOM/storage harness PASS for seeded appointment render, creation, persisted record, rescheduling and cancelled-state rendering (5 assertions); first harness run identified escaped regex bug and it was corrected before rerun. These are simulated DOM interactions, not a real browser. Node test runner/browser/mobile tests not run; 16 test cases are authored, not all executed. Functional checklist #16 and #17 implemented and harness-demonstrated, **0/24 independently real-browser verified** remains conservative. Navigation 11/11 route IDs source-confirmed only.
+- **Files changed:** `reach-shell/index.html`, `reach-shell/shell.test.cjs`, `ghl-gpt-gateway/public/reach-demo/index.html`, this ledger. Startup: `python3 -m http.server 8080 --directory reach-shell` and visit localhost:8080. Staging preview: `/reach-demo/index.html` on Vercel branch deployment, build readiness after latest mirror commit not yet independently confirmed.
+- **Skipped:** production, live accounts, external calendar, real customer data, provider integrations, paid services.
+- **Next:** Run 8 contact create/edit/search with synthetic inbox/call links; add functional tests and execute Node/browser suite where available.
