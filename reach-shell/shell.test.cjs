@@ -197,3 +197,24 @@ test('disabled automation and mismatched fixture cannot execute',()=>{
  assert.equal(vm.runInContext("simulateAutomation('new-inquiry','call-1').status",h.context),'invalid');
  assert.equal(vm.runInContext("automationData().receipts.length",h.context),0);
 });
+
+test('offline reports allow persisted period and source selection',()=>{
+ const h=harness();h.element('enter').click();h.location.hash='#/metrics';h.listeners.hashchange();
+ assert.match(h.element('app').innerHTML,/Reports · Offline fixtures/);
+ h.element('reportRange').value='30 days';h.element('reportRange').onchange();
+ h.element('reportSource').value='calls';h.element('reportSource').onchange();
+ assert.equal(vm.runInContext('reportData().range',h.context),'30 days');
+ assert.equal(vm.runInContext('reportData().source',h.context),'calls');
+ assert.match(h.element('app').innerHTML,/49/);
+ assert.equal(vm.runInContext("JSON.parse(localStorage.getItem('reach-demo-state')).report.source",h.context),'calls');
+});
+test('assistant executes deterministic task and navigation without network',()=>{
+ const h=harness();h.element('enter').click();h.location.hash='#/assistant';h.listeners.hashchange();
+ assert.match(h.element('app').innerHTML,/not generative AI/);
+ assert.equal(vm.runInContext("runAssistantCommand('task').status",h.context),'executed');
+ assert.equal(vm.runInContext("state.tasks.filter(t=>t.text==='Review sample business health').length",h.context),1);
+ vm.runInContext("runAssistantCommand('task')",h.context);
+ assert.equal(vm.runInContext("state.tasks.filter(t=>t.text==='Review sample business health').length",h.context),1);
+ assert.equal(vm.runInContext("runAssistantCommand('missed').route",h.context),'calls');
+ assert.equal(h.location.hash,'#/calls');
+});
