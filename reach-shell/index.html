@@ -23,6 +23,7 @@ function inboxContent(){
  return '<div class="card"><h3>Unified Inbox · Sample conversations</h3><p class="muted">All messages are local demo records. Nothing is connected or delivered.</p><label for="inboxSearch">Search conversations</label><input id="inboxSearch" value="'+esc(state.inboxSearch||'')+'" placeholder="Name or message" aria-label="Search conversations"><label for="inboxFilter">Filter</label><select id="inboxFilter"><option value="all">All channels</option><option value="unread" '+(filter==='unread'?'selected':'')+'>Unread</option>'+['SMS','Email','Website chat'].map(c=>'<option value="'+c+'" '+(filter===c?'selected':'')+'>'+c+'</option>').join('')+'</select></div><div class="grid">'+card('Conversations',visible.length?visible.map(c=>'<p><button data-conversation="'+esc(c.id)+'" aria-pressed="'+(c.id===state.selectedConversation)+'">'+esc(c.name)+'</button> <span class="muted">'+esc(c.channel)+(c.unread?' · Unread':'')+'</span></p>').join(''):'<p>No matching sample conversations.</p>')+card('Conversation',selected?'<h3>'+esc(selected.name)+' · '+esc(selected.channel)+'</h3><p class="muted">Demo only · no provider connected</p>'+selected.messages.map(m=>'<p><strong>'+esc(m.direction==='out'?'Demo reply':'Incoming sample')+'</strong> · '+esc(m.at)+' · '+esc(m.status)+'<br>'+esc(m.text)+'</p>').join('')+'<label for="replyDraft">Reply draft</label><textarea id="replyDraft" rows="4" maxlength="2000" placeholder="Write a sample reply">'+esc(selected.draft||'')+'</textarea><p><button id="saveDraft">Save draft</button> <button id="simulateReply">Simulate reply (not sent)</button></p><p class="status" id="inboxFeedback">Saved locally; no real messages sent.</p>':'<p>Select a sample conversation.</p>','wide')+'</div>';
 }
 
+if(!seed.appointments)seed.appointments=[{id:'appt-demo-1',name:'Morgan Chen',when:'2026-11-09T10:30',service:'Consultation',conversationId:'conv-2',status:'Scheduled'}];
 if(!seed.presence)seed.presence={websiteDetails:false,googleHoursMismatch:true,fixTaskCreated:false};
 function callsData(){if(!Array.isArray(state.calls))state.calls=structuredClone(seed.calls);return state.calls}
 function callsContent(){
@@ -40,6 +41,16 @@ function presenceContent(){
  const reviews=card('Review alerts · Sample','<p>2 fictional reviews need attention.</p><p>New review · 4 stars · “Helpful service.”</p><p>Unanswered review · 3 stars · “Would like updated hours.”</p><p class="muted">No review reply or Google connection is active.</p>');
  return '<div class="grid">'+website+google+reviews+'</div>';
 }
+
+function appointmentsData(){if(!Array.isArray(state.appointments))state.appointments=structuredClone(seed.appointments);return state.appointments}
+function appointmentContent(){
+ const rows=appointmentsData().slice().sort((a,b)=>a.when.localeCompare(b.when));
+ const selected=rows.find(a=>a.id===state.editAppointment)||null;
+ const options=inboxData().map(c=>'<option value="'+esc(c.id)+'" '+((selected?.conversationId||'')===c.id?'selected':'')+'>'+esc(c.name)+' · '+esc(c.channel)+'</option>').join('');
+ const form=card(selected?'Reschedule / edit appointment':'Create sample appointment','<p class="muted">Offline records only. No invitations, calendars or messages are sent.</p><form id="appointmentForm"><label for="appointmentName">Customer name</label><input id="appointmentName" maxlength="80" required value="'+esc(selected?.name||'')+'" placeholder="Customer name"><label for="appointmentWhen">Local date and time</label><input id="appointmentWhen" type="datetime-local" required value="'+esc(selected?.when||'')+'"><label for="appointmentService">Service</label><input id="appointmentService" maxlength="100" required value="'+esc(selected?.service||'Consultation')+'"><label for="appointmentConversation">Link sample conversation</label><select id="appointmentConversation"><option value="">None</option>'+options+'</select><p><button type="submit">'+(selected?'Save changes':'Create appointment')+'</button> '+(selected?'<button type="button" id="appointmentCancelEdit">Cancel editing</button>':'')+'</p></form><p id="appointmentFeedback" class="status">Saved to this browser only · no external calendar.</p>');
+ const listing=card('Appointments · Sample records','<p class="muted">Create, reschedule, cancel or restore appointments. Cancelled records remain visible for audit.</p>'+(rows.length?rows.map(a=>'<p><strong>'+esc(a.name)+'</strong> · '+esc(a.service)+'<br><span class="muted">'+esc(a.when.replace('T',' '))+' · '+esc(a.status)+(a.conversationId?' · linked sample conversation':'')+'</span><br><button data-appointment-edit="'+esc(a.id)+'">Edit / reschedule</button> <button data-appointment-toggle="'+esc(a.id)+'">'+(a.status==='Cancelled'?'Restore':'Cancel appointment')+'</button></p>').join(''):'<p>No sample appointments yet. Create one using the form.</p>'),'wide');
+ return '<div class="grid">'+form+listing+'</div>';
+}
 function current(){const key=location.hash.replace(/^#\/?/,'').split('/')[0];return pages.some(p=>p[0]===key)?key:'dashboard'}
 function card(title,body,extra=''){return '<section class="card '+extra+'"><h3>'+title+'</h3>'+body+'</section>'}
 function render(){
@@ -53,6 +64,7 @@ function render(){
  bind(key);
 }
 function content(key){
+ if(key==='appointments')return appointmentContent();
  if(key==='presence')return presenceContent();
  if(key==='inbox')return inboxContent();
  if(key==='calls')return callsContent();
@@ -67,6 +79,12 @@ function content(key){
 }
 function nameFor(key){return pages.find(p=>p[0]===key)?.[1]||'Dashboard'}
 function bind(key){
+ if(key==='appointments'){
+  const form=document.getElementById('appointmentForm');if(form)form.onsubmit=e=>{e?.preventDefault?.();const name=document.getElementById('appointmentName').value.trim(),when=document.getElementById('appointmentWhen').value,service=document.getElementById('appointmentService').value.trim(),conversationId=document.getElementById('appointmentConversation').value;if(!name||!service||!/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$/.test(when))return;const rows=appointmentsData(),existing=rows.find(a=>a.id===state.editAppointment);if(existing){Object.assign(existing,{name,when,service,conversationId})}else rows.push({id:'appt-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),name,when,service,conversationId,status:'Scheduled'});state.editAppointment=null;save();render()};
+  document.querySelectorAll('[data-appointment-edit]').forEach(b=>b.onclick=()=>{state.editAppointment=b.dataset.appointmentEdit;render()});
+  document.querySelectorAll('[data-appointment-toggle]').forEach(b=>b.onclick=()=>{const a=appointmentsData().find(x=>x.id===b.dataset.appointmentToggle);if(a){a.status=a.status==='Cancelled'?'Scheduled':'Cancelled';save();render()}});
+  const cancel=document.getElementById('appointmentCancelEdit');if(cancel)cancel.onclick=()=>{state.editAppointment=null;render()};
+ }
  if(key==='presence'){
   const website=document.getElementById('websiteDetails');if(website)website.onclick=()=>{presenceData().websiteDetails=!presenceData().websiteDetails;save();render()};
   const task=document.getElementById('presenceTask');if(task)task.onclick=()=>{const p=presenceData(),id='presence-google-hours';p.fixTaskCreated=!p.fixTaskCreated;p.googleHoursMismatch=true;state.tasks=state.tasks.filter(t=>String(t.id)!==id);if(p.fixTaskCreated)state.tasks.push({id,text:'Review sample Google listing hours (9–16 vs website 9–17)',done:false});save();render()};
