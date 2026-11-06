@@ -74,7 +74,7 @@ function bind(key){
  const range=document.getElementById('dashboardRange');if(range)range.onchange=()=>{if(['7 days','30 days','90 days'].includes(range.value)){state.range=range.value;save();render()}};
  document.querySelectorAll('[data-detail]').forEach(b=>b.onclick=()=>{state.detail=b.dataset.detail;save();render()});
  const close=document.getElementById('closeDetail');if(close)close.onclick=()=>{state.detail=null;save();render()};
- document.querySelectorAll('[data-task]').forEach(b=>b.onclick=()=>{const task=state.tasks.find(t=>t.id===Number(b.dataset.task));if(task){task.done=!task.done;save();render()}});
+ document.querySelectorAll('[data-task]').forEach(b=>b.onclick=()=>{const task=state.tasks.find(t=>String(t.id)===b.dataset.task);if(task){task.done=!task.done;save();render()}});
  }}
 window.addEventListener('hashchange',()=>{open=false;render()});render();
 </script></body></html>
