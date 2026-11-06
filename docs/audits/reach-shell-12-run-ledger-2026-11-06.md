@@ -21,3 +21,14 @@
 - **CI:** combined status for test commit showed Vercel **pending**; no successful CI conclusion established. No deploy triggered by us.
 - **Skipped:** live auth, provider credentials, real calls, AI, Google, Neon, Vercel provisioning, and production. Existing backend staging code untouched.
 - **Next run:** Run 3 dashboard with date-range selector, metric drilldown and actionable status details; add offline tests and execute Node/browser smoke suite in any available environment before counting coverage.
+
+## Run 3 / 12 — 2026-11-06 UTC
+- **Starting checkpoint:** Run 2 ledger, shell HTML, Node test source, approved 12-run plan; last known prior commit `d75b235` (ledger). Exact starting branch HEAD not independently established.
+- **Code commit:** `a36757b285dd9d08c5f530247fddc6cde46035fc` — `reach-shell/index.html`. Added 7/30/90-day sample reporting range selector; period-specific synthetic call, missed-call and inbox counts and a transparent trend summary. Added metric detail buttons for health, calls, inbox and presence; contextual source/connection explanations; close-detail action. Range and open detail stored in existing local demo state. Existing task resolve/reopen and sidebar behavior preserved.
+- **Test commit:** `6694607cde8e467d5a4281bd13fa12423a07fbec` — `reach-shell/shell.test.cjs`. Added two Node smoke cases for range changes and drilldown open/close. Run via `node --test reach-shell/shell.test.cjs` from repository root; total suite now eight tests.
+- **Validation actually performed:** fetched updated HTML and parsed inline JavaScript using V8 `new Function` (PASS). Static inspection confirmed range selector, detail hooks and explicit simulated-provider status (PASS). Node suite and real browser/mobile interactions **NOT EXECUTED** in this run; no claim of end-to-end success. Existing Run 2 Vercel status later returned **failure**; status on Run 3 test commit was **pending** at inspection, neither validates shell behavior.
+- **Functional checklist:** #5 dashboard range and #6 dashboard drilldown implemented with state changes but **not end-to-end browser verified**. #7 task resolve/reopen retained. Overall **0/24 independently browser-verified**; 11/11 route IDs remain source-confirmed, browser navigation not independently verified. Do not claim 60% completion.
+- **Changed files:** `reach-shell/index.html`, `reach-shell/shell.test.cjs`, this ledger.
+- **Startup:** `python3 -m http.server 8080 --directory reach-shell` then open `http://localhost:8080` on a machine with the branch checked out.
+- **Skipped:** live providers, customer data, production deployment, Neon/Vercel provisioning, real AI, telephony and Google connections.
+- **Next run:** Run 4: interactive offline unified inbox with synthetic conversations, selection, search/filter, draft reply vs simulated-send clarity, persistence and smoke tests. Verify Node suite and browser when an execution environment is available.
