@@ -131,7 +131,53 @@ function render(){
  document.onkeydown=e=>{if(e.key==='Escape'&&open){open=false;render();document.getElementById('navToggle')?.focus()}};
  bind(key);
 }
+
+const reportFixtures={
+ '7 days':{calls:12,missed:2,inbox:4,appointments:2},
+ '30 days':{calls:49,missed:8,inbox:15,appointments:7},
+ '90 days':{calls:144,missed:23,inbox:41,appointments:19}
+};
+function reportData(){
+ if(!state.report||typeof state.report!=='object')state.report={range:'7 days',source:'all'};
+ if(!reportFixtures[state.report.range])state.report.range='7 days';
+ if(!['all','calls','inbox','appointments'].includes(state.report.source))state.report.source='all';
+ return state.report;
+}
+function metricsContent(){
+ const r=reportData(),v=reportFixtures[r.range];
+ const sources=[['calls','Sample calls',v.calls],['inbox','Sample inquiries',v.inbox],['appointments','Sample bookings',v.appointments]];
+ const visible=sources.filter(x=>r.source==='all'||x[0]===r.source);
+ const option=(value,label,current)=>'<option value="'+value+'" '+(value===current?'selected':'')+'>'+label+'</option>';
+ return '<div class="grid">'+card('Reports · Offline fixtures','<p class="muted">All values are preloaded synthetic examples, not current analytics. No reporting provider is connected. Changing the range or source selects a different fixture.</p><label for="reportRange">Reporting period</label><select id="reportRange">'+Object.keys(reportFixtures).map(x=>option(x,'Last '+x,r.range)).join('')+'</select><label for="reportSource">Source</label><select id="reportSource">'+[['all','All sample sources'],['calls','Calls'],['inbox','Inbox'],['appointments','Appointments']].map(x=>option(x[0],x[1],r.source)).join('')+'</select><p class="status">Fixture data · static offline snapshot · not refreshed</p>','wide')+card('Source summary',visible.map(x=>'<p><strong>'+x[2]+'</strong> '+esc(x[1])+'</p>').join('')+'<p class="muted">Missed calls in this fixture: '+v.missed+'</p>')+card('Calculation notes','<p>Counts come from the selected sample dataset. This screen does not estimate revenue, actual conversion, or live business performance.</p>','wide')+'</div>';
+}
+const assistantCommands=[
+ {id:'missed',label:'Review missed calls',answer:'Open Calls and filter to Missed to inspect synthetic call records.',route:'calls',task:null},
+ {id:'hours',label:'Review business hours',answer:'Open Business Presence to review the fictional Google hours discrepancy.',route:'presence',task:null},
+ {id:'inbox',label:'Review sample inbox',answer:'Open Inbox to read local sample conversations; no messages are sent.',route:'inbox',task:null},
+ {id:'task',label:'Add daily business review task',answer:'Created a local Dashboard task. No AI service or external workflow ran.',route:null,task:'Review sample business health'}
+];
+function assistantContent(){
+ const a=state.assistantDemo||{},last=a.last||'Select a predefined local action. No AI model or external service is connected.';
+ return '<div class="grid">'+card('Offline command assistant','<p class="muted">Deterministic menu actions only · not generative AI. Commands never contact external providers.</p><label for="assistantCommand">Choose safe demo command</label><select id="assistantCommand">'+assistantCommands.map(c=>'<option value="'+c.id+'" '+(a.selected===c.id?'selected':'')+'>'+esc(c.label)+'</option>').join('')+'</select><p><button id="assistantExecute">Execute local command</button></p><p role="status" id="assistantResult">'+esc(last)+'</p>','wide')+card('Activity & safeguards','<p>Local task creation and navigation only. No credentials, provider access, customer records or outbound messages.</p>')+'</div>';
+}
+function runAssistantCommand(id){
+ const command=assistantCommands.find(c=>c.id===id);
+ if(!command)return {status:'invalid'};
+ if(!state.assistantDemo)state.assistantDemo={};
+ state.assistantDemo.selected=id;
+ if(command.task){
+  if(!state.tasks.some(t=>t.text===command.task))state.tasks.push({id:Date.now(),text:command.task,done:false});
+ }
+ state.assistantDemo.last=command.answer;
+ save();
+ if(command.route)location.hash='#/'+command.route;
+ render();
+ return {status:'executed',route:command.route||null};
+}
+
 function content(key){
+ if(key==='metrics')return metricsContent();
+ if(key==='assistant')return assistantContent();
  if(key==='automations')return automationsContent();
  if(key==='contacts')return contactsContent();
  if(key==='appointments')return appointmentContent();
@@ -149,6 +195,15 @@ function content(key){
 }
 function nameFor(key){return pages.find(p=>p[0]===key)?.[1]||'Dashboard'}
 function bind(key){
+ if(key==='metrics'){
+  const range=document.getElementById('reportRange'),source=document.getElementById('reportSource');
+  if(range)range.onchange=()=>{reportData().range=range.value;save();render()};
+  if(source)source.onchange=()=>{reportData().source=source.value;save();render()};
+ }
+ if(key==='assistant'){
+  const select=document.getElementById('assistantCommand');if(select)select.onchange=()=>{if(!state.assistantDemo)state.assistantDemo={};state.assistantDemo.selected=select.value;save()};
+  const execute=document.getElementById('assistantExecute');if(execute)execute.onclick=()=>runAssistantCommand(select.value);
+ }
  if(key==='automations'){
   document.querySelectorAll('[data-rule-toggle]').forEach(input=>input.onchange=()=>{const a=automationData();a.enabled[input.dataset.ruleToggle]=input.checked;state.automationFeedback='Rule setting saved locally.';save();render()});
   const event=document.getElementById('automationEvent');if(event)event.onchange=()=>{automationData().selectedEvent=event.value;state.automationFeedback='Sample event selected; nothing executed.';save();render()};
