@@ -134,3 +134,20 @@ test('Google sample discrepancy creates and removes local dashboard task',()=>{
  h.element('presenceTask').click();
  assert.equal(vm.runInContext("state.tasks.some(t=>t.id==='presence-google-hours')",h.context),false);
 });
+
+test('appointments screen renders seeded synthetic record and editable form',()=>{
+ const h=harness();h.element('enter').onclick();h.location.hash='#/appointments';h.listeners.hashchange();
+ const html=h.element('app').innerHTML;
+ assert.match(html,/Create sample appointment/);
+ assert.match(html,/Morgan Chen/);
+ assert.match(html,/appointmentForm/);
+ assert.match(html,/data-appointment-toggle/);
+});
+test('appointment state persists and supports cancellation and rescheduling',()=>{
+ const h=harness();h.element('enter').onclick();h.location.hash='#/appointments';h.listeners.hashchange();
+ vm.runInContext("appointmentsData()[0].when='2026-11-10T11:45';appointmentsData()[0].status='Cancelled';save();render()",h.context);
+ const persisted=vm.runInContext("JSON.parse(localStorage.getItem('reach-demo-state')).appointments[0]",h.context);
+ assert.equal(persisted.when,'2026-11-10T11:45');
+ assert.equal(persisted.status,'Cancelled');
+ assert.match(h.element('app').innerHTML,/Restore/);
+});
