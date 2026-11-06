@@ -218,3 +218,30 @@ test('assistant executes deterministic task and navigation without network',()=>
  assert.equal(vm.runInContext("runAssistantCommand('missed').route",h.context),'calls');
  assert.equal(h.location.hash,'#/calls');
 });
+
+test('setup checklist and sample profile persist without connecting providers',()=>{
+ const h=harness();h.element('enter').click();h.location.hash='#/setup';h.listeners.hashchange();
+ assert.match(h.element('app').innerHTML,/First-time setup checklist/);
+ assert.match(h.element('app').innerHTML,/0 of 4 steps/);
+ const first=h.querySelectorAll('[data-setup-step]')[0];first.checked=true;first.onchange();
+ assert.equal(vm.runInContext('setupData().completed.length',h.context),1);
+ h.location.hash='#/connections';h.listeners.hashchange();
+ assert.match(h.element('app').innerHTML,/Not connected/);
+ h.element('setupProfile').value='sample-service';h.element('setupProfile').onchange();
+ assert.equal(vm.runInContext('setupData().profile',h.context),'sample-service');
+ assert.equal(vm.runInContext("JSON.parse(localStorage.getItem('reach-demo-state')).setup.profile",h.context),'sample-service');
+});
+test('demo export and two-step reset are local and safe',()=>{
+ const h=harness();h.element('enter').click();h.location.hash='#/connections';h.listeners.hashchange();
+ h.element('exportDemo').click();
+ assert.match(h.element('app').innerHTML,/Synthetic JSON export/);
+ assert.match(vm.runInContext('exportDemoJSON()',h.context),/reach-offline-demo-v1/);
+ h.element('armReset').click();
+ assert.match(h.element('app').innerHTML,/Confirm reset of sample data/);
+ h.element('cancelReset').click();
+ assert.equal(vm.runInContext('setupData().resetArmed',h.context),false);
+ h.element('armReset').click();h.element('confirmReset').click();
+ assert.equal(vm.runInContext('setupData().completed.length',h.context),0);
+ assert.equal(vm.runInContext('setupData().profile',h.context),'sample-local');
+ assert.equal(vm.runInContext('state.business',h.context),'Demo Business');
+});
