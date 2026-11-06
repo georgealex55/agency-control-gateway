@@ -109,3 +109,15 @@
 - **Local startup:** `python3 -m http.server 8080 --directory reach-shell`; visit `http://localhost:8080`. Preview path `/reach-demo/index.html` on a READY staging deployment.
 - **Skipped:** production, real customer records, real AI/Google/phone/messaging, provider keys, paid services and infrastructure provisioning.
 - **Next:** Run 11 Settings/Connections, setup checklist, safe reset/export and accessibility; execute full tests and browser audit when possible.
+
+
+## Run 11 / 12 — 2026-11-06T22:57:52.226Z
+- **Start SHA:** `73cd2ff800602053fbcb53eb507991d85722070c` (GitHub branch ref independently resolved before modification). **Source SHA:** `41683ba369d41ad7ed64987926a321fcd46d11dd`; **test SHAs:** `d0bb6807232181fb3a7391be849152afa8391b83`, `ef94184ab574f6b340e34cf6d5b2922c21dda09f`; **mirror SHA:** `6cd6169536c0b4a3859cb275a7cc8f2665e9cbbd`; final ledger SHA is the commit containing this entry.
+- **Changed files:** `reach-shell/index.html`, `reach-shell/shell.test.cjs`, `ghl-gpt-gateway/public/reach-demo/index.html`, this ledger. Existing staged backend, CRM, outbox, security and migrations untouched.
+- **Functionality:** Added first-time four-step checklist with persistent progress, owner demo profile switch, explicit disconnected status for seven customer-owned integrations, manual local JSON export display, and two-stage reset/cancel confirmation clearing only demo localStorage. No credential collection, real provider calls or external sends. Improved narrow-width card layout, checkbox and progress styling. Settings and Help are no longer placeholder screens.
+- **Acceptance:** #3 setup progress, #4 profile persistence, #23 connection/status walkthrough and #24 export/reset now source-implemented; prior functions retained. **Do not count as real-browser verified**: conservative 0/24 independent browser verification remains. Eleven route identifiers still present.
+- **Validation performed:** JavaScript `new Function` syntax parse of full inline source **PASS**; test source syntax parse **PASS**; 2 new smoke cases authored (25 total). No Node runtime or real-browser execution was available through the GitHub connector in this run, so 25 tests are **authored, not reported passing**. Prior Run 10 Vercel status was `success`; current mirror commit GitHub statuses empty/pending at inspection, not proof of browser route readiness.
+- **Preview mirror:** Source and mirror Git blob SHA identical `efe709e3133d60cc745cf098e413c46d533d08c8` after commit.
+- **Startup:** `python3 -m http.server 8080 --directory reach-shell` then open `http://localhost:8080`. Existing staging preview path `/reach-demo/index.html` only when build is READY.
+- **Skipped:** main, production, external services, customer records, secrets, paid resources, provisioning.
+- **Next:** Run 12 stabilization: execute full Node/browser tests where possible; audit 11/11 navigation and 24 explicit actions, fix verified regressions and issue final evidence-based report.
