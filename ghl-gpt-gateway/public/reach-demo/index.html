@@ -23,6 +23,11 @@ function inboxContent(){
  return '<div class="card"><h3>Unified Inbox · Sample conversations</h3><p class="muted">All messages are local demo records. Nothing is connected or delivered.</p><label for="inboxSearch">Search conversations</label><input id="inboxSearch" value="'+esc(state.inboxSearch||'')+'" placeholder="Name or message" aria-label="Search conversations"><label for="inboxFilter">Filter</label><select id="inboxFilter"><option value="all">All channels</option><option value="unread" '+(filter==='unread'?'selected':'')+'>Unread</option>'+['SMS','Email','Website chat'].map(c=>'<option value="'+c+'" '+(filter===c?'selected':'')+'>'+c+'</option>').join('')+'</select></div><div class="grid">'+card('Conversations',visible.length?visible.map(c=>'<p><button data-conversation="'+esc(c.id)+'" aria-pressed="'+(c.id===state.selectedConversation)+'">'+esc(c.name)+'</button> <span class="muted">'+esc(c.channel)+(c.unread?' · Unread':'')+'</span></p>').join(''):'<p>No matching sample conversations.</p>')+card('Conversation',selected?'<h3>'+esc(selected.name)+' · '+esc(selected.channel)+'</h3><p class="muted">Demo only · no provider connected</p>'+selected.messages.map(m=>'<p><strong>'+esc(m.direction==='out'?'Demo reply':'Incoming sample')+'</strong> · '+esc(m.at)+' · '+esc(m.status)+'<br>'+esc(m.text)+'</p>').join('')+'<label for="replyDraft">Reply draft</label><textarea id="replyDraft" rows="4" maxlength="2000" placeholder="Write a sample reply">'+esc(selected.draft||'')+'</textarea><p><button id="saveDraft">Save draft</button> <button id="simulateReply">Simulate reply (not sent)</button></p><p class="status" id="inboxFeedback">Saved locally; no real messages sent.</p>':'<p>Select a sample conversation.</p>','wide')+'</div>';
 }
 
+if(!seed.contacts)seed.contacts=[
+{id:'contact-1',name:'Jordan Lee',email:'jordan@example.invalid',phone:'(555) 010-0141',notes:'Asked about Saturday hours',conversationId:'conv-1',callId:'call-1'},
+{id:'contact-2',name:'Morgan Chen',email:'morgan@example.invalid',phone:'(555) 010-0182',notes:'Consultation request',conversationId:'conv-2',callId:'call-2'},
+{id:'contact-3',name:'Taylor Brooks',email:'taylor@example.invalid',phone:'(555) 010-0167',notes:'Interested in services',conversationId:'conv-3',callId:'call-3'}
+];
 if(!seed.appointments)seed.appointments=[{id:'appt-demo-1',name:'Morgan Chen',when:'2026-11-09T10:30',service:'Consultation',conversationId:'conv-2',status:'Scheduled'}];
 if(!seed.presence)seed.presence={websiteDetails:false,googleHoursMismatch:true,fixTaskCreated:false};
 function callsData(){if(!Array.isArray(state.calls))state.calls=structuredClone(seed.calls);return state.calls}
@@ -51,6 +56,21 @@ function appointmentContent(){
  const listing=card('Appointments · Sample records','<p class="muted">Create, reschedule, cancel or restore appointments. Cancelled records remain visible for audit.</p>'+(rows.length?rows.map(a=>'<p><strong>'+esc(a.name)+'</strong> · '+esc(a.service)+'<br><span class="muted">'+esc(a.when.replace('T',' '))+' · '+esc(a.status)+(a.conversationId?' · linked sample conversation':'')+'</span><br><button data-appointment-edit="'+esc(a.id)+'">Edit / reschedule</button> <button data-appointment-toggle="'+esc(a.id)+'">'+(a.status==='Cancelled'?'Restore':'Cancel appointment')+'</button></p>').join(''):'<p>No sample appointments yet. Create one using the form.</p>'),'wide');
  return '<div class="grid">'+form+listing+'</div>';
 }
+
+function contactsData(){if(!Array.isArray(state.contacts))state.contacts=structuredClone(seed.contacts);return state.contacts}
+function contactsContent(){
+ const q=(state.contactSearch||'').trim().toLowerCase(),rows=contactsData();
+ const visible=rows.filter(c=>[c.name,c.email,c.phone,c.notes].join(' ').toLowerCase().includes(q));
+ const editing=rows.find(c=>c.id===state.editContact)||null;
+ const options=(arr,chosen)=>'<option value="">None</option>'+arr.map(x=>'<option value="'+esc(x.id)+'" '+(chosen===x.id?'selected':'')+'>'+esc(x.name)+'</option>').join('');
+ const form=card(editing?'Edit sample contact':'Add sample contact','<p class="muted">Local demo directory. No CRM provider or customer records are connected.</p><form id="contactForm"><label for="contactName">Name</label><input id="contactName" required maxlength="80" value="'+esc(editing?.name||'')+'"><label for="contactEmail">Email</label><input id="contactEmail" type="email" maxlength="120" value="'+esc(editing?.email||'')+'"><label for="contactPhone">Phone</label><input id="contactPhone" maxlength="40" value="'+esc(editing?.phone||'')+'"><label for="contactNotes">Notes</label><textarea id="contactNotes" maxlength="1000" rows="3">'+esc(editing?.notes||'')+'</textarea><label for="contactConversation">Sample inbox link</label><select id="contactConversation">'+options(inboxData(),editing?.conversationId)+'</select><label for="contactCall">Sample call link</label><select id="contactCall">'+options(callsData(),editing?.callId)+'</select><p><button type="submit">'+(editing?'Save contact':'Create contact')+'</button> '+(editing?'<button type="button" id="contactCancelEdit">Cancel editing</button>':'')+'</p></form><p class="status">Saved only in this browser.</p>');
+ const list=card('Contact directory · Sample','<label for="contactSearch">Search contacts</label><input id="contactSearch" value="'+esc(state.contactSearch||'')+'" placeholder="Name, email, phone or notes"><p class="muted">'+visible.length+' matching local contacts</p>'+(visible.length?visible.map(c=>{
+ const conv=inboxData().find(x=>x.id===c.conversationId),call=callsData().find(x=>x.id===c.callId);
+ return '<p><strong>'+esc(c.name)+'</strong><br><span class="muted">'+esc(c.email||'No email')+' · '+esc(c.phone||'No phone')+'</span><br>'+esc(c.notes||'No notes')+'<br><button data-contact-edit="'+esc(c.id)+'">Edit contact</button> '+(conv?'<a href="#/inbox" data-contact-inbox="'+esc(conv.id)+'">View linked inbox conversation</a> ':'')+(call?'<a href="#/calls" data-contact-call="'+esc(call.id)+'">View linked call history</a>':'')+'</p>';
+ }).join(''):'<p>No matching contacts. Clear search or create a new contact.</p>'),'wide');
+ return '<div class="grid">'+form+list+'</div>';
+}
+
 function current(){const key=location.hash.replace(/^#\/?/,'').split('/')[0];return pages.some(p=>p[0]===key)?key:'dashboard'}
 function card(title,body,extra=''){return '<section class="card '+extra+'"><h3>'+title+'</h3>'+body+'</section>'}
 function render(){
@@ -64,6 +84,7 @@ function render(){
  bind(key);
 }
 function content(key){
+ if(key==='contacts')return contactsContent();
  if(key==='appointments')return appointmentContent();
  if(key==='presence')return presenceContent();
  if(key==='inbox')return inboxContent();
@@ -79,6 +100,15 @@ function content(key){
 }
 function nameFor(key){return pages.find(p=>p[0]===key)?.[1]||'Dashboard'}
 function bind(key){
+ if(key==='contacts'){
+  const search=document.getElementById('contactSearch');if(search)search.oninput=()=>{state.contactSearch=search.value;save();render();document.getElementById('contactSearch')?.focus()};
+  const form=document.getElementById('contactForm');if(form)form.onsubmit=e=>{e?.preventDefault?.();const name=document.getElementById('contactName').value.trim(),email=document.getElementById('contactEmail').value.trim(),phone=document.getElementById('contactPhone').value.trim(),notes=document.getElementById('contactNotes').value.trim(),conversationId=document.getElementById('contactConversation').value,callId=document.getElementById('contactCall').value;if(!name||email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return;const rows=contactsData(),c=rows.find(x=>x.id===state.editContact);const fields={name,email,phone,notes,conversationId,callId};if(c)Object.assign(c,fields);else rows.push({id:'contact-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),...fields});state.editContact=null;save();render()};
+  document.querySelectorAll('[data-contact-edit]').forEach(b=>b.onclick=()=>{state.editContact=b.dataset.contactEdit;render()});
+  const cancel=document.getElementById('contactCancelEdit');if(cancel)cancel.onclick=()=>{state.editContact=null;render()};
+  document.querySelectorAll('[data-contact-inbox]').forEach(a=>a.onclick=()=>{state.selectedConversation=a.dataset.contactInbox;save()});
+  document.querySelectorAll('[data-contact-call]').forEach(a=>a.onclick=()=>{state.callSearch=callsData().find(x=>x.id===a.dataset.contactCall)?.number||'';state.callFilter='all';save()});
+ }
+
  if(key==='appointments'){
   const form=document.getElementById('appointmentForm');if(form)form.onsubmit=e=>{e?.preventDefault?.();const name=document.getElementById('appointmentName').value.trim(),when=document.getElementById('appointmentWhen').value,service=document.getElementById('appointmentService').value.trim(),conversationId=document.getElementById('appointmentConversation').value;if(!name||!service||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(when))return;const rows=appointmentsData(),existing=rows.find(a=>a.id===state.editAppointment);if(existing){Object.assign(existing,{name,when,service,conversationId})}else rows.push({id:'appt-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),name,when,service,conversationId,status:'Scheduled'});state.editAppointment=null;save();render()};
   document.querySelectorAll('[data-appointment-edit]').forEach(b=>b.onclick=()=>{state.editAppointment=b.dataset.appointmentEdit;render()});
