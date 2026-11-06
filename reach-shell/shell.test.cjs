@@ -9,7 +9,7 @@ function harness(){
  const nodes=new Map(), storage=()=>{const map=new Map();return {getItem:k=>map.get(k)||null,setItem:(k,v)=>map.set(k,v),removeItem:k=>map.delete(k)}};
  const localStorage=storage(),sessionStorage=storage(),location={hash:''};
  const element=id=>{if(!nodes.has(id))nodes.set(id,{id,innerHTML:'',value:'Demo Business',dataset:{},focus(){this.focused=true},click(){this.onclick?.()},onclick:null});return nodes.get(id)};
- const document={getElementById:element,querySelectorAll:()=>[],onkeydown:null};
+ const document={getElementById:element,querySelectorAll:selector=>selector==='[data-setup-step]'?['review','presence','calls','connections'].map(id=>{const n=element('setup-step-'+id);n.dataset.setupStep=id;return n}):[],onkeydown:null};
  const listeners={};const window={addEventListener:(name,fn)=>listeners[name]=fn};
  const context=vm.createContext({document,window,localStorage,sessionStorage,location,structuredClone,console});
  vm.runInContext(script,context,{filename:'reach-shell/index.html'});
