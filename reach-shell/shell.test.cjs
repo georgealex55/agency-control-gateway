@@ -55,3 +55,20 @@ test('demo route names and disabled integrations are clearly labeled',()=>{
  h.location.hash='#/calls';h.listeners.hashchange();
  assert.match(h.element('app').innerHTML,/Not connected to external services/);
 });
+
+test('dashboard period selection updates sample metrics and local state',()=>{
+ const h=harness();h.element('enter').click();
+ assert.match(h.element('app').innerHTML,/Sample reporting period/);
+ assert.match(h.element('app').innerHTML,/Sample calls · 2 missed/);
+ h.element('dashboardRange').value='30 days';h.element('dashboardRange').onchange();
+ assert.match(h.element('app').innerHTML,/Sample calls · 8 missed/);
+ assert.equal(vm.runInContext('state.range',h.context),'30 days');
+});
+test('dashboard drilldown explains source and can be closed',()=>{
+ const h=harness();h.element('enter').click();
+ vm.runInContext("state.detail='calls';save();render()",h.context);
+ assert.match(h.element('app').innerHTML,/49|12 simulated calls/);
+ assert.match(h.element('app').innerHTML,/No phone provider connected/);
+ h.element('closeDetail').click();
+ assert.doesNotMatch(h.element('app').innerHTML,/No phone provider connected/);
+});
