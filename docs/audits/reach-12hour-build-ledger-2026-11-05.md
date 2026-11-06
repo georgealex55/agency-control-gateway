@@ -90,3 +90,12 @@
 - LIMITATIONS: `reach_contacts` schema and migrations are not yet installed, no HTTP route, no real PostgreSQL driver or Neon connection, and injected authorization is not live authentication. Contact listing is not an end-to-end CRM.
 - SKIPPED: real Neon projects, secrets, client records, paid/external resources, production deployment. AWAITING USER: shared control-plane versus separate per-client application deployment.
 - Next: verify CI and fix failures; introduce staging contact schema migration plus disposable PostgreSQL integration tests, then produce the final 12-run report with clear completeness and blockers.
+
+## Functional continuation — 2026-11-06 UTC (after the 12-hour sequence; not counted as execution 12)
+- Reviewed the existing 11-run ledger, client contacts service, authorized pool boundary and Neon synthetic CI workflow. The required 12th-run final report is not present; do not treat this continuation as the missing scheduled final run.
+- Starting prior functional checkpoint: `336aa785f83effccc162e03a63835da46a217176`. GitHub combined commit status included a failed Vercel status; this does not establish Neon synthetic test outcome.
+- Implemented `audit/neon/client-pipeline-service.mjs`: authenticated app-role pipeline listing and stage moves through client-scoped injected pools; stage move SQL checks stage membership in the same pipeline, uses parameters and releases connections. No real database access.
+- Added `audit/neon/client-pipeline-service.test.mjs`: six synthetic tests for listing, tenant denial, valid move, absent/foreign stage, invalid inputs and malformed rows. Source commits `3c4bc31d3c892b873e6ac10cb8b2db5f1ccc02cc` and `a1c8bed9d5b02ec43ca94c6d03a2deb560e6a73b`.
+- TEST STATUS: tests committed; Node execution and GitHub Actions conclusion not yet independently verified. The existing workflow glob `audit/neon/*.test.mjs` should include the new tests. No passing claim.
+- LIMITATIONS: no `reach_opportunities` or `reach_pipeline_stages` schema migration, no HTTP API, no browser dashboard, no real PostgreSQL/Neon connection, and no persisted workflow integration. Concurrent stage changes are not yet protected by optimistic versioning.
+- SKIPPED: Neon provisioning, real client data, external messaging and production deployment. Next: confirm CI, implement schema migrations for contacts/pipelines, add focused CRUD endpoints and dashboard aggregation with synthetic end-to-end tests.
