@@ -53,3 +53,14 @@
 - **Run command:** `python3 -m http.server 8080 --directory reach-shell`; then `node --test reach-shell/shell.test.cjs` in a checkout with Node installed. Staging Vercel preview path: `/reach-demo/index.html`.
 - **Skipped:** production, live telephony, real customer records, provider APIs, Neon/Vercel provisioning and outbound communication.
 - **Next:** Run 6: website/Google Business Profile synthetic presence, discrepancy to suggested fix task; execute actual Node/browser suite when environment access permits.
+
+## Run 6 / 12 — 2026-11-06 UTC
+- **Starting checkpoint:** Run 5 ledger and staging branch last recorded commit `9824aac401a6993ad926f77caa11ab031cfd29d7`. Read plan, ledger, source, tests, previous deployment state (Vercel preview READY). Exact branch HEAD at run start not independently established.
+- **Source commit:** `945e1a539965fb6d15d252c129c3ede19807a19c` — `reach-shell/index.html`. Added offline Business Presence workspace with synthetic website status, expandable fixture-only checks, fictional Google Business Profile rating/review alerts and inconsistent hours. Added toggle to create/remove a persistent local suggested Google-hours task; Dashboard task list includes it. All labels distinguish fixture data from actual monitoring.
+- **Tests commit:** `e6375c6ad78e6fa142ccd5eb8b0f0b84fe5d3a05` — `reach-shell/shell.test.cjs`, two new test cases (14 total authored).
+- **Preview mirror commit:** `4a4fb932ccdffac587ef4f1376ee453ff0e448f3` — `ghl-gpt-gateway/public/reach-demo/index.html`, identical blob SHA to shell source `f5a4391256fa871215a07d9228426a743d2c8781`.
+- **Validation:** V8 inline JavaScript parse **PASS**. Executed a direct in-memory JavaScript DOM/storage harness: presence route rendered **PASS**; website detail toggle **PASS**; Google discrepancy task persisted **PASS**; Dashboard task surfaced **PASS**. These are interaction simulations, not browser tests. Node test runner and actual browser/mobile behavior **not independently run**. Functional checklist #14 and #15 demonstrated in JS harness, but conservative browser-verified count remains **0/24**; no 60% claim.
+- **Files:** `reach-shell/index.html`, `reach-shell/shell.test.cjs`, `ghl-gpt-gateway/public/reach-demo/index.html`, this ledger.
+- **Startup:** `python3 -m http.server 8080 --directory reach-shell`, open `http://localhost:8080`. Preview route `/reach-demo/index.html` on staging Vercel deployment; check build readiness.
+- **Skipped:** production, Google API, live website checks, actual review data, real customer records, paid services.
+- **Next:** Run 7 appointments create, reschedule/cancel, persistent synthetic records and tests.
