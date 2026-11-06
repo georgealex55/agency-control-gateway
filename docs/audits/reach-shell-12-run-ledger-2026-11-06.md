@@ -12,3 +12,12 @@
 - **Functional checklist:** #1 demo login, #2 logout, #7 resolve/reopen sample alert implemented but not browser-verified; **0/24 independently end-to-end verified**. 11/11 route IDs implemented but not browser-tested. Do not count toward 60% until smoke-tested.
 - **Skipped:** Neon, Vercel deployment, Google, telephony, AI, real records and external provider setup. Existing SQLite/Neon staging code untouched.
 - **Next run:** Run 2—test login/logout, hash route navigation, mobile menu, accessibility; build a reproducible local smoke test; fix any failures and log actual results.
+
+## Run 2 / 12 — 2026-11-06 UTC
+- **Starting checkpoint:** Run 1 ledger and shell at `34b4262ad03e144734b2f574b678cb8f7720c988` (last known source commit; exact initial HEAD not independently verified). Read plan, ledger, shell HTML and README. No production or client systems touched.
+- **Code commit:** `d1089c3038938f7bdc3c1291792008f8ab697e6a` — `reach-shell/index.html`: Enter-key login submission, mobile-menu Escape close, restored keyboard focus on menu toggles, and visible input focus styling.
+- **Test commit:** `770f2435667d10b3c6e6263708f9afa534372a47` — new `reach-shell/shell.test.cjs`, six Node smoke tests covering source startup, all 11 unique routes, demo login/logout, Enter submission, mobile toggle/Escape, and demo-only integration labels. Run with `node --test reach-shell/shell.test.cjs` from repo root.
+- **Validation actually performed:** fetched latest HTML via GitHub; V8 `new Function` parsed inline JS successfully (PASS). Static checks for all 11 route IDs, Enter/Escape handlers, menu focus, `aria-expanded`, and demo banner all PASS. **Node smoke suite and real-browser/mobile viewport interaction NOT EXECUTED**: working container cannot resolve github.com to clone source; no matching Actions workflow runs were returned for test commit. Therefore 11/11 navigation and 0/24 end-to-end actions remain **unverified**, not counted as passed.
+- **CI:** combined status for test commit showed Vercel **pending**; no successful CI conclusion established. No deploy triggered by us.
+- **Skipped:** live auth, provider credentials, real calls, AI, Google, Neon, Vercel provisioning, and production. Existing backend staging code untouched.
+- **Next run:** Run 3 dashboard with date-range selector, metric drilldown and actionable status details; add offline tests and execute Node/browser smoke suite in any available environment before counting coverage.
