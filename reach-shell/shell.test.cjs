@@ -72,3 +72,21 @@ test('dashboard drilldown explains source and can be closed',()=>{
  h.element('closeDetail').click();
  assert.doesNotMatch(h.element('app').innerHTML,/No phone provider connected/);
 });
+
+test('inbox exposes seeded conversations, search and demo-only reply actions',()=>{
+ const h=harness();h.element('enter').click();h.location.hash='#/inbox';h.listeners.hashchange();
+ assert.match(h.element('app').innerHTML,/Jordan Lee/);
+ assert.match(h.element('app').innerHTML,/Search conversations/);
+ assert.match(h.element('app').innerHTML,/Simulate reply \(not sent\)/);
+ assert.match(h.element('app').innerHTML,/Nothing is connected or delivered/);
+});
+test('inbox saves draft and simulates outbound reply without provider delivery',()=>{
+ const h=harness();h.element('enter').click();h.location.hash='#/inbox';h.listeners.hashchange();
+ h.element('replyDraft').value='Demo response';
+ h.element('saveDraft').click();
+ assert.equal(vm.runInContext("state.conversations[0].draft",h.context),'Demo response');
+ h.element('replyDraft').value='Demo response';
+ h.element('simulateReply').click();
+ assert.equal(vm.runInContext("state.conversations[0].messages.at(-1).status",h.context),'simulated · not delivered');
+ assert.match(h.element('app').innerHTML,/Demo response/);
+});
