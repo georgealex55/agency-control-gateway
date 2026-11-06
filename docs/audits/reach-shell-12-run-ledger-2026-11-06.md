@@ -74,3 +74,14 @@
 - **Files changed:** `reach-shell/index.html`, `reach-shell/shell.test.cjs`, `ghl-gpt-gateway/public/reach-demo/index.html`, this ledger. Startup: `python3 -m http.server 8080 --directory reach-shell` and visit localhost:8080. Staging preview: `/reach-demo/index.html` on Vercel branch deployment, build readiness after latest mirror commit not yet independently confirmed.
 - **Skipped:** production, live accounts, external calendar, real customer data, provider integrations, paid services.
 - **Next:** Run 8 contact create/edit/search with synthetic inbox/call links; add functional tests and execute Node/browser suite where available.
+
+
+## Run 8 / 12 — 2026-11-06T20:58 UTC
+- **Starting checkpoint:** Run 7 ledger commit `5234fc41b42482f1acad4cb1027ffb0a45953704` (latest known staging checkpoint), 16 authored tests, 11 sidebar routes. Read plan, ledger, shell, test harness and Vercel staging history; previous Run 7 staging deployment reported READY. Exact initial branch HEAD not independently established.
+- **Source commits:** `bfc08bc9bab65843964d9303443d7f5c0e4020fe` (Contacts UI), `953fc719aa401e41f7531c1804645529aac95ab7` (email validation fix). **Test commit:** `f57cd6b7edaccc8ce5561518f46466e92d5b490f` (2 authored cases, 18 total). **Preview mirror:** `7c1ecb00bec49a5a41be01ffedcf701ef90d7776`, verified same Git blob SHA as shell source `6ff960294756c95fa0cfb23aa7b7045109392c16`.
+- **Implemented:** Contact directory seeded with three fictional people, search by name/email/phone/notes, create/edit with basic email validation, optional links to existing synthetic inbox conversations and calls. Data persists in browser-local demo state; no external CRM access. Existing staging backend untouched.
+- **Validation actually executed:** V8 `new Function` parse PASS; six direct in-memory DOM/storage interaction checks PASS: seeded directory, linked conversation, contact creation, storage persistence, contact edit, contact search. Initial harness exposed over-escaped email validation; fixed before rerun. These are simulated DOM checks, not a real browser. Node `--test` suite and real-browser/mobile tests **not executed**. No claim of 60% verified. Checklist #18/#19 implemented and harness-demonstrated; conservative **0/24 independently browser-verified** remains. 11/11 routes source-confirmed only.
+- **Files changed:** `reach-shell/index.html`, `reach-shell/shell.test.cjs`, `ghl-gpt-gateway/public/reach-demo/index.html`, this ledger.
+- **Startup:** `python3 -m http.server 8080 --directory reach-shell`; open `http://localhost:8080`. Staging preview route: `/reach-demo/index.html` on a READY branch deployment.
+- **Skipped:** production, live customer contacts, provider APIs, paid services and external connector setup.
+- **Next:** Run 9 local automations/tasks rules and simulated execution logs with deduplication; execute Node/browser suite where available.
