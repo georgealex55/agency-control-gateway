@@ -37,3 +37,9 @@ A working responsive sidebar with: **Dashboard**, **Inbox**, **Calls**, **Appoin
 
 ## Final artifact
 `docs/audits/reach-shell-12-run-final-report-2026-11-06.md`: numbered changelog with SHAs, working navigation matrix, objective acceptance checklist (24 actions), exact passing percentage, passed/failed/unverified tests, developer demo URL if available (not an invented link), startup steps, gaps from connectors and customer-owned deployment requirements. Do not claim 60% unless >=15/24 actions pass actual tests/smoke validation.
+
+## Staging preview publishing (approved after Run 4)
+- The standalone shell source of truth is `reach-shell/index.html`. The existing Next.js staging app can expose a **demo-only** preview by copying the same contents into `ghl-gpt-gateway/public/reach-demo/index.html` (Vercel URL path `/reach-demo/index.html`).
+- **Every run that changes the shell must synchronize the mirrored static preview file on the staging branch before concluding**. Fetch the latest source at run end, update/create the mirror on the same branch, and compare contents; record the mirror commit. Do not modify production aliases, project settings or main.
+- Verify the **preview** Git-linked build is `READY`; an environment build status alone does not prove browser routing works. Never treat this demo login as real authentication or call any external provider from the preview.
+- Current deploy branch alias reported by Vercel: `agency-control-gateway-git-e874e5-georgealex1925-2750s-projects.vercel.app`; use `/reach-demo/index.html` only when a ready preview deployment includes the mirror. Link a specific deployment if alias status is uncertain.
