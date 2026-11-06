@@ -151,3 +151,24 @@ test('appointment state persists and supports cancellation and rescheduling',()=
  assert.equal(persisted.status,'Cancelled');
  assert.match(h.element('app').innerHTML,/Restore/);
 });
+
+test('contacts directory seeds linked synthetic people and supports search',()=>{
+ const h=harness();h.element('enter').click();h.location.hash='#/contacts';h.listeners.hashchange();
+ assert.match(h.element('app').innerHTML,/Contact directory · Sample/);
+ assert.match(h.element('app').innerHTML,/Jordan Lee/);
+ assert.match(h.element('app').innerHTML,/View linked inbox conversation/);
+ h.element('contactSearch').value='Morgan';h.element('contactSearch').oninput();
+ assert.equal(vm.runInContext('state.contactSearch',h.context),'Morgan');
+ assert.match(h.element('app').innerHTML,/1 matching local contacts/);
+});
+test('contacts create and edit persist to local demo storage',()=>{
+ const h=harness();h.element('enter').click();h.location.hash='#/contacts';h.listeners.hashchange();
+ h.element('contactName').value='Demo Client';h.element('contactEmail').value='client@example.invalid';h.element('contactPhone').value='555-0199';h.element('contactNotes').value='Local only';h.element('contactConversation').value='conv-1';h.element('contactCall').value='call-1';
+ h.element('contactForm').onsubmit({preventDefault(){}});
+ assert.equal(vm.runInContext("contactsData().some(c=>c.name==='Demo Client')",h.context),true);
+ assert.equal(vm.runInContext("JSON.parse(localStorage.getItem('reach-demo-state')).contacts.length",h.context),4);
+ vm.runInContext("state.editContact=contactsData().find(c=>c.name==='Demo Client').id;render()",h.context);
+ h.element('contactName').value='Edited Demo Client';h.element('contactEmail').value='client@example.invalid';h.element('contactPhone').value='555-0199';h.element('contactNotes').value='Updated';h.element('contactConversation').value='conv-1';h.element('contactCall').value='call-1';
+ h.element('contactForm').onsubmit({preventDefault(){}});
+ assert.equal(vm.runInContext("contactsData().some(c=>c.name==='Edited Demo Client'&&c.notes==='Updated')",h.context),true);
+});
