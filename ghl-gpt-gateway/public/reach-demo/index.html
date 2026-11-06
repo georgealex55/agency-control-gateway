@@ -6,7 +6,7 @@
 <script>
 'use strict';
 const pages=[['dashboard','Dashboard'],['inbox','Inbox'],['calls','Calls'],['appointments','Appointments'],['presence','Business Presence'],['contacts','Contacts'],['automations','Automations'],['metrics','Reports & Metrics'],['assistant','AI Assistant'],['connections','Settings / Connections'],['setup','Help & Setup']];
-const seed={business:'Demo Business',tasks:[{id:1,text:'Review missed calls',done:false},{id:2,text:'Verify Google profile hours',done:false}],range:'7 days',detail:null,inboxFilter:'all',inboxSearch:'',selectedConversation:'conv-1',conversations:[
+const seed={business:'Demo Business',tasks:[{id:1,text:'Review missed calls',done:false},{id:2,text:'Verify Google profile hours',done:false}],range:'7 days',detail:null,inboxFilter:'all',inboxSearch:'',selectedConversation:'conv-1',callSearch:'',callFilter:'all',callPolicy:'voicemail',calls:[{id:'call-1',name:'Jordan Lee',number:'(555) 010-0141',kind:'Missed',at:'Today 09:10',followUp:false},{id:'call-2',name:'Morgan Chen',number:'(555) 010-0182',kind:'Answered',at:'Yesterday 14:20',followUp:false},{id:'call-3',name:'Taylor Brooks',number:'(555) 010-0167',kind:'Missed',at:'Monday 11:40',followUp:false}],conversations:[
 {id:'conv-1',name:'Jordan Lee',channel:'SMS',unread:true,messages:[{direction:'in',text:'Are you open on Saturday?',at:'09:15',status:'received'}],draft:''},
 {id:'conv-2',name:'Morgan Chen',channel:'Email',unread:false,messages:[{direction:'in',text:'Can I schedule a consultation?',at:'Yesterday',status:'received'}],draft:''},
 {id:'conv-3',name:'Taylor Brooks',channel:'Website chat',unread:true,messages:[{direction:'in',text:'What services do you offer?',at:'Monday',status:'received'}],draft:''}
@@ -22,6 +22,14 @@ function inboxContent(){
  const selected=list.find(c=>c.id===state.selectedConversation)||null;
  return '<div class="card"><h3>Unified Inbox · Sample conversations</h3><p class="muted">All messages are local demo records. Nothing is connected or delivered.</p><label for="inboxSearch">Search conversations</label><input id="inboxSearch" value="'+esc(state.inboxSearch||'')+'" placeholder="Name or message" aria-label="Search conversations"><label for="inboxFilter">Filter</label><select id="inboxFilter"><option value="all">All channels</option><option value="unread" '+(filter==='unread'?'selected':'')+'>Unread</option>'+['SMS','Email','Website chat'].map(c=>'<option value="'+c+'" '+(filter===c?'selected':'')+'>'+c+'</option>').join('')+'</select></div><div class="grid">'+card('Conversations',visible.length?visible.map(c=>'<p><button data-conversation="'+esc(c.id)+'" aria-pressed="'+(c.id===state.selectedConversation)+'">'+esc(c.name)+'</button> <span class="muted">'+esc(c.channel)+(c.unread?' · Unread':'')+'</span></p>').join(''):'<p>No matching sample conversations.</p>')+card('Conversation',selected?'<h3>'+esc(selected.name)+' · '+esc(selected.channel)+'</h3><p class="muted">Demo only · no provider connected</p>'+selected.messages.map(m=>'<p><strong>'+esc(m.direction==='out'?'Demo reply':'Incoming sample')+'</strong> · '+esc(m.at)+' · '+esc(m.status)+'<br>'+esc(m.text)+'</p>').join('')+'<label for="replyDraft">Reply draft</label><textarea id="replyDraft" rows="4" maxlength="2000" placeholder="Write a sample reply">'+esc(selected.draft||'')+'</textarea><p><button id="saveDraft">Save draft</button> <button id="simulateReply">Simulate reply (not sent)</button></p><p class="status" id="inboxFeedback">Saved locally; no real messages sent.</p>':'<p>Select a sample conversation.</p>','wide')+'</div>';
 }
+
+function callsData(){if(!Array.isArray(state.calls))state.calls=structuredClone(seed.calls);return state.calls}
+function callsContent(){
+ const filter=state.callFilter||'all',q=(state.callSearch||'').trim().toLowerCase();
+ const visible=callsData().filter(c=>(filter==='all'||filter===c.kind)&&[c.name,c.number,c.kind,c.at].join(' ').toLowerCase().includes(q));
+ const policy=state.callPolicy||'voicemail';
+ return '<div class="grid">'+card('Call history · Synthetic','<p class="muted">Local sample calls only. No telephone account, AI voice or call forwarding is connected.</p><label for="callSearch">Search calls</label><input id="callSearch" placeholder="Caller, number or date" value="'+esc(state.callSearch||'')+'"><label for="callFilter">Call status</label><select id="callFilter"><option value="all">All calls</option>'+['Missed','Answered'].map(k=>'<option value="'+k+'" '+(filter===k?'selected':'')+'>'+k+'</option>').join('')+'</select><div id="callRows">'+(visible.length?visible.map(c=>'<p><strong>'+esc(c.name)+'</strong> · '+esc(c.number)+'<br><span class="muted">'+esc(c.at)+' · '+esc(c.kind)+'</span> '+(c.kind==='Missed'?'<button data-call-followup="'+esc(c.id)+'">'+(c.followUp?'Reopen follow-up':'Create callback task')+'</button>':'')+(c.followUp?' <span class="good">Callback task active</span>':'')+'</p>').join(''):'<p>No matching sample calls.</p>')+'</div>','wide')+card('Demo receptionist policy','<p class="muted">Choose what the demo would suggest for unanswered calls. This does not configure a real phone.</p><label for="callPolicy">Unanswered call fallback</label><select id="callPolicy"><option value="voicemail" '+(policy==='voicemail'?'selected':'')+'>Offer voicemail</option><option value="callback" '+(policy==='callback'?'selected':'')+'>Create callback task</option><option value="owner" '+(policy==='owner'?'selected':'')+'>Notify owner (demo only)</option></select><p class="status" id="callPolicyStatus">Saved local policy: '+esc({voicemail:'Offer voicemail',callback:'Create callback task',owner:'Notify owner (demo only)'}[policy]||'Offer voicemail')+'. No AI answering or phone provider connected.</p>')+'</div>';
+}
 function current(){const key=location.hash.replace(/^#\/?/,'').split('/')[0];return pages.some(p=>p[0]===key)?key:'dashboard'}
 function card(title,body,extra=''){return '<section class="card '+extra+'"><h3>'+title+'</h3>'+body+'</section>'}
 function render(){
@@ -36,6 +44,7 @@ function render(){
 }
 function content(key){
  if(key==='inbox')return inboxContent();
+ if(key==='calls')return callsContent();
  if(key==='dashboard'){
  const samples={'7 days':{calls:12,missed:2,inbox:4,website:2,healthy:3,trend:[6,9,12]},'30 days':{calls:49,missed:8,inbox:15,website:2,healthy:3,trend:[31,40,49]},'90 days':{calls:144,missed:23,inbox:41,website:2,healthy:3,trend:[103,127,144]}};
  const period=samples[state.range]||samples['7 days'];
@@ -47,6 +56,12 @@ function content(key){
 }
 function nameFor(key){return pages.find(p=>p[0]===key)?.[1]||'Dashboard'}
 function bind(key){
+ if(key==='calls'){
+  const search=document.getElementById('callSearch');if(search)search.oninput=()=>{state.callSearch=search.value;save();render();document.getElementById('callSearch')?.focus()};
+  const filter=document.getElementById('callFilter');if(filter)filter.onchange=()=>{state.callFilter=filter.value;save();render()};
+  const policy=document.getElementById('callPolicy');if(policy)policy.onchange=()=>{if(['voicemail','callback','owner'].includes(policy.value)){state.callPolicy=policy.value;save();render()}};
+  document.querySelectorAll('[data-call-followup]').forEach(b=>b.onclick=()=>{const c=callsData().find(x=>x.id===b.dataset.callFollowup);if(!c||c.kind!=='Missed')return;c.followUp=!c.followUp;const taskId='callback-'+c.id;state.tasks=state.tasks.filter(t=>t.id!==taskId);if(c.followUp)state.tasks.push({id:taskId,text:'Call back '+c.name+' ('+c.number+')',done:false});save();render()});
+ }
  if(key==='inbox'){
   const search=document.getElementById('inboxSearch');if(search)search.oninput=()=>{state.inboxSearch=search.value;save();render();const next=document.getElementById('inboxSearch');next?.focus()};
   const filter=document.getElementById('inboxFilter');if(filter)filter.onchange=()=>{state.inboxFilter=filter.value;save();render()};
@@ -59,7 +74,7 @@ function bind(key){
  const range=document.getElementById('dashboardRange');if(range)range.onchange=()=>{if(['7 days','30 days','90 days'].includes(range.value)){state.range=range.value;save();render()}};
  document.querySelectorAll('[data-detail]').forEach(b=>b.onclick=()=>{state.detail=b.dataset.detail;save();render()});
  const close=document.getElementById('closeDetail');if(close)close.onclick=()=>{state.detail=null;save();render()};
- document.querySelectorAll('[data-task]').forEach(b=>b.onclick=()=>{const task=state.tasks.find(t=>t.id===Number(b.dataset.task));if(task){task.done=!task.done;save();render()}});
+ document.querySelectorAll('[data-task]').forEach(b=>b.onclick=()=>{const task=state.tasks.find(t=>String(t.id)===b.dataset.task);if(task){task.done=!task.done;save();render()}});
  }}
 window.addEventListener('hashchange',()=>{open=false;render()});render();
 </script></body></html>
