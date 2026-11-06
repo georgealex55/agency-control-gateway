@@ -2,6 +2,7 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>REACH 2.0 | Developer Demo</title>
 <style>
 :root{font-family:Inter,system-ui,-apple-system,sans-serif;color:#e9eaf8;background:#0b1024}*{box-sizing:border-box}body{margin:0}button,a{font:inherit}button{cursor:pointer;border:0;border-radius:9px;padding:10px 14px;background:#6356db;color:white}button:focus-visible,a:focus-visible,textarea:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid #9dbbff;outline-offset:3px}a{color:inherit;text-decoration:none}.layout{display:grid;grid-template-columns:240px 1fr;min-height:100vh}.side{padding:24px 14px;background:#10172e;border-right:1px solid #2a3351}.brand{font-size:24px;font-weight:800;letter-spacing:2px;margin:5px 10px 22px}.brand span{color:#9d8fff}.side a{display:block;padding:11px 13px;margin:4px 0;border-radius:9px;color:#bfc7e1}.side a[aria-current=page]{background:#272f60;color:#fff}.main{padding:28px;max-width:1250px;width:100%;margin:auto}.top{display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap}.pill{font-size:12px;color:#e1d6ff;background:#3b2d6c;border-radius:99px;padding:6px 11px}.muted{color:#9ca8c7}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:24px}.card{background:#151e38;border:1px solid #303957;border-radius:16px;padding:20px}.card h3{margin:0 0 10px}.card strong{font-size:26px}.card p{color:#b2bdd7}.wide{grid-column:span 2}.alert{border-left:4px solid #e5a64d}.good{color:#7de4b4}.footer{margin-top:28px;color:#8e9aba;font-size:12px}.menu{display:none}.login{max-width:440px;margin:12vh auto;padding:30px;background:#151e38;border:1px solid #303957;border-radius:18px}.login h1{font-size:30px}input{width:100%;background:#0d152c;border:1px solid #3c4564;border-radius:9px;padding:12px;color:white;margin:10px 0 16px}.placeholder{min-height:170px}textarea,select{background:#0d152c;border:1px solid #3c4564;border-radius:9px;padding:11px;color:white;max-width:100%}textarea{width:100%;resize:vertical}.card button[aria-pressed="true"]{background:#4237a1}.dashboard-controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:22px}.dashboard-controls select{background:#0d152c;border:1px solid #3c4564;border-radius:9px;padding:10px;color:#fff}.metric-button{display:block;background:transparent;color:#b6c8ff;padding:5px 0;text-align:left;text-decoration:underline}.detail{margin-top:18px;border-color:#7569df}.detail h3{color:#dcd6ff}.status{font-size:13px;color:#f5ca88}#navToggle{background:#27335d} @media(max-width:800px){.layout{display:block}.side{display:none;position:absolute;z-index:2;left:0;top:62px;width:250px;box-shadow:8px 8px 40px #0008}.side.open{display:block}.main{padding:18px}.menu{display:block}.grid{grid-template-columns:1fr}.wide{grid-column:auto}}
+progress{width:100%;height:14px;accent-color:#9186ff}input[type=checkbox]{width:auto;margin:0 9px 0 0;accent-color:#9186ff}#exportJSON{font-family:monospace;font-size:12px} @media(max-width:800px){.card{padding:16px}.main{min-width:0}button{max-width:100%;white-space:normal}} 
 </style></head><body><div id="app"></div>
 <script>
 'use strict';
@@ -175,7 +176,44 @@ function runAssistantCommand(id){
  return {status:'executed',route:command.route||null};
 }
 
+
+const setupSteps=[
+ ['review','Review sample business profile'],
+ ['presence','Inspect sample website and Google presence'],
+ ['calls','Review simulated call fallback policy'],
+ ['connections','Review connection requirements (no providers connected)']
+];
+function setupData(){
+ if(!state.setup||typeof state.setup!=='object')state.setup={completed:[],profile:'sample-local',exportVisible:false,resetArmed:false};
+ if(!Array.isArray(state.setup.completed))state.setup.completed=[];
+ return state.setup;
+}
+function exportDemoJSON(){return JSON.stringify({format:'reach-offline-demo-v1',notice:'Synthetic local demonstration data only; no connected providers',state},null,2)}
+function resetDemoState(){
+ localStorage.removeItem('reach-demo-state');
+ state=structuredClone(seed);
+ state.setup={completed:[],profile:'sample-local',exportVisible:false,resetArmed:false};
+ save();
+ return true;
+}
+function settingsContent(){
+ const d=setupData();
+ const options=[['sample-local','Sample Local Business'],['sample-service','Sample Service Studio']];
+ const status=['Website / Google profile','Calls / phone','Inbox / messaging','AI provider','Customer-owned Neon database','Customer-owned object storage','Customer-owned hosting'];
+ return '<div class="grid">'+card('Owner profile · Demo only','<p class="muted">Switch between fictional workspace profiles. This is not a tenant or provider connection.</p><label for="setupProfile">Active sample profile</label><select id="setupProfile">'+options.map(([id,name])=>'<option value="'+id+'" '+(d.profile===id?'selected':'')+'>'+name+'</option>').join('')+'</select><p class="status">Profile choice persists in this browser. No secrets are requested.</p>')+
+ card('Connections · Not connected','<p>Customer-owned services are configured after installation, not in this demo.</p>'+status.map(x=>'<p><strong>'+esc(x)+'</strong> · <span class="status">Not connected</span></p>').join(''),'wide')+
+ card('Offline data controls','<p>Export displays JSON for manual copying. No file is uploaded or transmitted.</p><button id="exportDemo" aria-expanded="'+d.exportVisible+'">'+(d.exportVisible?'Hide':'Show')+' local JSON export</button> '+(d.resetArmed?'<button id="confirmReset">Confirm reset of sample data</button> <button id="cancelReset">Cancel reset</button>':'<button id="armReset">Reset demo data</button>')+(d.exportVisible?'<p><label for="exportJSON">Synthetic JSON export</label><textarea id="exportJSON" readonly rows="8">'+esc(exportDemoJSON())+'</textarea></p>':'')+'<p class="status">Reset only affects REACH demo local storage; it does not affect real accounts.</p>','wide')+'</div>';
+}
+function setupContent(){
+ const d=setupData(),done=setupSteps.filter(([id])=>d.completed.includes(id)).length;
+ return '<div class="grid">'+card('First-time setup checklist','<p class="muted">Local walkthrough: '+done+' of '+setupSteps.length+' steps completed. No provider connection is attempted.</p><progress value="'+done+'" max="'+setupSteps.length+'">'+done+'/'+setupSteps.length+'</progress>'+setupSteps.map(([id,label])=>'<p><label><input type="checkbox" data-setup-step="'+id+'" '+(d.completed.includes(id)?'checked':'')+'> '+esc(label)+'</label></p>').join(''),'wide')+
+ card('Installation & updates','<p>Planned customer-owned hosting, database, object storage and API credentials are not provisioned. Security updates can be automatic after installation; major features require approval.</p><p>Run locally: <code>python3 -m http.server 8080 --directory reach-shell</code>, then open localhost:8080.</p><a href="#/connections">Review connection statuses</a>')+
+ card('Help','<p>Use the 11 sidebar destinations to explore seeded calls, messages, appointments, business presence, metrics and workflows. All actions remain in this browser.</p><a href="#/dashboard">Return to dashboard</a>')+'</div>';
+}
+
 function content(key){
+ if(key==='connections')return settingsContent();
+ if(key==='setup')return setupContent();
  if(key==='metrics')return metricsContent();
  if(key==='assistant')return assistantContent();
  if(key==='automations')return automationsContent();
@@ -195,6 +233,16 @@ function content(key){
 }
 function nameFor(key){return pages.find(p=>p[0]===key)?.[1]||'Dashboard'}
 function bind(key){
+ if(key==='connections'){
+  const profile=document.getElementById('setupProfile');if(profile)profile.onchange=()=>{if(['sample-local','sample-service'].includes(profile.value)){setupData().profile=profile.value;save();render()}};
+  const exp=document.getElementById('exportDemo');if(exp)exp.onclick=()=>{setupData().exportVisible=!setupData().exportVisible;save();render()};
+  const arm=document.getElementById('armReset');if(arm)arm.onclick=()=>{setupData().resetArmed=true;save();render()};
+  const cancel=document.getElementById('cancelReset');if(cancel)cancel.onclick=()=>{setupData().resetArmed=false;save();render()};
+  const confirm=document.getElementById('confirmReset');if(confirm)confirm.onclick=()=>{resetDemoState();render()};
+ }
+ if(key==='setup'){
+  document.querySelectorAll('[data-setup-step]').forEach(input=>input.onchange=()=>{const d=setupData(),id=input.dataset.setupStep;if(!setupSteps.some(([step])=>step===id))return;d.completed=d.completed.filter(x=>x!==id);if(input.checked)d.completed.push(id);save();render()});
+ }
  if(key==='metrics'){
   const range=document.getElementById('reportRange'),source=document.getElementById('reportSource');
   if(range)range.onchange=()=>{reportData().range=range.value;save();render()};
