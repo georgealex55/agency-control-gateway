@@ -112,3 +112,25 @@ test('missed call callback creates durable dashboard task and can be resolved',(
  vm.runInContext("const t=state.tasks.find(t=>t.id==='callback-call-1');t.done=true;save();render()",h.context);
  assert.equal(vm.runInContext("state.tasks.find(t=>t.id==='callback-call-1').done",h.context),true);
 });
+
+test('business presence exposes explicitly synthetic website and Google status',()=>{
+ const h=harness();h.element('enter').click();h.location.hash='#/presence';h.listeners.hashchange();
+ assert.match(h.element('app').innerHTML,/Website · Sample status/);
+ assert.match(h.element('app').innerHTML,/example.invalid/);
+ assert.match(h.element('app').innerHTML,/Not connected to Google/);
+ assert.match(h.element('app').innerHTML,/Hours discrepancy/);
+ h.element('websiteDetails').click();
+ assert.match(h.element('app').innerHTML,/fictional fixtures/);
+ assert.equal(vm.runInContext('state.presence.websiteDetails',h.context),true);
+});
+test('Google sample discrepancy creates and removes local dashboard task',()=>{
+ const h=harness();h.element('enter').click();h.location.hash='#/presence';h.listeners.hashchange();
+ h.element('presenceTask').click();
+ assert.equal(vm.runInContext('state.presence.fixTaskCreated',h.context),true);
+ assert.equal(vm.runInContext("state.tasks.some(t=>t.id==='presence-google-hours')",h.context),true);
+ h.location.hash='#/dashboard';h.listeners.hashchange();
+ assert.match(h.element('app').innerHTML,/Review sample Google listing hours/);
+ h.location.hash='#/presence';h.listeners.hashchange();
+ h.element('presenceTask').click();
+ assert.equal(vm.runInContext("state.tasks.some(t=>t.id==='presence-google-hours')",h.context),false);
+});
