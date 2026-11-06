@@ -172,3 +172,28 @@ test('contacts create and edit persist to local demo storage',()=>{
  h.element('contactForm').onsubmit({preventDefault(){}});
  assert.equal(vm.runInContext("contactsData().some(c=>c.name==='Edited Demo Client'&&c.notes==='Updated')",h.context),true);
 });
+
+test('automation rules render with clear offline-only status',()=>{
+ const h=harness();h.element('enter').click();h.location.hash='#/automations';h.listeners.hashchange();
+ assert.match(h.element('app').innerHTML,/Missed call follow-up/);
+ assert.match(h.element('app').innerHTML,/DEMO ONLY/);
+ assert.match(h.element('app').innerHTML,/Safe event simulator/);
+});
+test('automation simulated receipt persists, deduplicates and creates a dashboard task',()=>{
+ const h=harness();h.element('enter').click();h.location.hash='#/automations';h.listeners.hashchange();
+ const first=vm.runInContext("simulateAutomation('missed-call','call-1')",h.context);
+ assert.equal(first.status,'created');
+ assert.equal(vm.runInContext("automationData().receipts.length",h.context),1);
+ assert.equal(vm.runInContext("JSON.parse(localStorage.getItem('reach-demo-state')).automations.receipts.length",h.context),1);
+ const duplicate=vm.runInContext("simulateAutomation('missed-call','call-1')",h.context);
+ assert.equal(duplicate.status,'duplicate');
+ assert.equal(vm.runInContext("automationData().receipts.length",h.context),1);
+ h.location.hash='#/dashboard';h.listeners.hashchange();
+ assert.match(h.element('app').innerHTML,/Review sample missed call/);
+});
+test('disabled automation and mismatched fixture cannot execute',()=>{
+ const h=harness();h.element('enter').click();h.location.hash='#/automations';h.listeners.hashchange();
+ assert.equal(vm.runInContext("simulateAutomation('hours-check','google-hours').status",h.context),'disabled');
+ assert.equal(vm.runInContext("simulateAutomation('new-inquiry','call-1').status",h.context),'invalid');
+ assert.equal(vm.runInContext("automationData().receipts.length",h.context),0);
+});
