@@ -46,7 +46,7 @@ test('each hash destination renders its corresponding heading',()=>{
  const pages=vm.runInContext('pages',h.context);
  for(const [route,label] of pages){
    h.location.hash='#/'+route;h.listeners.hashchange();
-   assert.match(h.element('app').innerHTML,new RegExp('<h1>'+label.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'</h1>'));
+   assert.match(h.element('app').innerHTML,new RegExp('<h1>'+label.replace(/&/g,'&amp;').replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'</h1>'));
  }
 });
 test('keyboard enter submits login',()=>{
@@ -65,7 +65,7 @@ test('demo route names and disabled integrations are clearly labeled',()=>{
  const h=harness();enterDemo(h);
  assert.match(h.element('app').innerHTML,/DEMO DATA · OFFLINE/);
  h.location.hash='#/calls';h.listeners.hashchange();
- assert.match(h.element('app').innerHTML,/Not connected to external services/);
+ assert.match(h.element('app').innerHTML,/External integrations are not connected/);
 });
 
 test('dashboard period selection updates sample metrics and local state',()=>{
