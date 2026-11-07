@@ -124,7 +124,26 @@ function current(){const key=location.hash.replace(/^#\/?/,'').split('/')[0];ret
 function card(title,body,extra=''){return '<section class="card '+extra+'"><h3>'+title+'</h3>'+body+'</section>'}
 function render(){
  const root=document.getElementById('app');
- if(!logged){open=false;root.innerHTML='<div class="login"><div class="brand">RE<span>ACH</span></div><span class="pill">LOCAL DEMO · NO REAL AUTH</span><h1>Your business, in focus.</h1><p class="muted">Explore an offline business command center with sample data. No external accounts or messages are connected.</p><label for="business">Demo business name</label><input id="business" maxlength="80" value="'+esc(state.business)+'"><button id="enter">Enter demo dashboard</button></div>';document.getElementById('business').onkeydown=e=>{if(e.key==='Enter')document.getElementById('enter').click()};document.getElementById('enter').onclick=()=>{state.business=document.getElementById('business').value.trim()||seed.business;save();logged=true;sessionStorage.setItem('reach-demo-login','yes');location.hash='#/dashboard';render()};return}
+ if(!logged){
+  open=false;
+  const demoEmail='demo@reach.local',demoPassword='ReachDemo2026!';
+  root.innerHTML='<div class="login"><div class="brand">RE<span>ACH</span></div><span class="pill">LOCAL DEMO · NO REAL AUTH</span><h1>Your business, in focus.</h1><p class="muted">Use the public dummy account below to explore a fully offline, sample-data workspace. This is a demonstration gate, not secure authentication.</p><form id="demoLoginForm" autocomplete="off"><label for="demoEmail">Demo email</label><input id="demoEmail" type="email" inputmode="email" autocomplete="off" required placeholder="demo@reach.local"><label for="demoPassword">Demo password</label><input id="demoPassword" type="password" autocomplete="off" required placeholder="Demo password"><label for="business">Demo business name</label><input id="business" maxlength="80" value="'+esc(state.business)+'"><p class="muted">Public demo credentials: <strong>demo@reach.local</strong> / <strong>ReachDemo2026!</strong></p><p><button type="button" id="fillDemo">Use demo credentials</button> <button type="button" id="enter">Enter demo dashboard</button></p><p id="loginFeedback" class="status" role="alert" aria-live="polite"></p></form><p class="muted">No customer information, provider connections or messages are accessed. Do not use real account passwords.</p></div>';
+  const form=document.getElementById('demoLoginForm');
+  const email=document.getElementById('demoEmail'),password=document.getElementById('demoPassword');
+  document.getElementById('fillDemo').onclick=()=>{email.value=demoEmail;password.value=demoPassword;document.getElementById('loginFeedback').textContent='Sample credentials filled; choose Enter demo dashboard.'};
+  form.onsubmit=e=>{
+    e?.preventDefault?.();
+    if(email.value.trim().toLowerCase()!==demoEmail||password.value!==demoPassword){
+      document.getElementById('loginFeedback').textContent='Incorrect demo login. Use the public sample credentials displayed above.';return;
+    }
+    state.business=document.getElementById('business').value.trim()||seed.business;
+    save();logged=true;sessionStorage.setItem('reach-demo-login','yes');
+    location.hash='#/dashboard';render();
+  };
+  document.getElementById('enter').onclick=()=>form.onsubmit({preventDefault(){}});
+  document.getElementById('business').onkeydown=e=>{if(e.key==='Enter')form.onsubmit({preventDefault(){}})};
+  return;
+}
  const key=current(),name=pages.find(p=>p[0]===key)[1];
  root.innerHTML='<div class="layout"><nav class="side '+(open?'open':'')+'" id="sidebar" aria-label="Main navigation"><div class="brand">RE<span>ACH</span></div>'+pages.map(([id,label])=>'<a href="#/'+id+'" '+(key===id?'aria-current="page"':'')+'>'+esc(label)+'</a>').join('')+'<button id="logout">Exit demo</button></nav><main class="main"><div class="top"><div><button class="menu" id="navToggle" aria-expanded="'+open+'" aria-controls="sidebar" aria-label="Toggle navigation menu">☰ Menu</button><p class="muted">REACH 2.0 / '+esc(name)+'</p><h1>'+esc(name)+'</h1><p class="muted">'+esc(state.business)+' · Owner workspace</p></div><span class="pill">DEMO DATA · OFFLINE</span></div><div id="content">'+content(key)+'</div><div class="footer">Staging shell · Simulated records only · External integrations are not connected</div></main></div>';
  document.getElementById('logout').onclick=()=>{logged=false;sessionStorage.removeItem('reach-demo-login');render()};
