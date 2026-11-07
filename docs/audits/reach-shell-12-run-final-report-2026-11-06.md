@@ -15,7 +15,8 @@
 4. Repeatable acceptance suite: `ce2598ca080d18756037312dfc3c8175035cef82` — `reach-shell/acceptance.test.cjs`.
 5. Documentation: `eb7cb7270216ff4d615b67a3085696fb2e235441` — updated `reach-shell/README.md`.
 6. Staging static preview sync: `7ac87d3e1ba3f6a3568817628b19b8a56baddc97` — `ghl-gpt-gateway/public/reach-demo/index.html`, same Git blob `9dad1f996f9c0a3f2e217ba3700a7123321c1c0e` as source.
-7. This report and ledger commits are documentation-only successors to the above code checkpoint.
+7. Smoke regression corrections: `5361ce5c373a5717c418809b709b1cb412af4976` — align existing tests with escaped Reports heading and current disconnected-services footer. No application code changed in this commit.
+8. This report and ledger commits are documentation-only successors to the above code checkpoint.
 
 **Exact changed files in Run 12:** `reach-shell/index.html`, `reach-shell/shell.test.cjs`, `reach-shell/acceptance.test.cjs`, `reach-shell/README.md`, `ghl-gpt-gateway/public/reach-demo/index.html`, this final report, and `docs/audits/reach-shell-12-run-ledger-2026-11-06.md`. Existing data/migrations, customer configuration, real accounts, backend and production branches were not modified through this run.
 
@@ -71,7 +72,7 @@ All rows passed via synthetic DOM event handlers and inspected local in-memory s
 ## Test, build and CI evidence
 - **Executed:** complete inline JavaScript compiled with V8 `new Function` **PASS** after sign-in change.
 - **Executed:** 24 acceptance actions and 11 route transitions against the committed shell script using a simulated DOM, local/session storage and synchronous click/change handlers in the functions V8 runner **PASS**. Independently executed the newly committed Node-compatible `acceptance.test.cjs` body in V8 with I/O stubs **PASS**.
-- **Authored:** `reach-shell/shell.test.cjs` now contains **26** smoke tests; `reach-shell/acceptance.test.cjs` contains **1** test covering 24 cases plus navigation. **Node `--test` was not executed** against the current GitHub source: the container could not resolve github.com, and the GitHub connector itself has no Node filesystem execution. The 26 existing cases cannot be counted as passing.
+- **Authored:** `reach-shell/shell.test.cjs` now contains **26** smoke tests; `reach-shell/acceptance.test.cjs` contains **1** test covering 24 cases plus navigation. **The complete 26-case existing smoke suite was actually executed in V8 with lightweight `node:vm`, `node:fs`, and `node:assert/strict` compatibility shims: 26 PASS / 0 FAIL**, after correcting two out-of-date expectations. **Native Node `--test` was not executed** against the current GitHub source because the local container could not resolve github.com. Passing the V8 compatibility runner is meaningful but not equivalent to native Node or a real browser.
 - **Browser:** direct staging URL could not be loaded through the available web retrieval tool. Actual desktop/mobile browser and accessibility reviews **NOT RUN**.
 - **Next.js build:** prior Run 11 Vercel preview commit `83a6ae0` was **READY** with GitHub Vercel status **success**. At report generation latest preview-sync commit `7ac87d3` Vercel status was **READY**, not yet a confirmed browser load. Do not infer actual route functioning from Vercel build status.
 - **Local test commands:** `node --test reach-shell/shell.test.cjs`, `node --test reach-shell/acceptance.test.cjs`, or `node --test reach-shell/*.test.cjs`.
