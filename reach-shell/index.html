@@ -12,7 +12,7 @@ const seed={business:'Demo Business',tasks:[{id:1,text:'Review missed calls',don
 {id:'conv-2',name:'Morgan Chen',channel:'Email',unread:false,messages:[{direction:'in',text:'Can I schedule a consultation?',at:'Yesterday',status:'received'}],draft:''},
 {id:'conv-3',name:'Taylor Brooks',channel:'Website chat',unread:true,messages:[{direction:'in',text:'What services do you offer?',at:'Monday',status:'received'}],draft:''}
 ]};
-function read(){try{const v=JSON.parse(localStorage.getItem('reach-demo-state'));return v&&typeof v==='object'?{...seed,...v}:structuredClone(seed)}catch{return structuredClone(seed)}}
+function read(){try{const v=JSON.parse(localStorage.getItem('reach-demo-state'));if(!v||typeof v!=='object'||Array.isArray(v))return structuredClone(seed);const s={...seed,...v};for(const key of ['tasks','calls','conversations','contacts','appointments'])if(!Array.isArray(s[key]))s[key]=structuredClone(seed[key]);if(!s.presence||typeof s.presence!=='object'||Array.isArray(s.presence))s.presence=structuredClone(seed.presence);return s}catch{return structuredClone(seed)}}
 let state=read(),logged=sessionStorage.getItem('reach-demo-login')==='yes',open=false;
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function save(){localStorage.setItem('reach-demo-state',JSON.stringify(state))}
