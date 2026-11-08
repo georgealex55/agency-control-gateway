@@ -56,3 +56,12 @@
 - **Validation:** static source assertions and exact source/mirror string equality checked before commit. Three native Node regression tests authored, **not executed**; no claim of browser or build verification. Existing V8/CI status was inspected; no new external provider actions.
 - **Commits:** feature + mirror + test + ledger `9974cb99796bc53ec15c1faa9f57fbd0d5a86eef`; test harness regex correction `38c26013443d249d048f1cfaf0e5eded46d06598`. Ending HEAD after ledger update: see this ledger commit. Source/mirror blob SHA `d00356e3fa11c4b23b55782013516c518f3d19ef` (identical). GitHub status check list empty for feature commit; Vercel preview for feature commit was BUILDING at inspection, prior milestone 5 preview READY. Native Node and real-browser testing not run.
 - **Next:** milestone 7, derive Reports & Metrics from shared offline records while explicitly separating sample fixtures from live analytics.
+
+## Run 7 — 2026-11-08 UTC (staging)
+- **Starting HEAD:** Run 6 ledger checkpoint (source/mirror blob `d00356e3fa11c4b23b55782013516c518f3d19ef`); ordinal 7 determined from six previous ledger entries.
+- **Milestone:** Reports & Metrics now derives call, missed-call, conversation, unread-conversation, appointment and cancellation counts from current offline shared demo collections, instead of misleading fixed 7/30/90-day fixture totals. Source filter remains functional; period selection remains visible but explicitly does **not** filter until legacy fixture timestamps are normalized. No real analytics, providers, production or customer data involved.
+- **Files:** `reach-shell/index.html`, `ghl-gpt-gateway/public/reach-demo/index.html`, `reach-shell/reports.test.cjs`, this ledger.
+- **Code commits:** source `9d635135dda6d599897dd7ff88de9a66221f52e9`; preview mirror `6e86bbd56359e36623f7fefb6cb7d98f926aeaa0`; two authored Node regression tests `cbadea9c8dfabaed3bba57da9075239f52ebf3c5`.
+- **Executed V8:** full inline JavaScript syntax compilation PASS; synthetic report data assertion (2 calls/1 missed, 2 conversations/1 unread, 1 cancelled appointment) PASS; explicit period limitation assertion PASS. **Native Node tests authored, NOT EXECUTED.** Real browser/mobile and deployed route remain unverified.
+- **Mirror:** Git blob `cd9d54afa24e4a84ea38a86479bc6e6ae4f8edc0` for both source and preview; identical=true.
+- **Next:** milestone 8, improve offline automation receipts and idempotent replay safeguards.
