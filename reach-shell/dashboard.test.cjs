@@ -4,7 +4,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 const html=fs.readFileSync(require('node:path').join(__dirname,'index.html'),'utf8');
-const script=html.match(/<script>([\s\S]*?)<\\/script>/)[1];
+const script=html.match(/<script>([\s\S]*?)<\/script>/)[1];
 function boot(){
  const storage=new Map();
  const context={localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},sessionStorage:{getItem:()=>null},structuredClone,Date,Math,console,location:{hash:'#/dashboard'},window:{addEventListener:()=>{}},document:{getElementById:()=>({innerHTML:'',addEventListener:()=>{}}),querySelectorAll:()=>[]}};
