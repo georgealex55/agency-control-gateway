@@ -263,23 +263,25 @@ function render(){
  bind(key);
 }
 
-const reportFixtures={
- '7 days':{calls:12,missed:2,inbox:4,appointments:2},
- '30 days':{calls:49,missed:8,inbox:15,appointments:7},
- '90 days':{calls:144,missed:23,inbox:41,appointments:19}
-};
+// Reports derive from stored synthetic records; legacy dates are not normalized.
+const reportRanges=['7 days','30 days','90 days'];
 function reportData(){
- if(!state.report||typeof state.report!=='object')state.report={range:'7 days',source:'all'};
- if(!reportFixtures[state.report.range])state.report.range='7 days';
+ if(!state.report||typeof state.report!=='object'||Array.isArray(state.report))state.report={range:'7 days',source:'all'};
+ if(!reportRanges.includes(state.report.range))state.report.range='7 days';
  if(!['all','calls','inbox','appointments'].includes(state.report.source))state.report.source='all';
  return state.report;
 }
+function reportSnapshot(){
+ const calls=callsData(),inbox=inboxData(),appointments=appointmentsData();
+ return {calls:calls.length,missed:calls.filter(c=>c.kind==='Missed').length,inbox:inbox.length,unread:inbox.filter(c=>c.unread).length,appointments:appointments.length,cancelled:appointments.filter(a=>a.status==='Cancelled').length};
+}
 function metricsContent(){
- const r=reportData(),v=reportFixtures[r.range];
- const sources=[['calls','Sample calls',v.calls],['inbox','Sample inquiries',v.inbox],['appointments','Sample bookings',v.appointments]];
+ const r=reportData(),v=reportSnapshot();
+ const sources=[['calls','Stored demo calls',v.calls],['inbox','Stored demo conversations',v.inbox],['appointments','Stored demo appointments',v.appointments]];
  const visible=sources.filter(x=>r.source==='all'||x[0]===r.source);
  const option=(value,label,current)=>'<option value="'+value+'" '+(value===current?'selected':'')+'>'+label+'</option>';
- return '<div class="grid">'+card('Reports · Offline fixtures','<p class="muted">All values are preloaded synthetic examples, not current analytics. No reporting provider is connected. Changing the range or source selects a different fixture.</p><label for="reportRange">Reporting period</label><select id="reportRange">'+Object.keys(reportFixtures).map(x=>option(x,'Last '+x,r.range)).join('')+'</select><label for="reportSource">Source</label><select id="reportSource">'+[['all','All sample sources'],['calls','Calls'],['inbox','Inbox'],['appointments','Appointments']].map(x=>option(x[0],x[1],r.source)).join('')+'</select><p class="status">Fixture data · static offline snapshot · not refreshed</p>','wide')+card('Source summary',visible.map(x=>'<p><strong>'+x[2]+'</strong> '+esc(x[1])+'</p>').join('')+'<p class="muted">Missed calls in this fixture: '+v.missed+'</p>')+card('Calculation notes','<p>Counts come from the selected sample dataset. This screen does not estimate revenue, actual conversion, or live business performance.</p>','wide')+'</div>';
+ const details=(r.source==='all'||r.source==='calls'?'<p>Missed calls: '+v.missed+'</p>':'')+(r.source==='all'||r.source==='inbox'?'<p>Unread conversations: '+v.unread+'</p>':'')+(r.source==='all'||r.source==='appointments'?'<p>Cancelled appointments: '+v.cancelled+'</p>':'');
+ return '<div class="grid">'+card('Reports · Stored offline demo records','<p class="muted">Counts use current local sample records, not live analytics. No reporting provider connected.</p><label for="reportRange">Reporting period</label><select id="reportRange">'+reportRanges.map(x=>option(x,'Last '+x,r.range)).join('')+'</select><label for="reportSource">Source</label><select id="reportSource">'+[['all','All sample sources'],['calls','Calls'],['inbox','Inbox'],['appointments','Appointments']].map(x=>option(x[0],x[1],r.source)).join('')+'</select><p class="status">Demo records only · selected period is not applied to counts</p>','wide')+card('Source summary',visible.map(x=>'<p><strong>'+x[2]+'</strong> '+esc(x[1])+'</p>').join('')+details)+card('Calculation notes','<p>Counts update with local calls, conversations and appointments. Legacy fixture timestamps are inconsistent; date filtering remains disabled until timestamps are normalized. No revenue or conversion claims.</p>','wide')+'</div>';
 }
 const assistantCommands=[
  {id:'missed',label:'Review missed calls',answer:'Open Calls and filter to Missed to inspect synthetic call records.',route:'calls',task:null},
