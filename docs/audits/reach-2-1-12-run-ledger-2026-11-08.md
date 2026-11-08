@@ -32,3 +32,11 @@
 - **Files:** `reach-shell/index.html`, exact `ghl-gpt-gateway/public/reach-demo/index.html` mirror, `reach-shell/persistence.test.cjs`, this ledger.
 - **Executed:** inline JavaScript V8 parse PASS; source/mirror content equality PASS before commit. Two new native Node tests authored, **NOT EXECUTED** in Node/browser; CI and preview route not independently verified.
 - **Next milestone:** unify inbox messages, contacts and task states into a synthetic timeline.
+
+## Run 4 — 2026-11-08 UTC (staging)
+- **Starting checkpoint:** Run 3 staging code/ledger; read prior final report, current shell, preview mirror and ledger before edits.
+- **Milestone:** Offline inbox customer timeline combines sample messages, uniquely linked contact calls, and callback task states. Ambiguous names do not merge. Existing local demo login and provider-disconnected state preserved.
+- **Files:** `reach-shell/index.html`, `ghl-gpt-gateway/public/reach-demo/index.html`, `reach-shell/timeline.test.cjs`, this ledger.
+- **Commits:** source `b5e5931d89ef23ff20e30b9771786c28897fe8bc`, mirror `400e7ccf2d9b679ab2ea7a32586143f5fe40dd1e`, test `59ea2b1012d1d8fce910726a167e9288b952fb3d`.
+- **Executed:** V8 inline script syntax compile PASS. Mirror content submitted byte-for-byte identical to source. **Not executed:** 3 authored native Node tests, actual browser/mobile tests, and deployed preview route. CI/Vercel readiness not verified in this run.
+- **Next:** milestone 5 appointment/contact/conversation linking.
