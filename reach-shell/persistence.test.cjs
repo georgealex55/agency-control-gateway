@@ -17,22 +17,50 @@ function boot(raw){
  const window={addEventListener(){}};
  const context=vm.createContext({document,window,location:{hash:''},localStorage,sessionStorage,structuredClone,console});
  vm.runInContext(script,context,{filename:'reach-shell/index.html'});
- return vm.runInContext('state',context);
+ return {state:vm.runInContext('state',context),context,data};
 }
 test('invalid root arrays fall back to seeded collections',()=>{
- const state=boot('[]');
+ const {state}=boot('[]');
  for(const key of ['tasks','calls','conversations','contacts','appointments'])assert.ok(Array.isArray(state[key]),key);
  assert.equal(state.business,'Demo Business');
 });
 test('malformed collections recover individually without discarding profile',()=>{
- const state=boot(JSON.stringify({business:'Custom Demo',tasks:null,calls:'invalid',conversations:{},contacts:false,appointments:7,presence:[]}));
+ const {state}=boot(JSON.stringify({business:'Custom Demo',tasks:null,calls:'invalid',conversations:{},contacts:false,appointments:7,presence:[]}));
  assert.equal(state.business,'Custom Demo');
  for(const key of ['tasks','calls','conversations','contacts','appointments'])assert.ok(Array.isArray(state[key]),key);
  assert.ok(state.presence&&typeof state.presence==='object'&&!Array.isArray(state.presence));
 });
 test('valid persisted task records remain intact',()=>{
- const state=boot(JSON.stringify({business:'Retained',tasks:[{id:99,text:'Keep me',done:false}]}));
+ const {state}=boot(JSON.stringify({business:'Retained',tasks:[{id:99,text:'Keep me',done:false}]}));
  assert.equal(state.business,'Retained');
  assert.equal(state.tasks.length,1);
  assert.equal(state.tasks[0].text,'Keep me');
+});
+
+test('legacy v1 records migrate to schema v2 without losing custom business data',()=>{
+ const {state,context,data}=boot(JSON.stringify({business:'Retained Business',tasks:[{id:77,text:'Legacy task',done:false}],contacts:[{id:'legacy-contact',name:'Legacy Person'}],range:'30 days'}));
+ assert.equal(state.__schemaVersion,2);
+ assert.equal(state.business,'Retained Business');
+ assert.equal(state.tasks[0].id,77);
+ assert.equal(state.contacts[0].name,'Legacy Person');
+ assert.equal(state.range,'30 days');
+ vm.runInContext('save()',context);
+ const saved=JSON.parse(data.get('reach-demo-state'));
+ assert.equal(saved.__schemaVersion,2);
+ assert.equal(saved.tasks[0].id,77);
+});
+test('versioned store sanitizes malformed collection members and invalid business profile',()=>{
+ const {state}=boot(JSON.stringify({__schemaVersion:2,business:42,calls:[null,1,{id:'call-ok',name:'Valid'}],appointments:'bad'}));
+ assert.equal(state.business,'Demo Business');
+ assert.equal(state.calls.length,1);
+ assert.equal(state.calls[0].id,'call-ok');
+ assert.ok(Array.isArray(state.appointments));
+});
+test('repository reset clears legacy records and seeds a versioned offline state',()=>{
+ const {context,data}=boot(JSON.stringify({business:'Old Profile',tasks:[{id:88,text:'Old',done:false}]}));
+ vm.runInContext('resetDemoState()',context);
+ const saved=JSON.parse(data.get('reach-demo-state'));
+ assert.equal(saved.__schemaVersion,2);
+ assert.equal(saved.business,'Demo Business');
+ assert.equal(saved.tasks.some(x=>x.id===88),false);
 });
