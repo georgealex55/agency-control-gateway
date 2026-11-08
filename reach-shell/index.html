@@ -12,10 +12,38 @@ const seed={business:'Demo Business',tasks:[{id:1,text:'Review missed calls',don
 {id:'conv-2',name:'Morgan Chen',channel:'Email',unread:false,messages:[{direction:'in',text:'Can I schedule a consultation?',at:'Yesterday',status:'received'}],draft:''},
 {id:'conv-3',name:'Taylor Brooks',channel:'Website chat',unread:true,messages:[{direction:'in',text:'What services do you offer?',at:'Monday',status:'received'}],draft:''}
 ]};
-function read(){try{const v=JSON.parse(localStorage.getItem('reach-demo-state'));if(!v||typeof v!=='object'||Array.isArray(v))return structuredClone(seed);const s={...seed,...v};for(const key of ['tasks','calls','conversations','contacts','appointments'])if(!Array.isArray(s[key]))s[key]=structuredClone(seed[key]);if(!s.presence||typeof s.presence!=='object'||Array.isArray(s.presence))s.presence=structuredClone(seed.presence);return s}catch{return structuredClone(seed)}}
+// Offline-only versioned demo repository. This is not customer storage or a provider adapter.
+const demoRepository={
+ version:2,
+ key:'reach-demo-state',
+ collections:['tasks','calls','conversations','contacts','appointments'],
+ load(){
+  let raw;
+  try{raw=JSON.parse(localStorage.getItem(this.key))}catch{return structuredClone(seed)}
+  if(!raw||typeof raw!=='object'||Array.isArray(raw))return structuredClone(seed);
+  // V1 records have no schema marker; preserve their business records and UI preferences.
+  // V2 retains the original storage key for backward compatibility and offline export.
+  const data={...structuredClone(seed),...raw};
+  for(const key of this.collections){
+   if(!Array.isArray(data[key]))data[key]=structuredClone(seed[key]);
+   else data[key]=data[key].filter(item=>item&&typeof item==='object'&&!Array.isArray(item));
+  }
+  if(!data.presence||typeof data.presence!=='object'||Array.isArray(data.presence))data.presence=structuredClone(seed.presence);
+  if(typeof data.business!=='string')data.business=seed.business;
+  data.__schemaVersion=this.version;
+  return data;
+ },
+ save(data){
+  // Serialize a snapshot so storage writes cannot mutate the active demo state.
+  const snapshot={...data,__schemaVersion:this.version};
+  localStorage.setItem(this.key,JSON.stringify(snapshot));
+ },
+ reset(){localStorage.removeItem(this.key)}
+};
+function read(){return demoRepository.load()}
 
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function save(){localStorage.setItem('reach-demo-state',JSON.stringify(state))}
+function save(){demoRepository.save(state)}
 function inboxData(){if(!Array.isArray(state.conversations))state.conversations=structuredClone(seed.conversations);return state.conversations}
 function inboxContent(){
  const list=inboxData(),query=(state.inboxSearch||'').toLowerCase(),filter=state.inboxFilter||'all';
@@ -210,8 +238,9 @@ function setupData(){
 }
 function exportDemoJSON(){return JSON.stringify({format:'reach-offline-demo-v1',notice:'Synthetic local demonstration data only; no connected providers',state},null,2)}
 function resetDemoState(){
- localStorage.removeItem('reach-demo-state');
+ demoRepository.reset();
  state=structuredClone(seed);
+ state.__schemaVersion=demoRepository.version;
  state.setup={completed:[],profile:'sample-local',exportVisible:false,resetArmed:false};
  save();
  return true;
