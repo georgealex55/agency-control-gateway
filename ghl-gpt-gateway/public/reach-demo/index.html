@@ -19,8 +19,8 @@ const demoRepository={
  collections:['tasks','calls','conversations','contacts','appointments'],
  load(){
   let raw;
-  try{raw=JSON.parse(localStorage.getItem(this.key))}catch{return structuredClone(seed)}
-  if(!raw||typeof raw!=='object'||Array.isArray(raw))return structuredClone(seed);
+  try{raw=JSON.parse(localStorage.getItem(this.key))}catch{return {...structuredClone(seed),__schemaVersion:this.version}}
+  if(!raw||typeof raw!=='object'||Array.isArray(raw))return {...structuredClone(seed),__schemaVersion:this.version};
   // V1 records have no schema marker; preserve their business records and UI preferences.
   // V2 retains the original storage key for backward compatibility and offline export.
   const data={...structuredClone(seed),...raw};
