@@ -342,6 +342,17 @@ function setupContent(){
  card('Help','<p>Use the 11 sidebar destinations to explore seeded calls, messages, appointments, business presence, metrics and workflows. All actions remain in this browser.</p><a href="#/dashboard">Return to dashboard</a>')+'</div>';
 }
 
+// Snapshot of persisted offline demo records, not a historical or provider-backed metric.
+function dashboardSummary(){
+ const calls=callsData(),conversations=inboxData(),tasks=Array.isArray(state.tasks)?state.tasks:[],presence=presenceData();
+ const missed=calls.filter(c=>c.kind==='Missed').length;
+ const unread=conversations.filter(c=>c.unread===true).length;
+ const callbackOpen=tasks.filter(t=>!t.done&&t.sourceCallId).length;
+ return {calls:calls.length,missed,inbox:conversations.length,unread,
+  totalTasks:tasks.length,openTasks:tasks.filter(t=>!t.done).length,callbackOpen,
+  healthHealthy:3+(presence.googleHoursMismatch===false?1:0)};
+}
+
 function content(key){
  if(key==='connections')return settingsContent();
  if(key==='setup')return setupContent();
@@ -354,11 +365,15 @@ function content(key){
  if(key==='inbox')return inboxContent();
  if(key==='calls')return callsContent();
  if(key==='dashboard'){
- const samples={'7 days':{calls:12,missed:2,inbox:4,website:2,healthy:3,trend:[6,9,12]},'30 days':{calls:49,missed:8,inbox:15,website:2,healthy:3,trend:[31,40,49]},'90 days':{calls:144,missed:23,inbox:41,website:2,healthy:3,trend:[103,127,144]}};
- const period=samples[state.range]||samples['7 days'];
- const details={health:{title:'Business health',text:'Synthetic checks: website online, contact details verified, inbox available; Google profile hours need review.'},calls:{title:'Calls overview',text:period.calls+' simulated calls, including '+period.missed+' missed calls in the selected period. No phone provider connected.'},inbox:{title:'Inbox overview',text:period.inbox+' simulated messages awaiting review. No messages were received or sent.'},presence:{title:'Website and Google',text:'2 sample sources shown. Google profile hours require manual verification; no live provider connection.'}};
+ const summary=dashboardSummary();
+ const details={
+  health:{title:'Business health',text:'Offline demo checks: website fixture available, local inbox available, local calls available; Google sample hours '+(presenceData().googleHoursMismatch?'need review.':'are marked reviewed.')+' No provider connected.'},
+  calls:{title:'Calls overview',text:summary.calls+' stored sample calls, including '+summary.missed+' missed. '+summary.callbackOpen+' open callback tasks. No phone provider connected.'},
+  inbox:{title:'Inbox overview',text:summary.unread+' unread sample conversations and '+summary.inbox+' total sample conversations. No live messaging connected.'},
+  presence:{title:'Website and Google',text:'2 offline sample presence sources. Google hours mismatch: '+(presenceData().googleHoursMismatch?'needs review.':'marked reviewed.')+' No live checks.'}
+ };
  const detail=state.detail&&details[state.detail]?card(details[state.detail].title,'<p>'+esc(details[state.detail].text)+'</p><button id="closeDetail">Close details</button>','wide detail'):'';
- return '<div class="dashboard-controls"><label for="dashboardRange">Sample reporting period</label><select id="dashboardRange"><option value="7 days" '+(state.range==='7 days'?'selected':'')+'>Last 7 days</option><option value="30 days" '+(state.range==='30 days'?'selected':'')+'>Last 30 days</option><option value="90 days" '+(state.range==='90 days'?'selected':'')+'>Last 90 days</option></select><span class="muted">Synthetic period comparison: '+period.trend.join(' → ')+' calls</span></div><div class="grid">'+card('Business Health','<strong class="good">Good</strong><p>Sample operational status · '+period.healthy+' of 4 checks healthy</p><button class="metric-button" data-detail="health">View health checks</button>')+card('Calls','<strong>'+period.calls+'</strong><p>Sample calls · '+period.missed+' missed</p><button class="metric-button" data-detail="calls">View call breakdown</button>')+card('Inbox','<strong>'+period.inbox+'</strong><p>Sample messages awaiting review</p><button class="metric-button" data-detail="inbox">View inbox details</button>')+card('Website & Google','<strong>'+period.website+'</strong><p>Sample presence sources monitored</p><button class="metric-button" data-detail="presence">View presence checks</button>')+card('Priority Actions','<div id="tasks">'+state.tasks.map(t=>'<p><button data-task="'+t.id+'">'+(t.done?'Reopen':'Resolve')+'</button> '+esc(t.text)+' '+(t.done?'✓':'')+'</p>').join('')+'</div>','wide alert')+card('Assistant','<p>Demo assistant not connected to an AI provider.</p><a href="#/assistant">Open assistant →</a>')+detail+'</div>';
+ return '<div class="dashboard-controls"><label for="dashboardRange">Sample reporting period</label><select id="dashboardRange"><option value="7 days" '+(state.range==='7 days'?'selected':'')+'>Last 7 days</option><option value="30 days" '+(state.range==='30 days'?'selected':'')+'>Last 30 days</option><option value="90 days" '+(state.range==='90 days'?'selected':'')+'>Last 90 days</option></select><span class="muted">Stored demo totals (not date-filtered; fixture timestamps are not reliable)</span></div><div class="grid">'+card('Business Health','<strong class="good">'+(summary.healthHealthy===4?'Good':'Review')+'</strong><p>Offline demo checks · '+summary.healthHealthy+' of 4 healthy</p><button class="metric-button" data-detail="health">View health checks</button>')+card('Calls','<strong>'+summary.calls+'</strong><p>Stored sample calls · '+summary.missed+' missed</p><button class="metric-button" data-detail="calls">View call breakdown</button>')+card('Inbox','<strong>'+summary.unread+'</strong><p>Unread sample conversations · '+summary.inbox+' total</p><button class="metric-button" data-detail="inbox">View inbox details</button>')+card('Website & Google','<strong>2</strong><p>Offline sample presence sources</p><button class="metric-button" data-detail="presence">View presence checks</button>')+card('Priority Actions','<p class="muted">'+summary.openTasks+' open of '+summary.totalTasks+' local tasks · '+summary.callbackOpen+' callbacks pending</p><div id="tasks">'+state.tasks.map(t=>'<p><button data-task="'+esc(t.id)+'">'+(t.done?'Reopen':'Resolve')+'</button> '+esc(t.text)+' '+(t.done?'✓':'')+'</p>').join('')+'</div>','wide alert')+card('Assistant','<p>Demo assistant not connected to an AI provider.</p><a href="#/assistant">Open assistant →</a>')+detail+'</div>';
  }
  return '<div class="grid">'+card(nameFor(key)+' · Preview','<p>This is a navigable staging screen. Interactive features will be added in subsequent runs.</p><p class="status">Not connected to external services</p>','wide placeholder')+card('Next step','<p>Continue the 12-run build to activate local demo workflows.</p>')+'</div>';
 }

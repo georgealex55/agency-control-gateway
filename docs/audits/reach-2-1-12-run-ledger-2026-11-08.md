@@ -48,3 +48,10 @@
 - **Files:** `reach-shell/index.html`, `ghl-gpt-gateway/public/reach-demo/index.html`, `reach-shell/appointments.test.cjs`, ledger.
 - **Verification:** inline V8 compile PASS; source/mirror Git blobs identical (`421a4ceb4291e36df36d27853d7b6077072d4651`). Three native Node test cases authored but NOT EXECUTED; browser/mobile and Vercel READY NOT VERIFIED. No production or customer changes.
 - **Next:** milestone 6 derive dashboard metrics and action counts from shared offline demo data.
+
+## Run 6 — 2026-11-08T21:00:00Z (staging)
+- **Starting HEAD:** `9b6283ed3a302e62c05178eb0b1cb5e86bda43e2`.
+- **Milestone:** Dashboard cards and drilldowns derive stored sample calls, missed calls, unread conversations, open tasks, pending callback tasks and sample Google-hours health from the shared offline state. Removed misleading hard-coded dashboard trend/count snapshots. The existing period control is retained for navigation compatibility but explicitly says totals are not date-filtered because legacy fixture timestamps are inconsistent. Reports & Metrics remains unchanged for milestone 7.
+- **Files:** `reach-shell/index.html`, exact `ghl-gpt-gateway/public/reach-demo/index.html` mirror, `reach-shell/dashboard.test.cjs`, this ledger.
+- **Validation:** static source assertions and exact source/mirror string equality checked before commit. Three native Node regression tests authored, **not executed**; no claim of browser or build verification. Existing V8/CI status was inspected; no new external provider actions.
+- **Next:** milestone 7, derive Reports & Metrics from shared offline records while explicitly separating sample fixtures from live analytics.
