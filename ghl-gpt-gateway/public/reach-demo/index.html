@@ -53,6 +53,35 @@ function contactForConversation(conv){
  const named=contactsData().filter(c=>c.name&&c.name.trim().toLowerCase()===String(conv.name||'').trim().toLowerCase());
  return named.length===1?named[0]:null;
 }
+// Appointment identity is explicit: never infer a link from a non-unique name.
+function contactForAppointment(appt){
+ const contacts=contactsData();
+ if(appt.contactId){
+  const matches=contacts.filter(c=>c.id===appt.contactId);
+  return matches.length===1?matches[0]:null;
+ }
+ if(!appt.conversationId)return null;
+ const conv=inboxData().find(c=>c.id===appt.conversationId);
+ return conv?contactForConversation(conv):null;
+}
+function reconcileAppointmentTask(appt){
+ if(!appt)return null;
+ const id='appointment-'+appt.id;
+ let task=state.tasks.find(t=>t.id===id||t.sourceAppointmentId===appt.id);
+ const contact=contactForAppointment(appt);
+ const done=appt.status==='Cancelled';
+ if(!task){
+  task={id,text:'Prepare sample appointment: '+appt.service+' · '+appt.name,done,sourceAppointmentId:appt.id};
+  state.tasks.push(task);
+ }else{
+  task.text='Prepare sample appointment: '+appt.service+' · '+appt.name;
+  task.done=done;
+  task.sourceAppointmentId=appt.id;
+ }
+ task.contactId=contact?.id||null;
+ task.conversationId=appt.conversationId||null;
+ return task;
+}
 function conversationTimeline(conv){
  const contact=contactForConversation(conv);
  const calls=contact?callsData().filter(c=>c.contactId===contact.id||c.id===contact.callId):[];
@@ -60,7 +89,9 @@ function conversationTimeline(conv){
  return {contact,entries:[
   ...(Array.isArray(conv.messages)?conv.messages:[]).map(m=>({type:'message',label:(m.direction==='out'?'Simulated reply':'Sample incoming message')+' · '+String(m.text||''),at:String(m.at||'')})),
   ...calls.map(c=>({type:'call',label:String(c.kind||'Call')+' call · '+String(c.number||''),at:String(c.at||'')})),
-  ...tasks.map(t=>({type:'task',label:(t.done?'Resolved':'Open')+' task · '+String(t.text||''),at:'Task status'}))
+  ...appointmentsData().filter(a=>a.conversationId===conv.id||(contact&&a.contactId===contact.id)).map(a=>({type:'appointment',label:String(a.status||'Scheduled')+' appointment · '+String(a.service||'')+' · '+String(a.name||''),at:String(a.when||'')})),
+  ...tasks.map(t=>({type:'task',label:(t.done?'Resolved':'Open')+' task · '+String(t.text||''),at:'Task status'})),
+  ...(contact?state.tasks.filter(t=>t.sourceAppointmentId&&t.contactId===contact.id&&!tasks.includes(t)).map(t=>({type:'task',label:(t.done?'Resolved':'Open')+' appointment task · '+String(t.text||''),at:'Task status'})):[])
  ]};
 }
 function timelineHTML(conv){
@@ -134,7 +165,7 @@ function appointmentContent(){
  const selected=rows.find(a=>a.id===state.editAppointment)||null;
  const options=inboxData().map(c=>'<option value="'+esc(c.id)+'" '+((selected?.conversationId||'')===c.id?'selected':'')+'>'+esc(c.name)+' · '+esc(c.channel)+'</option>').join('');
  const form=card(selected?'Reschedule / edit appointment':'Create sample appointment','<p class="muted">Offline records only. No invitations, calendars or messages are sent.</p><form id="appointmentForm"><label for="appointmentName">Customer name</label><input id="appointmentName" maxlength="80" required value="'+esc(selected?.name||'')+'" placeholder="Customer name"><label for="appointmentWhen">Local date and time</label><input id="appointmentWhen" type="datetime-local" required value="'+esc(selected?.when||'')+'"><label for="appointmentService">Service</label><input id="appointmentService" maxlength="100" required value="'+esc(selected?.service||'Consultation')+'"><label for="appointmentConversation">Link sample conversation</label><select id="appointmentConversation"><option value="">None</option>'+options+'</select><p><button type="submit">'+(selected?'Save changes':'Create appointment')+'</button> '+(selected?'<button type="button" id="appointmentCancelEdit">Cancel editing</button>':'')+'</p></form><p id="appointmentFeedback" class="status">Saved to this browser only · no external calendar.</p>');
- const listing=card('Appointments · Sample records','<p class="muted">Create, reschedule, cancel or restore appointments. Cancelled records remain visible for audit.</p>'+(rows.length?rows.map(a=>'<p><strong>'+esc(a.name)+'</strong> · '+esc(a.service)+'<br><span class="muted">'+esc(a.when.replace('T',' '))+' · '+esc(a.status)+(a.conversationId?' · linked sample conversation':'')+'</span><br><button data-appointment-edit="'+esc(a.id)+'">Edit / reschedule</button> <button data-appointment-toggle="'+esc(a.id)+'">'+(a.status==='Cancelled'?'Restore':'Cancel appointment')+'</button></p>').join(''):'<p>No sample appointments yet. Create one using the form.</p>'),'wide');
+ const listing=card('Appointments · Sample records','<p class="muted">Create, reschedule, cancel or restore appointments. Cancelled records remain visible for audit.</p>'+(rows.length?rows.map(a=>'<p><strong>'+esc(a.name)+'</strong> · '+esc(a.service)+'<br><span class="muted">'+esc(a.when.replace('T',' '))+' · '+esc(a.status)+(a.conversationId?' · linked sample conversation':'')+(contactForAppointment(a)?' · linked contact: '+esc(contactForAppointment(a).name):' · no unique contact')+'</span><br><button data-appointment-edit="'+esc(a.id)+'">Edit / reschedule</button> <button data-appointment-toggle="'+esc(a.id)+'">'+(a.status==='Cancelled'?'Restore':'Cancel appointment')+'</button></p>').join(''):'<p>No sample appointments yet. Create one using the form.</p>'),'wide');
  return '<div class="grid">'+form+listing+'</div>';
 }
 
@@ -367,9 +398,9 @@ function bind(key){
  }
 
  if(key==='appointments'){
-  const form=document.getElementById('appointmentForm');if(form)form.onsubmit=e=>{e?.preventDefault?.();const name=document.getElementById('appointmentName').value.trim(),when=document.getElementById('appointmentWhen').value,service=document.getElementById('appointmentService').value.trim(),conversationId=document.getElementById('appointmentConversation').value;if(!name||!service||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(when))return;const rows=appointmentsData(),existing=rows.find(a=>a.id===state.editAppointment);if(existing){Object.assign(existing,{name,when,service,conversationId})}else rows.push({id:'appt-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),name,when,service,conversationId,status:'Scheduled'});state.editAppointment=null;save();render()};
+  const form=document.getElementById('appointmentForm');if(form)form.onsubmit=e=>{e?.preventDefault?.();const name=document.getElementById('appointmentName').value.trim(),when=document.getElementById('appointmentWhen').value,service=document.getElementById('appointmentService').value.trim(),conversationId=document.getElementById('appointmentConversation').value;if(!name||!service||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(when))return;const rows=appointmentsData(),existing=rows.find(a=>a.id===state.editAppointment);let appt;if(existing){Object.assign(existing,{name,when,service,conversationId});appt=existing}else{appt={id:'appt-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),name,when,service,conversationId,status:'Scheduled'};rows.push(appt)}const conv=inboxData().find(c=>c.id===conversationId);const contact=conv?contactForConversation(conv):null;appt.contactId=contact?.id||null;reconcileAppointmentTask(appt);state.editAppointment=null;save();render()};
   document.querySelectorAll('[data-appointment-edit]').forEach(b=>b.onclick=()=>{state.editAppointment=b.dataset.appointmentEdit;render()});
-  document.querySelectorAll('[data-appointment-toggle]').forEach(b=>b.onclick=()=>{const a=appointmentsData().find(x=>x.id===b.dataset.appointmentToggle);if(a){a.status=a.status==='Cancelled'?'Scheduled':'Cancelled';save();render()}});
+  document.querySelectorAll('[data-appointment-toggle]').forEach(b=>b.onclick=()=>{const a=appointmentsData().find(x=>x.id===b.dataset.appointmentToggle);if(a){a.status=a.status==='Cancelled'?'Scheduled':'Cancelled';reconcileAppointmentTask(a);save();render()}});
   const cancel=document.getElementById('appointmentCancelEdit');if(cancel)cancel.onclick=()=>{state.editAppointment=null;render()};
  }
  if(key==='presence'){
