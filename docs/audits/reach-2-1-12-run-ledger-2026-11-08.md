@@ -40,3 +40,11 @@
 - **Commits:** source `b5e5931d89ef23ff20e30b9771786c28897fe8bc`, mirror `400e7ccf2d9b679ab2ea7a32586143f5fe40dd1e`, test `59ea2b1012d1d8fce910726a167e9288b952fb3d`.
 - **Executed:** V8 inline script syntax compile PASS. Mirror content submitted byte-for-byte identical to source. **Not executed:** 3 authored native Node tests, actual browser/mobile tests, and deployed preview route. CI/Vercel readiness not verified in this run.
 - **Next:** milestone 5 appointment/contact/conversation linking.
+
+## Run 5 — 2026-11-08 UTC (staging)
+- **Starting code checkpoint:** Run 4 staging source `609e047f20a146ddf483fa11863624b350c64e1a` (prior ledger commit); current source read before edit.
+- **Milestone:** Appointment create/edit now links only to a uniquely resolved conversation contact, and creates/reconciles one stable local preparation task per appointment. Rescheduling reuses task; cancellation marks it done, restoration reopens it. Appointment status appears in linked inbox customer timeline. Ambiguous matches remain unlinked. Existing appointments are preserved; no external calendars or messages.
+- **Commits:** source `b72f3afdcf6cdeff3d16ef191c69a513b836ca12`, mirror `0eae732227d24f7f74b4ec5bb9102af7926ff6fa`, tests `2f5569472bc59d0756a8c5fa680627094ef8949f`.
+- **Files:** `reach-shell/index.html`, `ghl-gpt-gateway/public/reach-demo/index.html`, `reach-shell/appointments.test.cjs`, ledger.
+- **Verification:** inline V8 compile PASS; source/mirror Git blobs identical (`421a4ceb4291e36df36d27853d7b6077072d4651`). Three native Node test cases authored but NOT EXECUTED; browser/mobile and Vercel READY NOT VERIFIED. No production or customer changes.
+- **Next:** milestone 6 derive dashboard metrics and action counts from shared offline demo data.
