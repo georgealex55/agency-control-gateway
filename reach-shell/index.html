@@ -45,11 +45,35 @@ function read(){return demoRepository.load()}
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function save(){demoRepository.save(state)}
 function inboxData(){if(!Array.isArray(state.conversations))state.conversations=structuredClone(seed.conversations);return state.conversations}
+// Offline-only linked customer activity; ambiguous matches remain unlinked.
+function contactForConversation(conv){
+ const linked=contactsData().filter(c=>c.conversationId===conv.id);
+ if(linked.length>1)return null;
+ if(linked.length===1)return linked[0];
+ const named=contactsData().filter(c=>c.name&&c.name.trim().toLowerCase()===String(conv.name||'').trim().toLowerCase());
+ return named.length===1?named[0]:null;
+}
+function conversationTimeline(conv){
+ const contact=contactForConversation(conv);
+ const calls=contact?callsData().filter(c=>c.contactId===contact.id||c.id===contact.callId):[];
+ const tasks=contact?(Array.isArray(state.tasks)?state.tasks:[]).filter(t=>t.contactId===contact.id||calls.some(c=>t.sourceCallId===c.id)):[];
+ return {contact,entries:[
+  ...(Array.isArray(conv.messages)?conv.messages:[]).map(m=>({type:'message',label:(m.direction==='out'?'Simulated reply':'Sample incoming message')+' · '+String(m.text||''),at:String(m.at||'')})),
+  ...calls.map(c=>({type:'call',label:String(c.kind||'Call')+' call · '+String(c.number||''),at:String(c.at||'')})),
+  ...tasks.map(t=>({type:'task',label:(t.done?'Resolved':'Open')+' task · '+String(t.text||''),at:'Task status'}))
+ ]};
+}
+function timelineHTML(conv){
+ const timeline=conversationTimeline(conv);
+ return '<section class="detail" aria-label="Sample customer activity timeline"><h3>Customer activity · Offline sample</h3>'+
+ (timeline.contact?'<p>Linked contact: <strong>'+esc(timeline.contact.name)+'</strong></p>':'<p class="muted">No unique matching local contact; unrelated records are not merged.</p>')+
+ timeline.entries.map(e=>'<p><span class="muted">'+esc(e.at)+' · '+esc(e.type)+'</span><br>'+esc(e.label)+'</p>').join('')+'</section>';
+}
 function inboxContent(){
  const list=inboxData(),query=(state.inboxSearch||'').toLowerCase(),filter=state.inboxFilter||'all';
  const visible=list.filter(c=>(filter==='all'||(filter==='unread'&&c.unread)||filter===c.channel)&&[c.name,c.channel,...c.messages.map(m=>m.text)].join(' ').toLowerCase().includes(query));
  const selected=list.find(c=>c.id===state.selectedConversation)||null;
- return '<div class="card"><h3>Unified Inbox · Sample conversations</h3><p class="muted">All messages are local demo records. Nothing is connected or delivered.</p><label for="inboxSearch">Search conversations</label><input id="inboxSearch" value="'+esc(state.inboxSearch||'')+'" placeholder="Name or message" aria-label="Search conversations"><label for="inboxFilter">Filter</label><select id="inboxFilter"><option value="all">All channels</option><option value="unread" '+(filter==='unread'?'selected':'')+'>Unread</option>'+['SMS','Email','Website chat'].map(c=>'<option value="'+c+'" '+(filter===c?'selected':'')+'>'+c+'</option>').join('')+'</select></div><div class="grid">'+card('Conversations',visible.length?visible.map(c=>'<p><button data-conversation="'+esc(c.id)+'" aria-pressed="'+(c.id===state.selectedConversation)+'">'+esc(c.name)+'</button> <span class="muted">'+esc(c.channel)+(c.unread?' · Unread':'')+'</span></p>').join(''):'<p>No matching sample conversations.</p>')+card('Conversation',selected?'<h3>'+esc(selected.name)+' · '+esc(selected.channel)+'</h3><p class="muted">Demo only · no provider connected</p>'+selected.messages.map(m=>'<p><strong>'+esc(m.direction==='out'?'Demo reply':'Incoming sample')+'</strong> · '+esc(m.at)+' · '+esc(m.status)+'<br>'+esc(m.text)+'</p>').join('')+'<label for="replyDraft">Reply draft</label><textarea id="replyDraft" rows="4" maxlength="2000" placeholder="Write a sample reply">'+esc(selected.draft||'')+'</textarea><p><button id="saveDraft">Save draft</button> <button id="simulateReply">Simulate reply (not sent)</button></p><p class="status" id="inboxFeedback">Saved locally; no real messages sent.</p>':'<p>Select a sample conversation.</p>','wide')+'</div>';
+ return '<div class="card"><h3>Unified Inbox · Sample conversations</h3><p class="muted">All messages are local demo records. Nothing is connected or delivered.</p><label for="inboxSearch">Search conversations</label><input id="inboxSearch" value="'+esc(state.inboxSearch||'')+'" placeholder="Name or message" aria-label="Search conversations"><label for="inboxFilter">Filter</label><select id="inboxFilter"><option value="all">All channels</option><option value="unread" '+(filter==='unread'?'selected':'')+'>Unread</option>'+['SMS','Email','Website chat'].map(c=>'<option value="'+c+'" '+(filter===c?'selected':'')+'>'+c+'</option>').join('')+'</select></div><div class="grid">'+card('Conversations',visible.length?visible.map(c=>'<p><button data-conversation="'+esc(c.id)+'" aria-pressed="'+(c.id===state.selectedConversation)+'">'+esc(c.name)+'</button> <span class="muted">'+esc(c.channel)+(c.unread?' · Unread':'')+'</span></p>').join(''):'<p>No matching sample conversations.</p>')+card('Conversation',selected?'<h3>'+esc(selected.name)+' · '+esc(selected.channel)+'</h3><p class="muted">Demo only · no provider connected</p>'+timelineHTML(selected)+selected.messages.map(m=>'<p><strong>'+esc(m.direction==='out'?'Demo reply':'Incoming sample')+'</strong> · '+esc(m.at)+' · '+esc(m.status)+'<br>'+esc(m.text)+'</p>').join('')+'<label for="replyDraft">Reply draft</label><textarea id="replyDraft" rows="4" maxlength="2000" placeholder="Write a sample reply">'+esc(selected.draft||'')+'</textarea><p><button id="saveDraft">Save draft</button> <button id="simulateReply">Simulate reply (not sent)</button></p><p class="status" id="inboxFeedback">Saved locally; no real messages sent.</p>':'<p>Select a sample conversation.</p>','wide')+'</div>';
 }
 
 if(!seed.contacts)seed.contacts=[
