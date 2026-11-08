@@ -14,3 +14,14 @@
 - **Authored but NOT executed in native Node:** three `reach-shell/persistence.test.cjs` cases. Full `node --test reach-shell/*.test.cjs` and independent real-browser/mobile tests remain NOT RUN because local runtime cannot resolve github.com to check out the repository. Previous V8 acceptance results are historical, not revalidated for this commit.
 - **Preview:** staging mirror updated, deployment READY and actual route load not yet verified; never describe it as browser-verified.
 - **Next milestone:** implement a versioned shared local demo data repository with migration/seed/persistence tests, preserving existing sample records and the offline-only provider status.
+
+## Run 2 — 2026-11-08 UTC (staging)
+- **Starting code HEAD:** `b974683465b86cf7673970fa16b3a3bce7133fd9` (Run 1 ledger checkpoint; actual branch tip may include subsequent documentation commits).
+- **Milestone:** implemented a versioned offline-only demo data repository (schema v2) in `reach-shell/index.html`. Existing v1 `reach-demo-state` records migrate in memory on read without losing business name, tasks, contacts or UI preferences; save stamps `__schemaVersion:2` at the same key. Invalid root and collection members recover to seeded local fixtures; reset clears and reseeds a versioned snapshot. No Neon, provider, customer or production changes.
+- **Files changed:** `reach-shell/index.html`, `ghl-gpt-gateway/public/reach-demo/index.html`, `reach-shell/persistence.test.cjs`, this ledger.
+- **Code commits:** source `a1fdbfa9aae6cb109bd37763b07a30d423a7fc49`, mirror `02667389a2d1466c7030067309804f329c5d8ae3`, tests `5100931ba8ad721d1c17ba3a09c1592e73f99dc1`, recovered-schema fix `653b597df8bc607438454f360761f5f8dd8d2920`, final mirror `0e5c9e694a7d5af0226710dbc80c2a21b6d3bf40`.
+- **Executed V8:** inline script compiled; 3/3 repository hydration/snapshot scenarios PASS (v1 migration + save/reset, malformed v2, invalid root). Tests used synthetic DOM/storage and JSON clone shim; not native Node or a real browser.
+- **Authored native Node tests:** 3 new persistence cases, total 6 cases; **not executed** in Node. No claim of Node CI or browser success.
+- **Mirror:** source and staging preview Git blob SHA match `a7d47bfa79e1e0edd0316e83fcfdeb5db51200ef`.
+- **Deployment:** Vercel combined commit status for `0e5c9e6` was **pending** at inspection; preview READY and route load unverified. Do not infer deployment success.
+- **Next milestone (3):** link synthetic missed-call records with existing contacts and callback tasks idempotently; maintain legacy records and test reruns.
