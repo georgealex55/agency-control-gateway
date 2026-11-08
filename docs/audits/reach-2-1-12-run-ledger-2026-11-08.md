@@ -25,3 +25,10 @@
 - **Mirror:** source and staging preview Git blob SHA match `a7d47bfa79e1e0edd0316e83fcfdeb5db51200ef`.
 - **Deployment:** Vercel combined commit status for `0e5c9e6` was **pending** at inspection; preview READY and route load unverified. Do not infer deployment success.
 - **Next milestone (3):** link synthetic missed-call records with existing contacts and callback tasks idempotently; maintain legacy records and test reruns.
+
+## Run 3 — 2026-11-08 UTC (staging)
+- **Starting HEAD:** `744372b43049d559d4f86c3e48057906a7ce45ba`.
+- **Milestone:** Missed-call callback actions now create or reopen one stable task per call ID, link it to an existing local contact by explicit call ID or matching phone, and reuse old callback task IDs. A second action completes the same task rather than deleting its audit record. No external calling, messaging, provider connections or production changes.
+- **Files:** `reach-shell/index.html`, exact `ghl-gpt-gateway/public/reach-demo/index.html` mirror, `reach-shell/persistence.test.cjs`, this ledger.
+- **Executed:** inline JavaScript V8 parse PASS; source/mirror content equality PASS before commit. Two new native Node tests authored, **NOT EXECUTED** in Node/browser; CI and preview route not independently verified.
+- **Next milestone:** unify inbox messages, contacts and task states into a synthetic timeline.

@@ -61,11 +61,38 @@ if(!seed.appointments)seed.appointments=[{id:'appt-demo-1',name:'Morgan Chen',wh
 if(!seed.presence)seed.presence={websiteDetails:false,googleHoursMismatch:true,fixTaskCreated:false};
 let state=read(),logged=sessionStorage.getItem('reach-demo-login')==='yes',open=false;
 function callsData(){if(!Array.isArray(state.calls))state.calls=structuredClone(seed.calls);return state.calls}
+
+// Local demo callback linkage: stable call ID is the deduplication key; no phone provider is used.
+function callbackTaskFor(call){
+ const id='callback-'+call.id;
+ return state.tasks.find(t=>t.id===id||t.sourceCallId===call.id)||null;
+}
+function reconcileCallback(call){
+ if(!call||call.kind!=='Missed')return false;
+ const id='callback-'+call.id;
+ const matching=state.tasks.filter(t=>t.id===id||t.sourceCallId===call.id);
+ const contact=contactsData().find(c=>c.callId===call.id)||contactsData().find(c=>c.phone&&c.phone===call.number);
+ const active=matching.some(t=>!t.done);
+ // A previously completed task is reopened, rather than generating duplicates.
+ const nextActive=!active;
+ const canonical=matching[0]||{id,text:'',done:false};
+ canonical.id=id;
+ canonical.sourceCallId=call.id;
+ canonical.contactId=contact?.id||null;
+ canonical.text='Call back '+(contact?.name||call.name)+' ('+call.number+')';
+ canonical.done=!nextActive;
+ state.tasks=state.tasks.filter(t=>!matching.includes(t));
+ state.tasks.push(canonical);
+ call.contactId=contact?.id||null;
+ call.followUp=nextActive;
+ return nextActive;
+}
+
 function callsContent(){
  const filter=state.callFilter||'all',q=(state.callSearch||'').trim().toLowerCase();
  const visible=callsData().filter(c=>(filter==='all'||filter===c.kind)&&[c.name,c.number,c.kind,c.at].join(' ').toLowerCase().includes(q));
  const policy=state.callPolicy||'voicemail';
- return '<div class="grid">'+card('Call history · Synthetic','<p class="muted">Local sample calls only. No telephone account, AI voice or call forwarding is connected.</p><label for="callSearch">Search calls</label><input id="callSearch" placeholder="Caller, number or date" value="'+esc(state.callSearch||'')+'"><label for="callFilter">Call status</label><select id="callFilter"><option value="all">All calls</option>'+['Missed','Answered'].map(k=>'<option value="'+k+'" '+(filter===k?'selected':'')+'>'+k+'</option>').join('')+'</select><div id="callRows">'+(visible.length?visible.map(c=>'<p><strong>'+esc(c.name)+'</strong> · '+esc(c.number)+'<br><span class="muted">'+esc(c.at)+' · '+esc(c.kind)+'</span> '+(c.kind==='Missed'?'<button data-call-followup="'+esc(c.id)+'">'+(c.followUp?'Reopen follow-up':'Create callback task')+'</button>':'')+(c.followUp?' <span class="good">Callback task active</span>':'')+'</p>').join(''):'<p>No matching sample calls.</p>')+'</div>','wide')+card('Demo receptionist policy','<p class="muted">Choose what the demo would suggest for unanswered calls. This does not configure a real phone.</p><label for="callPolicy">Unanswered call fallback</label><select id="callPolicy"><option value="voicemail" '+(policy==='voicemail'?'selected':'')+'>Offer voicemail</option><option value="callback" '+(policy==='callback'?'selected':'')+'>Create callback task</option><option value="owner" '+(policy==='owner'?'selected':'')+'>Notify owner (demo only)</option></select><p class="status" id="callPolicyStatus">Saved local policy: '+esc({voicemail:'Offer voicemail',callback:'Create callback task',owner:'Notify owner (demo only)'}[policy]||'Offer voicemail')+'. No AI answering or phone provider connected.</p>')+'</div>';
+ return '<div class="grid">'+card('Call history · Synthetic','<p class="muted">Local sample calls only. No telephone account, AI voice or call forwarding is connected.</p><label for="callSearch">Search calls</label><input id="callSearch" placeholder="Caller, number or date" value="'+esc(state.callSearch||'')+'"><label for="callFilter">Call status</label><select id="callFilter"><option value="all">All calls</option>'+['Missed','Answered'].map(k=>'<option value="'+k+'" '+(filter===k?'selected':'')+'>'+k+'</option>').join('')+'</select><div id="callRows">'+(visible.length?visible.map(c=>'<p><strong>'+esc(c.name)+'</strong> · '+esc(c.number)+'<br><span class="muted">'+esc(c.at)+' · '+esc(c.kind)+'</span> '+(c.kind==='Missed'?'<button data-call-followup="'+esc(c.id)+'">'+(callbackTaskFor(c)&&!callbackTaskFor(c).done?'Complete callback':'Create / reopen callback task')+'</button>':'')+(callbackTaskFor(c)&&!callbackTaskFor(c).done?' <span class="good">Callback task active</span>':'')+'</p>').join(''):'<p>No matching sample calls.</p>')+'</div>','wide')+card('Demo receptionist policy','<p class="muted">Choose what the demo would suggest for unanswered calls. This does not configure a real phone.</p><label for="callPolicy">Unanswered call fallback</label><select id="callPolicy"><option value="voicemail" '+(policy==='voicemail'?'selected':'')+'>Offer voicemail</option><option value="callback" '+(policy==='callback'?'selected':'')+'>Create callback task</option><option value="owner" '+(policy==='owner'?'selected':'')+'>Notify owner (demo only)</option></select><p class="status" id="callPolicyStatus">Saved local policy: '+esc({voicemail:'Offer voicemail',callback:'Create callback task',owner:'Notify owner (demo only)'}[policy]||'Offer voicemail')+'. No AI answering or phone provider connected.</p>')+'</div>';
 }
 
 function presenceData(){if(!state.presence||typeof state.presence!=='object')state.presence=structuredClone(seed.presence);return state.presence}
@@ -329,7 +356,7 @@ function bind(key){
   const search=document.getElementById('callSearch');if(search)search.oninput=()=>{state.callSearch=search.value;save();render();document.getElementById('callSearch')?.focus()};
   const filter=document.getElementById('callFilter');if(filter)filter.onchange=()=>{state.callFilter=filter.value;save();render()};
   const policy=document.getElementById('callPolicy');if(policy)policy.onchange=()=>{if(['voicemail','callback','owner'].includes(policy.value)){state.callPolicy=policy.value;save();render()}};
-  document.querySelectorAll('[data-call-followup]').forEach(b=>b.onclick=()=>{const c=callsData().find(x=>x.id===b.dataset.callFollowup);if(!c||c.kind!=='Missed')return;c.followUp=!c.followUp;const taskId='callback-'+c.id;state.tasks=state.tasks.filter(t=>t.id!==taskId);if(c.followUp)state.tasks.push({id:taskId,text:'Call back '+c.name+' ('+c.number+')',done:false});save();render()});
+  document.querySelectorAll('[data-call-followup]').forEach(b=>b.onclick=()=>{const c=callsData().find(x=>x.id===b.dataset.callFollowup);if(!c||c.kind!=='Missed')return;reconcileCallback(c);save();render()});
  }
  if(key==='inbox'){
   const search=document.getElementById('inboxSearch');if(search)search.oninput=()=>{state.inboxSearch=search.value;save();render();const next=document.getElementById('inboxSearch');next?.focus()};

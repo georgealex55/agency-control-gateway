@@ -64,3 +64,25 @@ test('repository reset clears legacy records and seeds a versioned offline state
  assert.equal(saved.business,'Demo Business');
  assert.equal(saved.tasks.some(x=>x.id===88),false);
 });
+
+test('missed-call callback links existing contact and never duplicates on repeated toggles',()=>{
+ const {context,data}=boot(null);
+ vm.runInContext("reconcileCallback(callsData().find(c=>c.id==='call-1'));save()",context);
+ let saved=JSON.parse(data.get('reach-demo-state'));
+ assert.equal(saved.tasks.filter(t=>t.sourceCallId==='call-1').length,1);
+ assert.equal(saved.tasks.find(t=>t.sourceCallId==='call-1').contactId,'contact-1');
+ assert.equal(saved.calls.find(c=>c.id==='call-1').followUp,true);
+ vm.runInContext("reconcileCallback(callsData().find(c=>c.id==='call-1'));reconcileCallback(callsData().find(c=>c.id==='call-1'));save()",context);
+ saved=JSON.parse(data.get('reach-demo-state'));
+ assert.equal(saved.tasks.filter(t=>t.sourceCallId==='call-1').length,1);
+ assert.equal(saved.tasks.find(t=>t.sourceCallId==='call-1').done,false);
+});
+test('callback reuses a legacy task and does not link unrelated contact',()=>{
+ const {context,data}=boot(JSON.stringify({tasks:[{id:'callback-call-3',text:'Old callback',done:true}]}));
+ vm.runInContext("reconcileCallback(callsData().find(c=>c.id==='call-3'));save()",context);
+ const saved=JSON.parse(data.get('reach-demo-state'));
+ const task=saved.tasks.find(t=>t.id==='callback-call-3');
+ assert.equal(saved.tasks.filter(t=>t.id==='callback-call-3').length,1);
+ assert.equal(task.done,false);
+ assert.equal(task.contactId,'contact-3');
+});
