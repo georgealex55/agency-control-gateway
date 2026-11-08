@@ -65,3 +65,11 @@
 - **Executed V8:** full inline JavaScript syntax compilation PASS; synthetic report data assertion (2 calls/1 missed, 2 conversations/1 unread, 1 cancelled appointment) PASS; explicit period limitation assertion PASS. **Native Node tests authored, NOT EXECUTED.** Real browser/mobile and deployed route remain unverified.
 - **Mirror:** Git blob `cd9d54afa24e4a84ea38a86479bc6e6ae4f8edc0` for both source and preview; identical=true.
 - **Next:** milestone 8, improve offline automation receipts and idempotent replay safeguards.
+
+## Run 8 — 2026-11-08T23:02:00Z (staging)
+- **Starting HEAD:** `65766d6398f8deae7691537c3495da0df9772606`; ordinal 8 established from seven prior ledger entries. Reviewed prior REACH 2.0 acceptance report, staging source/mirror, CI and Vercel status before editing.
+- **Milestone:** Automation replay protection now maintains a persistent processed-key index separate from the 40-entry receipt display history. Existing receipts migrate into the index; orphaned tasks from older snapshots recover a receipt without creating a duplicate. Disabled/mismatched rules remain no-ops. All operations are local synthetic simulation, not external delivery.
+- **Files:** `reach-shell/index.html`, identical `ghl-gpt-gateway/public/reach-demo/index.html`, `reach-shell/automation-replay.test.cjs`, this ledger.
+- **Executed V8:** full inline script compile PASS; 7 synthetic functional checks PASS (first execution, replay, truncated receipts, orphan recovery, disabled, mismatch, independent event), plus syntax check PASS. **Native Node:** five authored tests NOT EXECUTED. **Real browser/mobile:** NOT RUN. No assertion of deployed route correctness.
+- **Source/mirror:** exact same submitted UTF-8 content; verify Git blobs after commit. GitHub prior HEAD Vercel commit status: success; new deployment status must be checked independently.
+- **Ending HEAD:** this milestone commit (see Git history). **Next:** milestone 9 deterministic assistant demo commands with provenance and safe local-only behavior.

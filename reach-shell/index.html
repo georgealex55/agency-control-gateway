@@ -198,10 +198,14 @@ const demoEvents=[
  {id:'google-hours',event:'hours-check',label:'Fictional Google hours discrepancy'}
 ];
 function automationData(){
- if(!state.automations||typeof state.automations!=='object')state.automations={enabled:{'missed-call':true,'new-inquiry':true,'hours-check':false},receipts:[],selectedEvent:'call-1'};
+ if(!state.automations||typeof state.automations!=='object'||Array.isArray(state.automations))state.automations={enabled:{'missed-call':true,'new-inquiry':true,'hours-check':false},receipts:[],selectedEvent:'call-1'};
  const a=state.automations;
- if(!a.enabled||typeof a.enabled!=='object')a.enabled={};
+ if(!a.enabled||typeof a.enabled!=='object'||Array.isArray(a.enabled))a.enabled={};
  if(!Array.isArray(a.receipts))a.receipts=[];
+ // Receipt history is a bounded display log, not the replay-protection index.
+ // Retain old receipts as processed keys when upgrading a v2 demo snapshot.
+ if(!Array.isArray(a.processedKeys))a.processedKeys=[];
+ a.processedKeys=[...new Set([...a.processedKeys.filter(k=>typeof k==='string'),...a.receipts.filter(r=>r&&typeof r.id==='string').map(r=>r.id)])];
  if(!demoEvents.some(e=>e.id===a.selectedEvent))a.selectedEvent='call-1';
  return a;
 }
@@ -209,12 +213,23 @@ function simulateAutomation(ruleId,eventId){
  const a=automationData(),rule=demoRules.find(r=>r.id===ruleId),event=demoEvents.find(e=>e.id===eventId);
  if(!rule||!event||rule.event!==event.event)return {status:'invalid',message:'Choose a matching sample event.'};
  if(a.enabled[ruleId]!==true)return {status:'disabled',message:'Enable this rule before simulating.'};
- const receiptId=ruleId+':'+eventId;
- if(a.receipts.some(r=>r.id===receiptId))return {status:'duplicate',message:'Already processed: existing local receipt reused. No duplicate task created.'};
- const taskId='automation-'+receiptId;
+ const receiptId=ruleId+':'+eventId,taskId='automation-'+receiptId;
  const taskText=ruleId==='missed-call'?'Review sample missed call: '+event.label:ruleId==='new-inquiry'?'Review sample inquiry: '+event.label:'Verify sample business hours mismatch';
  if(!Array.isArray(state.tasks))state.tasks=[];
- if(!state.tasks.some(t=>String(t.id)===taskId))state.tasks.push({id:taskId,text:taskText,done:false});
+ const existing=state.tasks.find(t=>t&&String(t.id)===taskId);
+ // Recover old snapshots where a task was written but its receipt was lost.
+ if(a.processedKeys.includes(receiptId)||existing){
+  if(!a.processedKeys.includes(receiptId))a.processedKeys.push(receiptId);
+  if(!a.receipts.some(r=>r&&r.id===receiptId)){
+   a.receipts.unshift({id:receiptId,ruleId,eventId,taskId,status:'simulated · recovered',action:taskText});
+   a.receipts=a.receipts.slice(0,40);
+  }
+  save();
+  return {status:'duplicate',message:'Already processed: existing local receipt or task reused. No duplicate task created.'};
+ }
+ // Local-only action; reserve replay key and write receipt with task in one snapshot.
+ state.tasks.push({id:taskId,text:taskText,done:false});
+ a.processedKeys.push(receiptId);
  a.receipts.unshift({id:receiptId,ruleId,eventId,taskId,status:'simulated · local only',action:taskText});
  a.receipts=a.receipts.slice(0,40);
  save();
