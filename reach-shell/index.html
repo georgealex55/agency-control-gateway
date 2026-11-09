@@ -299,30 +299,56 @@ function metricsContent(){
  return '<div class="grid">'+card('Reports · Stored offline demo records','<p class="muted">Counts use current local sample records, not live analytics. No reporting provider connected.</p><label for="reportRange">Reporting period</label><select id="reportRange">'+reportRanges.map(x=>option(x,'Last '+x,r.range)).join('')+'</select><label for="reportSource">Source</label><select id="reportSource">'+[['all','All sample sources'],['calls','Calls'],['inbox','Inbox'],['appointments','Appointments']].map(x=>option(x[0],x[1],r.source)).join('')+'</select><p class="status">Demo records only · selected period is not applied to counts</p>','wide')+card('Source summary',visible.map(x=>'<p><strong>'+x[2]+'</strong> '+esc(x[1])+'</p>').join('')+details)+card('Calculation notes','<p>Counts update with local calls, conversations and appointments. Legacy fixture timestamps are inconsistent; date filtering remains disabled until timestamps are normalized. No revenue or conversion claims.</p>','wide')+'</div>';
 }
 const assistantCommands=[
- {id:'missed',label:'Review missed calls',answer:'Open Calls and filter to Missed to inspect synthetic call records.',route:'calls',task:null},
- {id:'hours',label:'Review business hours',answer:'Open Business Presence to review the fictional Google hours discrepancy.',route:'presence',task:null},
- {id:'inbox',label:'Review sample inbox',answer:'Open Inbox to read local sample conversations; no messages are sent.',route:'inbox',task:null},
- {id:'task',label:'Add daily business review task',answer:'Created a local Dashboard task. No AI service or external workflow ran.',route:null,task:'Review sample business health'}
+{id:'missed',label:'Review missed calls',route:'calls',answer:'Showing stored demo call records.'},
+{id:'hours',label:'Review business hours',route:'presence',answer:'Showing fictional business-presence records.'},
+{id:'inbox',label:'Review sample inbox',route:'inbox',answer:'Showing offline sample conversations.'},
+{id:'task',label:'Add daily business review task',task:'Review sample business health',answer:'Local review task reconciled.'}
 ];
+function parseAssistantIntent(text){
+ const value=String(text||'').trim().toLowerCase().replace(/\s+/g,' ');
+ if(!value||value.length>160)return null;
+ const patterns=[
+ ['missed',/^(show|review|open|find|list) (my |the |sample )?(missed calls|missed call records)$/],
+ ['hours',/^(show|review|open|check) (my |the |sample )?(business hours|google hours)$/],
+ ['inbox',/^(show|review|open|check) (my |the |sample )?(inbox|messages|conversations)$/],
+ ['task',/^(add|create) (a |the )?(daily )?(business review task|review task)$/]
+ ];
+ const match=patterns.find(([,pattern])=>pattern.test(value));
+ return match?match[0]:null;
+}
 function assistantContent(){
- const a=state.assistantDemo||{},last=a.last||'Select a predefined local action. No AI model or external service is connected.';
- return '<div class="grid">'+card('Offline command assistant','<p class="muted">Deterministic menu actions only · not generative AI. Commands never contact external providers.</p><label for="assistantCommand">Choose safe demo command</label><select id="assistantCommand">'+assistantCommands.map(c=>'<option value="'+c.id+'" '+(a.selected===c.id?'selected':'')+'>'+esc(c.label)+'</option>').join('')+'</select><p><button id="assistantExecute">Execute local command</button></p><p role="status" id="assistantResult">'+esc(last)+'</p>','wide')+card('Activity & safeguards','<p>Local task creation and navigation only. No credentials, provider access, customer records or outbound messages.</p>')+'</div>';
+ const a=state.assistantDemo||{},last=a.last||'Choose or type a supported local demo command.';
+ return '<div class="grid">'+card('Offline command assistant','<p class="muted">Deterministic demo commands only · no AI model, API calls or outbound actions.</p><label for="assistantText">Type a supported demo command</label><input id="assistantText" maxlength="160" autocomplete="off" value="'+esc(a.draft||'')+'" placeholder="review missed calls"><p class="muted">Try: review missed calls · check business hours · open inbox · create business review task</p><p><button id="assistantTextExecute">Run typed demo command</button></p><label for="assistantCommand">Or choose a command</label><select id="assistantCommand">'+assistantCommands.map(c=>'<option value="'+c.id+'" '+(a.selected===c.id?'selected':'')+'>'+esc(c.label)+'</option>').join('')+'</select><p><button id="assistantExecute">Run selected command</button></p><p role="status" id="assistantResult">'+esc(last)+'</p>','wide')+card('Action provenance','<p>Source: browser-local sample records. Provider status: disconnected. No real customer records or messages.</p><p>'+esc(a.provenance||'No command executed in this session.')+'</p>')+'</div>';
+}
+function runAssistantText(text){
+ if(!state.assistantDemo)state.assistantDemo={};
+ state.assistantDemo.draft=String(text||'').slice(0,160);
+ const id=parseAssistantIntent(text);
+ if(!id){
+  state.assistantDemo.last='Unsupported command. Try review missed calls, check business hours, open inbox, or create business review task.';
+  state.assistantDemo.provenance='Rejected locally; no action taken.';
+  save();render();return {status:'unsupported'};
+ }
+ return runAssistantCommand(id);
 }
 function runAssistantCommand(id){
  const command=assistantCommands.find(c=>c.id===id);
  if(!command)return {status:'invalid'};
  if(!state.assistantDemo)state.assistantDemo={};
  state.assistantDemo.selected=id;
+ let action='navigation';
  if(command.task){
-  if(!state.tasks.some(t=>t.text===command.task))state.tasks.push({id:Date.now(),text:command.task,done:false});
+  const existing=state.tasks.find(t=>t.sourceAssistantId==='daily-business-review'||t.text===command.task);
+  if(!existing)state.tasks.push({id:'assistant-daily-business-review',sourceAssistantId:'daily-business-review',text:command.task,done:false});
+  action=existing?'existing local task reused':'new local task';
  }
- state.assistantDemo.last=command.answer;
+ state.assistantDemo.last=command.answer+' Demo only; no external service connected.';
+ state.assistantDemo.provenance='Offline rule '+id+' · '+action+' · browser-local sample state.';
  save();
  if(command.route)location.hash='#/'+command.route;
  render();
- return {status:'executed',route:command.route||null};
+ return {status:'executed',route:command.route||null,action,provenance:'offline-demo'};
 }
-
 
 const setupSteps=[
  ['review','Review sample business profile'],
@@ -414,6 +440,10 @@ function bind(key){
  if(key==='assistant'){
   const select=document.getElementById('assistantCommand');if(select)select.onchange=()=>{if(!state.assistantDemo)state.assistantDemo={};state.assistantDemo.selected=select.value;save()};
   const execute=document.getElementById('assistantExecute');if(execute)execute.onclick=()=>runAssistantCommand(select.value);
+  const typed=document.getElementById('assistantText'),runTyped=document.getElementById('assistantTextExecute');
+  if(typed)typed.oninput=()=>{if(!state.assistantDemo)state.assistantDemo={};state.assistantDemo.draft=typed.value;save()};
+  if(runTyped)runTyped.onclick=()=>runAssistantText(typed.value);
+  if(typed)typed.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();runAssistantText(typed.value)}};
  }
  if(key==='automations'){
   document.querySelectorAll('[data-rule-toggle]').forEach(input=>input.onchange=()=>{const a=automationData();a.enabled[input.dataset.ruleToggle]=input.checked;state.automationFeedback='Rule setting saved locally.';save();render()});

@@ -73,3 +73,10 @@
 - **Executed V8:** full inline script compile PASS; 7 synthetic functional checks PASS (first execution, replay, truncated receipts, orphan recovery, disabled, mismatch, independent event), plus syntax check PASS. **Native Node:** five authored tests NOT EXECUTED. **Real browser/mobile:** NOT RUN. No assertion of deployed route correctness.
 - **Source/mirror:** exact same submitted UTF-8 content; verify Git blobs after commit. GitHub prior HEAD Vercel commit status: success; new deployment status must be checked independently.
 - **Ending HEAD:** this milestone commit (see Git history). **Next:** milestone 9 deterministic assistant demo commands with provenance and safe local-only behavior.
+
+## Run 9 — 2026-11-09T00:00:17Z (staging)
+- **Starting HEAD:** `85a275ad4f0cd46c4ba66df19e7b4169d5c4df8e`; ordinal 9 from eight prior ledger entries.
+- **Milestone:** strict typed-command parser for four offline assistant intents, explicit unsupported-command rejection, provenance and disconnected-provider status, stable daily-review task identity; legacy menu actions preserved. No external AI/provider calls.
+- **Files:** `reach-shell/index.html`, identical `ghl-gpt-gateway/public/reach-demo/index.html`, `reach-shell/assistant.test.cjs`, this ledger.
+- **Executed:** V8 full inline syntax compile PASS, 7 parser assertions PASS, source/mirror identical. Three native Node tests authored but NOT EXECUTED. Browser/mobile NOT RUN.
+- **Next:** milestone 10 premium responsive dashboard and keyboard accessibility.
