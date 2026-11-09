@@ -1,8 +1,57 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>REACH 2.0 | Developer Demo</title>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>REACH 2.1 | Offline Developer Demo</title>
 <style>
 :root{font-family:Inter,system-ui,-apple-system,sans-serif;color:#e9eaf8;background:#0b1024}*{box-sizing:border-box}body{margin:0}button,a{font:inherit}button{cursor:pointer;border:0;border-radius:9px;padding:10px 14px;background:#6356db;color:white}button:focus-visible,a:focus-visible,textarea:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid #9dbbff;outline-offset:3px}a{color:inherit;text-decoration:none}.layout{display:grid;grid-template-columns:240px 1fr;min-height:100vh}.side{padding:24px 14px;background:#10172e;border-right:1px solid #2a3351}.brand{font-size:24px;font-weight:800;letter-spacing:2px;margin:5px 10px 22px}.brand span{color:#9d8fff}.side a{display:block;padding:11px 13px;margin:4px 0;border-radius:9px;color:#bfc7e1}.side a[aria-current=page]{background:#272f60;color:#fff}.main{padding:28px;max-width:1250px;width:100%;margin:auto}.top{display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap}.pill{font-size:12px;color:#e1d6ff;background:#3b2d6c;border-radius:99px;padding:6px 11px}.muted{color:#9ca8c7}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:24px}.card{background:#151e38;border:1px solid #303957;border-radius:16px;padding:20px}.card h3{margin:0 0 10px}.card strong{font-size:26px}.card p{color:#b2bdd7}.wide{grid-column:span 2}.alert{border-left:4px solid #e5a64d}.good{color:#7de4b4}.footer{margin-top:28px;color:#8e9aba;font-size:12px}.menu{display:none}.login{max-width:440px;margin:12vh auto;padding:30px;background:#151e38;border:1px solid #303957;border-radius:18px}.login h1{font-size:30px}input{width:100%;background:#0d152c;border:1px solid #3c4564;border-radius:9px;padding:12px;color:white;margin:10px 0 16px}.placeholder{min-height:170px}textarea,select{background:#0d152c;border:1px solid #3c4564;border-radius:9px;padding:11px;color:white;max-width:100%}textarea{width:100%;resize:vertical}.card button[aria-pressed="true"]{background:#4237a1}.dashboard-controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:22px}.dashboard-controls select{background:#0d152c;border:1px solid #3c4564;border-radius:9px;padding:10px;color:#fff}.metric-button{display:block;background:transparent;color:#b6c8ff;padding:5px 0;text-align:left;text-decoration:underline}.detail{margin-top:18px;border-color:#7569df}.detail h3{color:#dcd6ff}.status{font-size:13px;color:#f5ca88}#navToggle{background:#27335d} @media(max-width:800px){.layout{display:block}.side{display:none;position:absolute;z-index:2;left:0;top:62px;width:250px;box-shadow:8px 8px 40px #0008}.side.open{display:block}.main{padding:18px}.menu{display:block}.grid{grid-template-columns:1fr}.wide{grid-column:auto}}
 progress{width:100%;height:14px;accent-color:#9186ff}input[type=checkbox]{width:auto;margin:0 9px 0 0;accent-color:#9186ff}#exportJSON{font-family:monospace;font-size:12px} @media(max-width:800px){.card{padding:16px}.main{min-width:0}button{max-width:100%;white-space:normal}} 
+
+/* REACH 2.1 owner-first staging visual system; accessible light workspace, navy navigation. */
+:root{color-scheme:light;font-family:Inter,system-ui,-apple-system,sans-serif;color:#152440;background:#f3f6fb}
+body{background:#f3f6fb;color:#152440}
+button{background:#2456b8;color:#fff;font-weight:600}
+button:hover{background:#19468f}
+button:focus-visible,a:focus-visible,textarea:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid #e5a642;outline-offset:3px}
+.layout{grid-template-columns:250px minmax(0,1fr)}
+.side{background:#101f3d;border-right:1px solid #24385b;color:#fff;min-height:100vh}
+.brand span{color:#91b8ff}
+.side a{color:#d4e1f8}
+.side a:hover,.side a:focus-visible{background:#243b62;color:#fff}
+.side a[aria-current=page]{background:#315ca0;color:#fff;font-weight:700;border-left:3px solid #a8ccff}
+.main{max-width:1450px;padding:30px clamp(18px,3vw,42px)}
+.top{border-bottom:1px solid #dce4f0;padding-bottom:18px}
+.top h1{margin:6px 0;font-size:clamp(1.65rem,2.5vw,2.25rem);letter-spacing:-.025em}
+.pill{background:#e3ecff;color:#1b467d;font-weight:700}
+.muted,.footer{color:#526581}
+.grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.card,.login{background:#fff;border:1px solid #dbe4f0;border-radius:16px;box-shadow:0 5px 22px rgba(20,42,77,.045);color:#152440}
+.card h3,.detail h3{color:#152e56}
+.card p{color:#455875}
+.card strong{color:#132b50}
+.card.alert{border-left:4px solid #c17816}
+.good{color:#146c46}
+.status{color:#8a530d}
+.detail{border-color:#b8c9e6;background:#f8fbff}
+.metric-button{color:#174f9b;text-underline-offset:3px}
+.metric-button:hover{background:#e9f1ff;color:#123f7e}
+input,textarea,select,.dashboard-controls select{background:#fff;color:#152440;border:1px solid #879bb9}
+input::placeholder,textarea::placeholder{color:#657894}
+.card button[aria-pressed="true"]{background:#1d467f}
+#navToggle{background:#1c3c6c}
+.login{margin:8vh auto}
+.login .brand{color:#102445}
+progress,input[type=checkbox]{accent-color:#2456b8}
+#content{min-width:0}
+.card,.grid>*{min-width:0;overflow-wrap:anywhere}
+@media(min-width:801px) and (max-width:1100px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.wide{grid-column:span 2}}
+@media(max-width:800px){
+ .layout{display:block}.side{position:fixed;top:0;left:0;bottom:0;z-index:20;width:min(82vw,290px);min-height:100vh;overflow-y:auto;box-shadow:12px 0 35px rgba(10,25,52,.24)}
+ .side:not(.open){display:none}
+ .main{padding:18px 14px}.grid{grid-template-columns:1fr}.wide{grid-column:auto}
+ .menu{display:inline-block;margin-bottom:8px}.top{align-items:flex-start}
+ .card{padding:17px}
+}
+@media(max-width:420px){.dashboard-controls{align-items:stretch}.dashboard-controls select{width:100%}.top .pill{max-width:100%}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
 </style></head><body><div id="app"></div>
 <script>
 'use strict';
@@ -271,7 +320,7 @@ function render(){
   return;
 }
  const key=current(),name=pages.find(p=>p[0]===key)[1];
- root.innerHTML='<div class="layout"><nav class="side '+(open?'open':'')+'" id="sidebar" aria-label="Main navigation"><div class="brand">RE<span>ACH</span></div>'+pages.map(([id,label])=>'<a href="#/'+id+'" '+(key===id?'aria-current="page"':'')+'>'+esc(label)+'</a>').join('')+'<button id="logout">Exit demo</button></nav><main class="main"><div class="top"><div><button class="menu" id="navToggle" aria-expanded="'+open+'" aria-controls="sidebar" aria-label="Toggle navigation menu">☰ Menu</button><p class="muted">REACH 2.0 / '+esc(name)+'</p><h1>'+esc(name)+'</h1><p class="muted">'+esc(state.business)+' · Owner workspace</p></div><span class="pill">DEMO DATA · OFFLINE</span></div><div id="content">'+content(key)+'</div><div class="footer">Staging shell · Simulated records only · External integrations are not connected</div></main></div>';
+ root.innerHTML='<div class="layout"><nav class="side '+(open?'open':'')+'" id="sidebar" aria-label="Main navigation"><div class="brand">RE<span>ACH</span></div>'+pages.map(([id,label])=>'<a href="#/'+id+'" '+(key===id?'aria-current="page"':'')+'>'+esc(label)+'</a>').join('')+'<button id="logout">Exit demo</button></nav><main class="main"><div class="top"><div><button class="menu" id="navToggle" aria-expanded="'+open+'" aria-controls="sidebar" aria-label="Toggle navigation menu" aria-haspopup="true">☰ Menu</button><p class="muted">REACH 2.1 / '+esc(name)+'</p><h1>'+esc(name)+'</h1><p class="muted">'+esc(state.business)+' · Owner workspace</p></div><span class="pill">DEMO DATA · OFFLINE</span></div><div id="content">'+content(key)+'</div><div class="footer">Staging shell · Simulated records only · External integrations are not connected</div></main></div>';
  document.getElementById('logout').onclick=()=>{logged=false;sessionStorage.removeItem('reach-demo-login');render()};
  const toggle=document.getElementById('navToggle');if(toggle)toggle.onclick=()=>{open=!open;render();const next=document.getElementById('navToggle');if(next)next.focus()};
  document.onkeydown=e=>{if(e.key==='Escape'&&open){open=false;render();document.getElementById('navToggle')?.focus()}};
@@ -489,5 +538,5 @@ function bind(key){
  const close=document.getElementById('closeDetail');if(close)close.onclick=()=>{state.detail=null;save();render()};
  document.querySelectorAll('[data-task]').forEach(b=>b.onclick=()=>{const task=state.tasks.find(t=>String(t.id)===b.dataset.task);if(task){task.done=!task.done;save();render()}});
  }}
-window.addEventListener('hashchange',()=>{open=false;render()});render();
+window.addEventListener('hashchange',()=>{open=false;render();});render();
 </script></body></html>

@@ -80,3 +80,11 @@
 - **Files:** `reach-shell/index.html`, identical `ghl-gpt-gateway/public/reach-demo/index.html`, `reach-shell/assistant.test.cjs`, this ledger.
 - **Executed:** V8 full inline syntax compile PASS, 7 parser assertions PASS, source/mirror identical. Three native Node tests authored but NOT EXECUTED. Browser/mobile NOT RUN.
 - **Next:** milestone 10 premium responsive dashboard and keyboard accessibility.
+
+## Run 10 — 2026-11-09T01:00:56Z (staging)
+- **Starting HEAD:** `100276b0783c4d020c905a8eb43608ab967d6955`; ordinal 10 determined from nine ledger entries. Prior REACH 2.0 report, current shell, preview mirror, branch tree and CI inspected before editing.
+- **Milestone:** premium owner-first navy navigation, light card workspace, responsive 3/2/1 column layout, fixed scrollable mobile drawer, stronger focus visibility, improved contrast, reduced-motion support, and updated REACH 2.1 title. Existing 11 routes, sample login, demo data and disconnected-provider states preserved.
+- **Files:** `reach-shell/index.html`, identical `ghl-gpt-gateway/public/reach-demo/index.html`, `reach-shell/design.test.cjs`, this ledger.
+- **Executed in V8:** inline script compile PASS and 10/10 static/safety assertions PASS, including baseline source/mirror equality. New source and mirror submitted as identical strings. **Native Node tests authored, NOT EXECUTED**; real browser/mobile/keyboard screen-reader testing NOT RUN.
+- **Commit:** this single staging commit from `100276b0783c4d020c905a8eb43608ab967d6955`. No production, providers, paid services or customer data modified.
+- **Next:** milestone 11 setup/status walkthrough and disconnected provider-adapter contracts with expanded tests.
