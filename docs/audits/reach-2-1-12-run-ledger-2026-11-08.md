@@ -88,3 +88,10 @@
 - **Executed in V8:** inline script compile PASS and 10/10 static/safety assertions PASS, including baseline source/mirror equality. New source and mirror submitted as identical strings. **Native Node tests authored, NOT EXECUTED**; real browser/mobile/keyboard screen-reader testing NOT RUN.
 - **Commit:** this single staging commit from `100276b0783c4d020c905a8eb43608ab967d6955`. No production, providers, paid services or customer data modified.
 - **Next:** milestone 11 setup/status walkthrough and disconnected provider-adapter contracts with expanded tests.
+
+## Run 11 — 2026-11-09T02:00:00Z (staging)
+- **Starting HEAD:** `11b9d5a78ce5a17dd38151abd3ebbcffeb55f78f` (Run 10 staging checkpoint; branch contents inspected).
+- **Milestone:** added seven immutable offline provider-ready adapter descriptors with explicit disconnected/contract-only states and no live reads/sends, surfaced each provider's future prerequisites in Settings and Help & Setup. Preserved sample credentials, existing setup checklist, offline records and staging-only constraints.
+- **Files:** `reach-shell/index.html`, identical `ghl-gpt-gateway/public/reach-demo/index.html`, `reach-shell/provider-contracts.test.cjs`, this ledger.
+- **Verification:** source/mirror string equality asserted in update script; four native Node tests authored but NOT EXECUTED. No real browser/mobile test or provider call. Deployment READY and CI not verified for new commit.
+- **Next:** milestone 12 full 11-route and >=24-action acceptance audit, exact executed vs unverified counts, staging readiness and final report.
