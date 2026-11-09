@@ -419,18 +419,34 @@ function resetDemoState(){
  save();
  return true;
 }
+// Offline provider-ready descriptors. No credentials, network transport or live connection detection.
+const providerAdapters=Object.freeze([
+ {id:'website',label:'Website / Google profile',capability:'Read website and business listing differences',requires:'Verified business ownership and approved read-only scopes'},
+ {id:'phone',label:'Calls / phone',capability:'Call routing, missed-call events and voicemail',requires:'Owner authorization, assigned number and consent rules'},
+ {id:'messaging',label:'Inbox / messaging',capability:'SMS, email and chat messages',requires:'Channel authorization, sender identity and opt-in policy'},
+ {id:'ai',label:'AI provider',capability:'Customer-supplied assistant inference',requires:'Customer-owned API credentials and usage limits'},
+ {id:'database',label:'Customer-owned Neon database',capability:'Tenant-isolated business records',requires:'Customer-owned database, migrations and tenant security'},
+ {id:'storage',label:'Customer-owned object storage',capability:'Encrypted business file storage',requires:'Customer-owned bucket, access controls and retention policy'},
+ {id:'hosting',label:'Customer-owned hosting',capability:'Isolated application deployment',requires:'Customer-controlled hosting account and domain'}
+].map(x=>Object.freeze({...x,status:'disconnected',mode:'contract-only',canSend:false,canReadLive:false})));
+function providerStatus(id){
+ const adapter=providerAdapters.find(x=>x.id===id);
+ return adapter?{...adapter}:{id:String(id),status:'unsupported',mode:'contract-only',canSend:false,canReadLive:false};
+}
+function providerReadiness(){return providerAdapters.map(p=>({id:p.id,label:p.label,status:p.status,requires:p.requires}));}
 function settingsContent(){
  const d=setupData();
  const options=[['sample-local','Sample Local Business'],['sample-service','Sample Service Studio']];
- const status=['Website / Google profile','Calls / phone','Inbox / messaging','AI provider','Customer-owned Neon database','Customer-owned object storage','Customer-owned hosting'];
+ const status=providerReadiness();
  return '<div class="grid">'+card('Owner profile · Demo only','<p class="muted">Switch between fictional workspace profiles. This is not a tenant or provider connection.</p><label for="setupProfile">Active sample profile</label><select id="setupProfile">'+options.map(([id,name])=>'<option value="'+id+'" '+(d.profile===id?'selected':'')+'>'+name+'</option>').join('')+'</select><p class="status">Profile choice persists in this browser. No secrets are requested.</p>')+
- card('Connections · Not connected','<p>Customer-owned services are configured after installation, not in this demo.</p>'+status.map(x=>'<p><strong>'+esc(x)+'</strong> · <span class="status">Not connected</span></p>').join(''),'wide')+
+ card('Connections · Not connected','<p>Customer-owned services are configured after installation, not in this demo.</p>'+status.map(x=>'<p><strong>'+esc(x.label)+'</strong> · <span class="status">Not connected</span><br><span class="muted">Future setup: '+esc(x.requires)+'</span></p>').join(''),'wide')+
  card('Offline data controls','<p>Export displays JSON for manual copying. No file is uploaded or transmitted.</p><button id="exportDemo" aria-expanded="'+d.exportVisible+'">'+(d.exportVisible?'Hide':'Show')+' local JSON export</button> '+(d.resetArmed?'<button id="confirmReset">Confirm reset of sample data</button> <button id="cancelReset">Cancel reset</button>':'<button id="armReset">Reset demo data</button>')+(d.exportVisible?'<p><label for="exportJSON">Synthetic JSON export</label><textarea id="exportJSON" readonly rows="8">'+esc(exportDemoJSON())+'</textarea></p>':'')+'<p class="status">Reset only affects REACH demo local storage; it does not affect real accounts.</p>','wide')+'</div>';
 }
 function setupContent(){
  const d=setupData(),done=setupSteps.filter(([id])=>d.completed.includes(id)).length;
  return '<div class="grid">'+card('First-time setup checklist','<p class="muted">Local walkthrough: '+done+' of '+setupSteps.length+' steps completed. No provider connection is attempted.</p><progress value="'+done+'" max="'+setupSteps.length+'">'+done+'/'+setupSteps.length+'</progress>'+setupSteps.map(([id,label])=>'<p><label><input type="checkbox" data-setup-step="'+id+'" '+(d.completed.includes(id)?'checked':'')+'> '+esc(label)+'</label></p>').join(''),'wide')+
  card('Installation & updates','<p>Planned customer-owned hosting, database, object storage and API credentials are not provisioned. Security updates can be automatic after installation; major features require approval.</p><p>Run locally: <code>python3 -m http.server 8080 --directory reach-shell</code>, then open localhost:8080.</p><a href="#/connections">Review connection statuses</a>')+
+ card('Provider readiness · Contract only','<p class="muted">The following are future requirements, not live connections. All adapters are disabled and no credentials are collected.</p>'+providerReadiness().map(p=>'<p><strong>'+esc(p.label)+'</strong> · <span class="status">Not connected</span><br><span class="muted">'+esc(p.requires)+'</span></p>').join(''),'wide')+
  card('Help','<p>Use the 11 sidebar destinations to explore seeded calls, messages, appointments, business presence, metrics and workflows. All actions remain in this browser.</p><a href="#/dashboard">Return to dashboard</a>')+'</div>';
 }
 
