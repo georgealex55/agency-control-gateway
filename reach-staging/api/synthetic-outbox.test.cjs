@@ -57,7 +57,7 @@ test('invalid channel and storage failures are redacted',async()=>{
  assert.equal(response.status,503);assert.doesNotMatch(JSON.stringify(response),/SECRET_DB_URL/);
 });
 test('schema is tenant-isolated and reversible',()=>{
- assert.match(UP,/UNIQUE \\(tenant_id,event_key,channel\\)/);
+ assert.ok(UP.includes('UNIQUE (tenant_id,event_key,channel)'));
  assert.match(UP,/needs_review/);assert.match(DOWN,/DROP TABLE/);
 });
 test('retry requires explicit synthetic failure state and increments attempt',async()=>{
