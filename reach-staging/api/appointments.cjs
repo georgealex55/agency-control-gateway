@@ -14,7 +14,7 @@ function createAppointmentApi({sessions,db}={}){
   try{assertTenantAccess({session,tenantId,action:action==='create'?'create':'update'});}catch{return error(403,'Forbidden');}
   if(!sessions.validCsrf(token,csrf))return error(403,'CSRF validation failed');
   if(!['create','reschedule','cancel'].includes(action)||!ID.test(contactId||'')||(action!=='create'&&!ID.test(appointmentId||'')))return error(400,'Invalid appointment request');
-  if(action!=='cancel'&&(typeof scheduledAt!=='string'||!UTC.test(scheduledAt)||!Number.isFinite(Date.parse(scheduledAt))||new Date(scheduledAt).toISOString().replace(/\\.000Z$/,'Z')!==scheduledAt.replace(/\\.000Z$/,'Z')))return error(400,'Invalid appointment time');
+  if(action!=='cancel'&&(typeof scheduledAt!=='string'||!UTC.test(scheduledAt)||!Number.isFinite(Date.parse(scheduledAt))||new Date(scheduledAt).toISOString().replace(/\.000Z$/,'Z')!==scheduledAt.replace(/\.000Z$/,'Z')))return error(400,'Invalid appointment time');
   try{
    const result=await db.transaction(async tx=>{
     if(!tx||typeof tx.query!=='function')throw Error('BAD_ADAPTER');
