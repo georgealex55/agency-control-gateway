@@ -1,0 +1,27 @@
+name: REACH Social Connections staging contract checks
+on:
+  push:
+    branches:
+      - experiment/gohyperlevel-synthetic-poc-20261104
+    paths:
+      - 'ghl-gpt-gateway/app/api/platform/social/providers/**'
+      - 'ghl-gpt-gateway/lib/social-meta-connection-store.ts'
+      - 'tests/social-provider-inventory-contract.test.mjs'
+      - '.github/workflows/reach-social-connections-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  social-provider-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Native Node social provider contract tests
+        run: node --test tests/social-provider-inventory-contract.test.mjs
