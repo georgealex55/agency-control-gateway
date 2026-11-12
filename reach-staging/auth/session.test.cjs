@@ -36,3 +36,17 @@ test('session cookie is host-only, httpOnly, secure and SameSite strict', () => 
   assert.match(clearSessionCookie(),/Max-Age=0/);
   assert.throws(()=>sessionCookie(token,{secure:false}));
 });
+
+test('CSRF tokens become invalid on logout and at the exact expiry boundary', () => {
+  let now = 10_000;
+  const store = newSessionStore({now: () => now});
+  const first = store.issue({userId:'synthetic-owner',tenantId:'synthetic-a',role:'owner'});
+  assert.equal(store.validCsrf(first.token,first.csrf),true);
+  assert.equal(store.revoke(first.token),true);
+  assert.equal(store.validCsrf(first.token,first.csrf),false);
+  const second = store.issue({userId:'synthetic-owner',tenantId:'synthetic-a',role:'owner'});
+  assert.equal(store.validCsrf(second.token,first.csrf),false);
+  now = second.expiresAt;
+  assert.equal(store.validCsrf(second.token,second.csrf),false);
+  assert.equal(store.resolve(second.token),null);
+});
