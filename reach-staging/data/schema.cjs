@@ -29,6 +29,15 @@ CREATE TABLE IF NOT EXISTS reach22_appointments (
  PRIMARY KEY (tenant_id,id),
  FOREIGN KEY (tenant_id,contact_id) REFERENCES reach22_contacts(tenant_id,id)
 );
+CREATE TABLE IF NOT EXISTS reach22_timeline (
+ tenant_id text NOT NULL, id text NOT NULL, contact_id text NOT NULL,
+ appointment_id text NOT NULL, event_type text NOT NULL
+ CHECK (event_type IN ('appointment_create','appointment_reschedule','appointment_cancel')),
+ occurred_at timestamptz NOT NULL DEFAULT now(),
+ PRIMARY KEY (tenant_id,id),
+ FOREIGN KEY (tenant_id,contact_id) REFERENCES reach22_contacts(tenant_id,id),
+ FOREIGN KEY (tenant_id,appointment_id) REFERENCES reach22_appointments(tenant_id,id)
+);
 CREATE TABLE IF NOT EXISTS reach22_event_receipts (
  tenant_id text NOT NULL, event_key text NOT NULL, event_type text NOT NULL,
  created_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (tenant_id,event_key)
@@ -36,12 +45,13 @@ CREATE TABLE IF NOT EXISTS reach22_event_receipts (
 `;
 const DOWN=`
 DROP TABLE IF EXISTS reach22_event_receipts;
+DROP TABLE IF EXISTS reach22_timeline;
 DROP TABLE IF EXISTS reach22_appointments;
 DROP TABLE IF EXISTS reach22_tasks;
 DROP TABLE IF EXISTS reach22_calls;
 DROP TABLE IF EXISTS reach22_contacts;
 `;
-const TABLES=Object.freeze(['reach22_contacts','reach22_calls','reach22_tasks','reach22_appointments','reach22_event_receipts']);
+const TABLES=Object.freeze(['reach22_contacts','reach22_calls','reach22_tasks','reach22_appointments','reach22_timeline','reach22_event_receipts']);
 const ID=/^[A-Za-z0-9_-]{1,80}$/;
 function createTenantStore(db,session){
  if(!db||typeof db.query!=='function')throw new TypeError('Injected database query adapter required');
