@@ -11,10 +11,13 @@ export async function listFacebookPages(input:{token:string;version:string;fetch
  const o=result as Record<string,unknown>;
  if(!Array.isArray(o.data)||o.data.length>25)throw Error("Meta Page discovery limit exceeded");
  const pages:FacebookPageSummary[]=[];
+ const seenPageIds=new Set<string>();
  for(const raw of o.data){
   if(!raw||typeof raw!=="object"||Array.isArray(raw))throw Error("Invalid Page data");
   const p=raw as Record<string,unknown>;
   if(typeof p.id!=="string"||!/^[0-9]{2,40}$/.test(p.id)||typeof p.name!=="string"||p.name.length<1||p.name.length>150)throw Error("Invalid Page identity");
+  if(seenPageIds.has(p.id))throw Error("Duplicate Facebook Page identity");
+  seenPageIds.add(p.id);
   const tasks=Array.isArray(p.tasks)?p.tasks.filter((v):v is string=>typeof v==="string"&&v.length<50).slice(0,20):[];
   pages.push({id:p.id,name:p.name,tasks});
  }
