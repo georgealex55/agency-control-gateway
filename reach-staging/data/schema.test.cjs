@@ -5,8 +5,8 @@ const {UP,DOWN,TABLES,createTenantStore}=require('./schema.cjs');
 const owner=Object.freeze({tenantId:'tenant-a',userId:'owner-a',role:'owner'});
 test('schema contains tenant-composite keys and tenant-scoped references',()=>{
  for(const table of TABLES)assert.match(UP,new RegExp('CREATE TABLE IF NOT EXISTS '+table));
- assert.equal((UP.match(/PRIMARY KEY \(tenant_id,(?:id|event_key)\)/g)||[]).length,5);
- assert.equal((UP.match(/FOREIGN KEY \(tenant_id,/g)||[]).length,4);
+ assert.equal((UP.match(/PRIMARY KEY \(tenant_id,(?:id|event_key)\)/g)||[]).length,TABLES.length);
+ assert.equal((UP.match(/FOREIGN KEY \(tenant_id,/g)||[]).length,6);
  for(const table of [...TABLES].reverse())assert.ok(DOWN.includes('DROP TABLE IF EXISTS '+table));
 });
 test('tenant store injects authorized tenant and parameterized contact lookup',async()=>{
