@@ -6,6 +6,7 @@ on:
     paths:
       - 'ghl-gpt-gateway/app/api/platform/social/providers/**'
       - 'ghl-gpt-gateway/lib/social-meta-connection-store.ts'
+      - 'ghl-gpt-gateway/lib/social-provider-catalog.ts'
       - 'tests/social-provider-inventory-contract.test.mjs'
       - '.github/workflows/reach-social-connections-ci.yml'
   workflow_dispatch:
