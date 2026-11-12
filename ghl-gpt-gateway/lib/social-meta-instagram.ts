@@ -13,9 +13,14 @@ export async function readInstagramProfessionalProfile(input:{token:string;versi
  if(!response.ok)throw Error("Instagram profile read was rejected");
  const raw:unknown=await response.json();
  if(!raw||typeof raw!=="object"||Array.isArray(raw))throw Error("Invalid Instagram profile response");
- const p=raw as Record<string,unknown>,id=typeof p.user_id==="string"?p.user_id:p.id;
+ const p=raw as Record<string,unknown>;
+ // Conflicting Graph identity fields must never select an ambiguous account.
+ if(p.user_id!==undefined&&p.id!==undefined&&String(p.user_id)!==String(p.id))throw Error("Conflicting Instagram identity fields");
+ const id=typeof p.user_id==="string"?p.user_id:p.id;
  if(typeof id!=="string"||!/^[0-9]{2,40}$/.test(id)||typeof p.username!=="string"||!/^[A-Za-z0-9._]{1,30}$/.test(p.username))throw Error("Invalid Instagram professional identity");
- const kind=p.account_type==="BUSINESS"?"BUSINESS":p.account_type==="CREATOR"?"CREATOR":"UNKNOWN";
+ // Only Professional accounts can be staged for the Instagram Professional connector.
+ if(p.account_type!=="BUSINESS"&&p.account_type!=="CREATOR")throw Error("Instagram Professional account required");
+ const kind=p.account_type;
  const count=typeof p.media_count==="number"&&Number.isSafeInteger(p.media_count)&&p.media_count>=0?p.media_count:null;
  return {id,username:p.username,accountType:kind,mediaCount:count};
 }
