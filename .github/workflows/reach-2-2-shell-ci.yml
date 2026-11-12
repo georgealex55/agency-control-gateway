@@ -38,6 +38,8 @@ jobs:
         run: node --test reach-shell/*.test.cjs
       - name: Native staging auth unit tests
         run: node --test reach-staging/auth/*.test.cjs
+      - name: Native staging tenant authorization tests
+        run: node --test reach-staging/security/*.test.cjs
       - name: Check inline application JavaScript syntax
         run: |
           node - <<'NODE'
