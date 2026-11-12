@@ -6,6 +6,8 @@ on:
     paths:
       - 'ghl-gpt-gateway/app/api/platform/social/providers/**'
       - 'ghl-gpt-gateway/lib/social-meta-connection-store.ts'
+      - 'ghl-gpt-gateway/lib/social-meta-pages.ts'
+      - 'tests/social-meta-facebook-page-discovery.test.mjs'
       - 'ghl-gpt-gateway/lib/social-provider-catalog.ts'
       - 'tests/social-provider-inventory-contract.test.mjs'
       - '.github/workflows/reach-social-connections-ci.yml'
@@ -25,4 +27,4 @@ jobs:
         with:
           node-version: '22'
       - name: Native Node social provider contract tests
-        run: node --test tests/social-provider-inventory-contract.test.mjs
+        run: node --test tests/social-provider-inventory-contract.test.mjs tests/social-meta-facebook-page-discovery.test.mjs
