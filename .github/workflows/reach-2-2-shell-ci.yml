@@ -40,6 +40,9 @@ jobs:
         run: node --test reach-staging/auth/*.test.cjs
       - name: Native staging tenant authorization tests
         run: node --test reach-staging/security/*.test.cjs
+      - name: Native staging data schema and repository tests
+        if: always()
+        run: node --test reach-staging/data/*.test.cjs
       - name: Check inline application JavaScript syntax
         run: |
           node - <<'NODE'
