@@ -37,8 +37,10 @@ jobs:
       - name: Native Node regression suite
         run: node --test reach-shell/*.test.cjs
       - name: Native staging auth unit tests
+        if: always()
         run: node --test reach-staging/auth/*.test.cjs
       - name: Native staging tenant authorization tests
+        if: always()
         run: node --test reach-staging/security/*.test.cjs
       - name: Native staging data schema and repository tests
         if: always()
@@ -47,6 +49,7 @@ jobs:
         if: always()
         run: node --test reach-staging/api/*.test.cjs
       - name: Check inline application JavaScript syntax
+        if: always()
         run: |
           node - <<'NODE'
           const fs = require('node:fs');
