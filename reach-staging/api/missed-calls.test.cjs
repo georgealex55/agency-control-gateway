@@ -14,7 +14,7 @@ function fixture(){
     const key=params.join(':');if(receipts.has(key))return {rows:[]};
     receipts.add(key);return {rows:[{event_key:params[1]}]};
    }
-   if(sql.startsWith('SELECT id FROM reach22_contacts'))return {rows:contacts.has(params[1]+':'+params[2])?[{id:contacts.get(params[1]+':'+params[2])}]:[]};
+   if(sql.startsWith('SELECT id FROM reach22_contacts'))return {rows:contacts.has(params[0]+':'+params[1])?[{id:contacts.get(params[0]+':'+params[1])}]:[]};
    if(sql.startsWith('INSERT INTO reach22_contacts'))contacts.set(params[0]+':'+params[3],params[1]);
    return {rows:[{}]};
   }});}catch(e){receipts.clear();for(const k of receiptSnapshot)receipts.add(k);contacts.clear();for(const [k,v] of contactSnapshot)contacts.set(k,v);calls.length=length;throw e;}
