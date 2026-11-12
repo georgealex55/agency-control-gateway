@@ -7,6 +7,8 @@ on:
       - 'ghl-gpt-gateway/app/api/platform/social/providers/**'
       - 'ghl-gpt-gateway/lib/social-meta-connection-store.ts'
       - 'ghl-gpt-gateway/lib/social-meta-pages.ts'
+      - 'ghl-gpt-gateway/lib/social-meta-instagram.ts'
+      - 'tests/social-meta-instagram-profile.test.mjs'
       - 'tests/social-meta-facebook-page-discovery.test.mjs'
       - 'ghl-gpt-gateway/lib/social-provider-catalog.ts'
       - 'tests/social-provider-inventory-contract.test.mjs'
@@ -27,4 +29,4 @@ jobs:
         with:
           node-version: '22'
       - name: Native Node social provider contract tests
-        run: node --test tests/social-provider-inventory-contract.test.mjs tests/social-meta-facebook-page-discovery.test.mjs
+        run: node --test tests/social-provider-inventory-contract.test.mjs tests/social-meta-facebook-page-discovery.test.mjs tests/social-meta-instagram-profile.test.mjs
