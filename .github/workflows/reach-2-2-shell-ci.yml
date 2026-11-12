@@ -6,6 +6,7 @@ on:
       - experiment/gohyperlevel-synthetic-poc-20261104
     paths:
       - 'reach-shell/**'
+      - 'reach-staging/**'
       - 'ghl-gpt-gateway/public/reach-demo/index.html'
       - '.github/workflows/reach-2-2-shell-ci.yml'
   workflow_dispatch:
@@ -35,6 +36,8 @@ jobs:
         run: cmp reach-shell/index.html ghl-gpt-gateway/public/reach-demo/index.html
       - name: Native Node regression suite
         run: node --test reach-shell/*.test.cjs
+      - name: Native staging auth unit tests
+        run: node --test reach-staging/auth/*.test.cjs
       - name: Check inline application JavaScript syntax
         run: |
           node - <<'NODE'
