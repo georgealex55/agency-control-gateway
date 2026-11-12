@@ -43,6 +43,9 @@ jobs:
       - name: Native staging data schema and repository tests
         if: always()
         run: node --test reach-staging/data/*.test.cjs
+      - name: Native staging contact API tests
+        if: always()
+        run: node --test reach-staging/api/*.test.cjs
       - name: Check inline application JavaScript syntax
         run: |
           node - <<'NODE'
