@@ -28,7 +28,9 @@ export async function consumeMetaFlow(workspaceId:string,provider:MetaProvider,n
  return done.length===1;
 }
 export async function stageMetaCandidates(workspaceId:string,provider:MetaProvider,token:string,tokenExpiresAt:string|null,candidates:MetaCandidate[],key:string):Promise<void>{
- if(!candidates.length||candidates.length>25||candidates.some(c=>!/^[0-9]{2,40}$/.test(c.id)||c.name.length>150))throw Error("No valid Meta account candidates");
+ if(!candidates.length||candidates.length>25||candidates.some(c=>!/^[0-9]{2,40}$/.test(c.id)||!c.name.trim()||c.name.length>150)||new Set(candidates.map(c=>c.id)).size!==candidates.length)throw Error("No valid Meta account candidates");
+ // Never stage consent already expired; no pending account may outlive its provider credential.
+ if(tokenExpiresAt!==null&&(!Number.isFinite(Date.parse(tokenExpiresAt))||Date.parse(tokenExpiresAt)<=Date.now()))throw Error("Meta authorization expired; reconnect needed");
  const pendingId=randomUUID(),encrypted=encryptMetaToken(token,key,workspaceId,provider,pendingId);
  const db=await readySql();
  await db.query("INSERT INTO agency_social_meta_pending(id,workspace_id,provider,encrypted_token,candidates,token_expires_at,expires_at) "+
@@ -60,6 +62,8 @@ export async function selectMetaCandidate(workspaceId:string,pendingId:string,ac
  const candidates=Array.isArray(staged.candidates)?staged.candidates as MetaCandidate[]:[];
  const selected=candidates.find(c=>c.id===accountId);
  if(!selected)return null;
+ // A pending selection is invalid if the provider credential expired during consent.
+ if(staged.token_expires_at&&new Date(String(staged.token_expires_at)).getTime()<=Date.now())return null;
  const token=decryptMetaToken(String(staged.encrypted_token),key,workspaceId,provider,pendingId);
  const encrypted=encryptMetaToken(token,key,workspaceId,provider,accountId);
  // Atomically consume pending consent exactly once; no second account can be silently attached.
