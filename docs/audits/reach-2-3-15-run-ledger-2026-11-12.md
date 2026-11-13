@@ -76,3 +76,5 @@
 - **Safety:** staging-only, no main/production, real records, secrets, Neon migration, paid resources or outbound sends.
 - **Next:** ordinal 7 — synthetic appointment confirmation/no-show/cancellation/rebooking model with queued-but-never-sent reminders; first reconcile native CI and fix test failures.
 - **Ending HEAD:** this ledger commit (resolve from branch after write).
+
+- **Post-check CI evidence (Run 6):** GitHub Actions [43406377092](https://github.com/georgealex55/agency-control-gateway/actions/runs/43406377092) for test commit `54949e7e` completed **FAILURE**. Failing job steps: Native Node regression suite, Native staging data schema and repository tests, and Native staging contact API tests. Exact failed assertions were not retrievable from job metadata; do not claim the five new estimates tests passed or identify them as the cause. Final ledger SHA updated in subsequent commit. Vercel ledger deployment QUEUED, feature deployment BUILDING; previous run 5 ledger READY, not browser verification.
