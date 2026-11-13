@@ -35,7 +35,7 @@ test('cross-tenant access denied before any database transaction',async()=>{
  const {pipeline,calls}=harness();
  await assert.rejects(pipeline.transition('business-b','opp-1','contacted'),/Forbidden/);
  await assert.rejects(pipeline.assignOwner('business-b','opp-1','owner-b'),/Forbidden/);
- await assert.rejects(pipeline.history('business-b','opp-1'),/Forbidden/);
+ assert.throws(()=>pipeline.history('business-b','opp-1'),/Forbidden/);
  assert.equal(calls.length,0);
 });
 test('only owner can assign a verified same-tenant member',async()=>{
