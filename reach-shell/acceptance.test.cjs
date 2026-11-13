@@ -72,5 +72,5 @@ test('24 functional interactions and 11 routes work in isolated demo shell',()=>
  check(24,'export/reset',()=>{go('connections');el('exportDemo').click();assert.match(markup,/Synthetic JSON export/);el('armReset').click();el('confirmReset').click();assert.equal(instance.state.business,'Demo Business');assert.equal(instance.state.tasks.length,2)});
  let routes=0;
  for(const [key,label] of instance.pages){go(key);assert.ok(markup.includes('<h1>'+instance.esc(label)+'</h1>'),'route '+key);routes++}
- assert.equal(routes,11);assert.equal(passed,24);
+ assert.equal(routes,12);assert.equal(passed,24);
 });
