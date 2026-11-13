@@ -5,10 +5,10 @@ const {UP,DOWN,TABLES,STAGES,createOpportunityStore}=require('./opportunities.cj
 const owner=Object.freeze({tenantId:'business-a',userId:'owner-a',role:'owner'});
 test('reversible migration uses tenant composite keys, scoped references and indexes',()=>{
  for(const table of TABLES){assert.ok(UP.includes('CREATE TABLE IF NOT EXISTS '+table));assert.ok(DOWN.includes('DROP TABLE IF EXISTS '+table));}
- assert.equal((UP.match(/PRIMARY KEY \\(tenant_id,id\\)/g)||[]).length,3);
- assert.equal((UP.match(/FOREIGN KEY \\(tenant_id,/g)||[]).length,3);
- assert.match(UP,/UNIQUE \\(tenant_id,source_type,source_ref\\)/);
- assert.match(UP,/UNIQUE \\(tenant_id,lead_id\\)/);
+ assert.equal((UP.match(/PRIMARY KEY \(tenant_id,id\)/g)||[]).length,3);
+ assert.equal((UP.match(/FOREIGN KEY \(tenant_id,/g)||[]).length,3);
+ assert.match(UP,/UNIQUE \(tenant_id,source_type,source_ref\)/);
+ assert.match(UP,/UNIQUE \(tenant_id,lead_id\)/);
  assert.deepEqual(STAGES,['new','contacted','quoted','booked','won','lost']);
 });
 test('authorized fixed SQL always filters by tenant and parameterizes values',async()=>{
