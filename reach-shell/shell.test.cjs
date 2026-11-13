@@ -27,11 +27,11 @@ test('public dummy login rejects incorrect credentials and autofills a sample ac
  assert.equal(h.sessionStorage.getItem('reach-demo-login'),'yes');
  assert.match(h.element('app').innerHTML,/DEMO DATA · OFFLINE/);
 });
-test('source is runnable and contains eleven destinations',()=>{
+test('source is runnable and contains twelve destinations',()=>{
  assert.ok(script);
  const h=harness();assert.match(h.element('app').innerHTML,/Enter demo dashboard/);
  const routes=vm.runInContext('pages.map(p=>p[0])',h.context);
- assert.equal(routes.length,11);assert.equal(new Set(routes).size,11);
+ assert.equal(routes.length,12);assert.equal(new Set(routes).size,12);assert.equal(routes.filter(route=>route==='connections').length,1);
 });
 test('demo login and logout change view and session',()=>{
  const h=harness();h.element('business').value='Synthetic Owner';
