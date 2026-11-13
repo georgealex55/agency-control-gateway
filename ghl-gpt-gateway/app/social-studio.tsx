@@ -14,7 +14,7 @@ type MetaCandidate={id:string;name:string;tasks?:string[];accountType?:string};
 type MetaPending={id:string;provider:"facebook_pages"|"instagram_professional";candidates:MetaCandidate[];expiresAt:string};
 type MetaConnection={id:string;provider:"facebook_pages"|"instagram_professional";accountId:string;name:string;connectedAt:string;expiresAt:string|null;lastVerifiedAt:string|null;expired:boolean};
 type MetaInventory={connections:MetaConnection[];pending:MetaPending[];readOnly:true;publishingEnabled:false};
-type ProviderReadiness={id:string;name:string;auth:string;accounts:string;scopes:string[];publishScopes:string[];appSetup:string;connectionStatus:"not_connected";oauthEnabled:false;publishingEnabled:false;};
+type ProviderReadiness={id:string;name:string;auth:string;accounts:string;scopes:string[];publishScopes:string[];appSetup:string;connectionStatus:"disconnected"|"missing_config"|"authorization_pending"|"read_only"|"expired"|"revoked"|"error";connectedAccounts:number;permissionMode:"disconnected"|"read_only";oauthEnabled:boolean;publishingEnabled:false;};
 type InternalInsights={drafts:Record<SocialState,number>;dispatch:Record<"pending"|"queued"|"simulated"|"canceled",number>;retryExhausted:number;scheduledNextSevenDays:number;overdueApproved:number;channelPlans:{channel:string;count:number}[];externalReach:null;externalEngagement:null;metricsAvailable:false;};
 const networkNames:Record<string,string>={instagram:"Instagram",facebook:"Facebook",linkedin:"LinkedIn",threads:"Threads",tiktok:"TikTok",youtube:"YouTube",x:"X",pinterest:"Pinterest"};
 function localDate(offset:number){const d=new Date(Date.now()+offset*60000);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);}
@@ -405,7 +405,7 @@ export default function SocialStudio(){
    </section>}
 {tab==="providers"&&<section className="ag-card">
     <div className="ag-platform-bar"><div><h2>Social Connections</h2><p>Connect selected Facebook Pages or Instagram Professional accounts for read-only account discovery. No publishing permissions are requested.</p></div>
-      <button className="ag-secondary" disabled={busy} onClick={()=>void refreshMeta()}>Refresh connections</button></div>
+      <button className="ag-secondary" disabled={busy} onClick={()=>{void refreshMeta();void refreshProviders();}}>Refresh connections</button></div>
     <div className="ag-ws-note"><b>Single-administrator mode.</b> Developer credentials must be set in this staging preview before connecting. All tokens stay encrypted in Neon, and publishing remains disabled.</div>
     <div className="ag-ws-note">
       <b>Meta Developer App setup</b>
@@ -457,6 +457,19 @@ export default function SocialStudio(){
        <button className="ag-secondary" disabled={busy} onClick={()=>void disconnectMetaAccount(account.id)}>Disconnect</button>
       </div>
     </div>)}
+    <div className="ag-platform-bar"><div><h3>Provider connection readiness</h3><p>Workspace-specific status. Read-only discovery does not grant publishing.</p></div>
+      <button className="ag-secondary" disabled={busy||!workspaceId} onClick={()=>void refreshProviders()}>Refresh provider status</button></div>
+    <div className="ag-modulegrid" aria-label="Social provider connection statuses">
+      {providers.map(provider=><div className="ag-card" key={provider.id}>
+        <h3>{provider.name}</h3>
+        <p role="status"><b>Status: {provider.connectionStatus.replaceAll("_"," ")}</b></p>
+        <p>{provider.connectedAccounts>0?provider.connectedAccounts+" read-only account(s) in this workspace":"No active account verified in this workspace"}</p>
+        <small>Account type: {provider.accounts}</small>
+        <p><b>Setup:</b> {provider.appSetup}</p>
+        <p><b>Read permissions:</b> {provider.scopes.length?provider.scopes.join(", "):"Not configured"}</p>
+        <small>{provider.oauthEnabled?"OAuth available":"OAuth disabled"} · Publishing disabled</small>
+      </div>)}
+    </div>
     <div className="ag-ws-note"><b>Additional channels planned</b>
       <p>LinkedIn, TikTok, YouTube, X, Threads and Pinterest require independent developer applications. Their OAuth connections are not active in this milestone.</p>
     </div>
