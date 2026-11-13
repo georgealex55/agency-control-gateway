@@ -15,6 +15,7 @@ on:
       - 'tests/social-provider-setup-contract.test.mjs'
       - 'ghl-gpt-gateway/app/social-studio.tsx'
       - 'tests/social-provider-owner-ui.test.mjs'
+      - 'tests/social-meta-consent-workflow.test.mjs'
       - '.github/workflows/reach-social-connections-ci.yml'
   workflow_dispatch:
 permissions:
@@ -32,4 +33,4 @@ jobs:
         with:
           node-version: '22'
       - name: Native Node social provider contract tests
-        run: node --test tests/social-provider-setup-contract.test.mjs tests/social-provider-inventory-contract.test.mjs tests/social-meta-facebook-page-discovery.test.mjs tests/social-meta-instagram-profile.test.mjs tests/social-provider-owner-ui.test.mjs
+        run: node --test tests/social-provider-setup-contract.test.mjs tests/social-provider-inventory-contract.test.mjs tests/social-meta-facebook-page-discovery.test.mjs tests/social-meta-instagram-profile.test.mjs tests/social-provider-owner-ui.test.mjs tests/social-meta-consent-workflow.test.mjs
