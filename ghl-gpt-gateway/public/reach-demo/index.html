@@ -55,7 +55,7 @@ progress,input[type=checkbox]{accent-color:#2456b8}
 </style></head><body><div id="app"></div>
 <script>
 'use strict';
-const pages=[['dashboard','Dashboard'],['inbox','Inbox'],['calls','Calls'],['appointments','Appointments'],['presence','Business Presence'],['contacts','Contacts'],['automations','Automations'],['metrics','Reports & Metrics'],['assistant','AI Assistant'],['connections','Settings / Connections'],['setup','Help & Setup']];
+const pages=[['dashboard','Dashboard'],['opportunities','Business Opportunities'],['inbox','Inbox'],['calls','Calls'],['appointments','Appointments'],['presence','Business Presence'],['contacts','Contacts'],['automations','Automations'],['metrics','Reports & Metrics'],['assistant','AI Assistant'],['connections','Connections'],['setup','Help & Setup']];
 const seed={business:'Demo Business',tasks:[{id:1,text:'Review missed calls',done:false},{id:2,text:'Verify Google profile hours',done:false}],range:'7 days',detail:null,inboxFilter:'all',inboxSearch:'',selectedConversation:'conv-1',callSearch:'',callFilter:'all',callPolicy:'voicemail',calls:[{id:'call-1',name:'Jordan Lee',number:'(555) 010-0141',kind:'Missed',at:'Today 09:10',followUp:false},{id:'call-2',name:'Morgan Chen',number:'(555) 010-0182',kind:'Answered',at:'Yesterday 14:20',followUp:false},{id:'call-3',name:'Taylor Brooks',number:'(555) 010-0167',kind:'Missed',at:'Monday 11:40',followUp:false}],conversations:[
 {id:'conv-1',name:'Jordan Lee',channel:'SMS',unread:true,messages:[{direction:'in',text:'Are you open on Saturday?',at:'09:15',status:'received'}],draft:''},
 {id:'conv-2',name:'Morgan Chen',channel:'Email',unread:false,messages:[{direction:'in',text:'Can I schedule a consultation?',at:'Yesterday',status:'received'}],draft:''},
@@ -435,10 +435,12 @@ function providerStatus(id){
 }
 function providerReadiness(){return providerAdapters.map(p=>({id:p.id,label:p.label,status:p.status,requires:p.requires}));}
 function settingsContent(){
+ const connectionSections='<nav aria-label="Connections sections"><a href="#connection-data">Data Input &amp; Imports</a> · <a href="#connection-services">Connected Services</a> · <a href="#connection-api">API &amp; Webhooks</a> · <a href="#connection-permissions">Account &amp; Permissions</a> · <a href="#connection-health">Connection Health</a></nav><section id="connection-data"><h2>Data Input &amp; Imports</h2><p>Offline demo export and reset controls are below. Real imports are not enabled.</p></section><section id="connection-services"><h2>Connected Services</h2><p>All providers are disconnected; readiness is informational.</p></section><section id="connection-api"><h2>API &amp; Webhooks</h2><p>Disabled. No keys or endpoints are collected in this demo.</p></section><section id="connection-permissions"><h2>Account &amp; Permissions</h2><p>Public demo profile selection is not secure authentication or provider authorization.</p></section><section id="connection-health"><h2>Connection Health</h2><p>Simulated offline status. No live connectivity is asserted.</p></section>';
+
  const d=setupData();
  const options=[['sample-local','Sample Local Business'],['sample-service','Sample Service Studio']];
  const status=providerReadiness();
- return '<div class="grid">'+card('Owner profile · Demo only','<p class="muted">Switch between fictional workspace profiles. This is not a tenant or provider connection.</p><label for="setupProfile">Active sample profile</label><select id="setupProfile">'+options.map(([id,name])=>'<option value="'+id+'" '+(d.profile===id?'selected':'')+'>'+name+'</option>').join('')+'</select><p class="status">Profile choice persists in this browser. No secrets are requested.</p>')+
+ return connectionSections+'<div class="grid">'+card('Owner profile · Demo only','<p class="muted">Switch between fictional workspace profiles. This is not a tenant or provider connection.</p><label for="setupProfile">Active sample profile</label><select id="setupProfile">'+options.map(([id,name])=>'<option value="'+id+'" '+(d.profile===id?'selected':'')+'>'+name+'</option>').join('')+'</select><p class="status">Profile choice persists in this browser. No secrets are requested.</p>')+
  card('Connections · Not connected','<p>Customer-owned services are configured after installation, not in this demo.</p>'+status.map(x=>'<p><strong>'+esc(x.label)+'</strong> · <span class="status">Not connected</span><br><span class="muted">Future setup: '+esc(x.requires)+'</span></p>').join(''),'wide')+
  card('Offline data controls','<p>Export displays JSON for manual copying. No file is uploaded or transmitted.</p><button id="exportDemo" aria-expanded="'+d.exportVisible+'">'+(d.exportVisible?'Hide':'Show')+' local JSON export</button> '+(d.resetArmed?'<button id="confirmReset">Confirm reset of sample data</button> <button id="cancelReset">Cancel reset</button>':'<button id="armReset">Reset demo data</button>')+(d.exportVisible?'<p><label for="exportJSON">Synthetic JSON export</label><textarea id="exportJSON" readonly rows="8">'+esc(exportDemoJSON())+'</textarea></p>':'')+'<p class="status">Reset only affects REACH demo local storage; it does not affect real accounts.</p>','wide')+'</div>';
 }
@@ -461,7 +463,125 @@ function dashboardSummary(){
   healthHealthy:3+(presence.googleHoursMismatch===false?1:0)};
 }
 
+
+// REACH 2.3: offline owner opportunity board; illustrative values are never actual revenue.
+const opportunityFixtures=[
+ {id:'opp-missed-1',name:'Jordan Lee',kind:'Missed call',stage:'new',priority:'Urgent',amount:280,probability:0.35,source:'Synthetic missed call · call-1',action:'Review callback',target:'#/calls'},
+ {id:'opp-quote-1',name:'Morgan Chen',kind:'Outstanding estimate',stage:'quoted',priority:'High',amount:650,probability:0.45,source:'Illustrative quote fixture · quote-1',action:'Review contact',target:'#/contacts'},
+ {id:'opp-inquiry-1',name:'Taylor Brooks',kind:'Unanswered inquiry',stage:'contacted',priority:'Normal',amount:190,probability:0.25,source:'Synthetic inbox inquiry · conv-3',action:'Review inquiry',target:'#/inbox'},
+ {id:'opp-booking-1',name:'Sample booking',kind:'Appointment follow-up',stage:'booked',priority:'Normal',amount:120,probability:0.3,source:'Illustrative appointment fixture',action:'Review appointment',target:'#/appointments'}
+];
+function opportunityContent(){
+ const filter=['all','urgent','new','followed-up'].includes(state.opportunityFilter)?state.opportunityFilter:'all';
+ const rows=opportunityFixtures.filter(o=>filter==='all'||(filter==='urgent'?o.priority==='Urgent':filter==='new'?o.stage==='new':o.stage!=='new'));
+ const money=n=>'
+ if(key==='connections')return settingsContent();
+ if(key==='setup')return setupContent();
+ if(key==='metrics')return metricsContent();
+ if(key==='assistant')return assistantContent();
+ if(key==='automations')return automationsContent();
+ if(key==='contacts')return contactsContent();
+ if(key==='appointments')return appointmentContent();
+ if(key==='presence')return presenceContent();
+ if(key==='inbox')return inboxContent();
+ if(key==='calls')return callsContent();
+ if(key==='dashboard'){
+ const summary=dashboardSummary();
+ const details={
+  health:{title:'Business health',text:'Offline demo checks: website fixture available, local inbox available, local calls available; Google sample hours '+(presenceData().googleHoursMismatch?'need review.':'are marked reviewed.')+' No provider connected.'},
+  calls:{title:'Calls overview',text:summary.calls+' stored sample calls, including '+summary.missed+' missed. '+summary.callbackOpen+' open callback tasks. No phone provider connected.'},
+  inbox:{title:'Inbox overview',text:summary.unread+' unread sample conversations and '+summary.inbox+' total sample conversations. No live messaging connected.'},
+  presence:{title:'Website and Google',text:'2 offline sample presence sources. Google hours mismatch: '+(presenceData().googleHoursMismatch?'needs review.':'marked reviewed.')+' No live checks.'}
+ };
+ const detail=state.detail&&details[state.detail]?card(details[state.detail].title,'<p>'+esc(details[state.detail].text)+'</p><button id="closeDetail">Close details</button>','wide detail'):'';
+ return '<div class="dashboard-controls"><label for="dashboardRange">Sample reporting period</label><select id="dashboardRange"><option value="7 days" '+(state.range==='7 days'?'selected':'')+'>Last 7 days</option><option value="30 days" '+(state.range==='30 days'?'selected':'')+'>Last 30 days</option><option value="90 days" '+(state.range==='90 days'?'selected':'')+'>Last 90 days</option></select><span class="muted">Stored demo totals (not date-filtered; fixture timestamps are not reliable)</span></div><div class="grid">'+card('Business Health','<strong class="good">'+(summary.healthHealthy===4?'Good':'Review')+'</strong><p>Offline demo checks · '+summary.healthHealthy+' of 4 healthy</p><button class="metric-button" data-detail="health">View health checks</button>')+card('Calls','<strong>'+summary.calls+'</strong><p>Stored sample calls · '+summary.missed+' missed</p><button class="metric-button" data-detail="calls">View call breakdown</button>')+card('Inbox','<strong>'+summary.unread+'</strong><p>Unread sample conversations · '+summary.inbox+' total</p><button class="metric-button" data-detail="inbox">View inbox details</button>')+card('Website & Google','<strong>2</strong><p>Offline sample presence sources</p><button class="metric-button" data-detail="presence">View presence checks</button>')+card('Priority Actions','<p class="muted">'+summary.openTasks+' open of '+summary.totalTasks+' local tasks · '+summary.callbackOpen+' callbacks pending</p><div id="tasks">'+state.tasks.map(t=>'<p><button data-task="'+esc(t.id)+'">'+(t.done?'Reopen':'Resolve')+'</button> '+esc(t.text)+' '+(t.done?'✓':'')+'</p>').join('')+'</div>','wide alert')+card('Assistant','<p>Demo assistant not connected to an AI provider.</p><a href="#/assistant">Open assistant →</a>')+detail+'</div>';
+ }
+ return '<div class="grid">'+card(nameFor(key)+' · Preview','<p>This is a navigable staging screen. Interactive features will be added in subsequent runs.</p><p class="status">Not connected to external services</p>','wide placeholder')+card('Next step','<p>Continue the 12-run build to activate local demo workflows.</p>')+'</div>';
+}
+function nameFor(key){return pages.find(p=>p[0]===key)?.[1]||'Dashboard'}
+function bind(key){
+ if(key==='opportunities'){
+  const filter=document.getElementById('opportunityFilter');if(filter)filter.onchange=()=>{state.opportunityFilter=filter.value;save();render()};
+  document.querySelectorAll('[data-opportunity-detail]').forEach(b=>b.onclick=()=>{state.opportunityDetail=state.opportunityDetail===b.dataset.opportunityDetail?null:b.dataset.opportunityDetail;save();render()});
+ }
+ if(key==='connections'){
+  const profile=document.getElementById('setupProfile');if(profile)profile.onchange=()=>{if(['sample-local','sample-service'].includes(profile.value)){setupData().profile=profile.value;save();render()}};
+  const exp=document.getElementById('exportDemo');if(exp)exp.onclick=()=>{setupData().exportVisible=!setupData().exportVisible;save();render()};
+  const arm=document.getElementById('armReset');if(arm)arm.onclick=()=>{setupData().resetArmed=true;save();render()};
+  const cancel=document.getElementById('cancelReset');if(cancel)cancel.onclick=()=>{setupData().resetArmed=false;save();render()};
+  const confirm=document.getElementById('confirmReset');if(confirm)confirm.onclick=()=>{resetDemoState();render()};
+ }
+ if(key==='setup'){
+  document.querySelectorAll('[data-setup-step]').forEach(input=>input.onchange=()=>{const d=setupData(),id=input.dataset.setupStep;if(!setupSteps.some(([step])=>step===id))return;d.completed=d.completed.filter(x=>x!==id);if(input.checked)d.completed.push(id);save();render()});
+ }
+ if(key==='metrics'){
+  const range=document.getElementById('reportRange'),source=document.getElementById('reportSource');
+  if(range)range.onchange=()=>{reportData().range=range.value;save();render()};
+  if(source)source.onchange=()=>{reportData().source=source.value;save();render()};
+ }
+ if(key==='assistant'){
+  const select=document.getElementById('assistantCommand');if(select)select.onchange=()=>{if(!state.assistantDemo)state.assistantDemo={};state.assistantDemo.selected=select.value;save()};
+  const execute=document.getElementById('assistantExecute');if(execute)execute.onclick=()=>runAssistantCommand(select.value);
+  const typed=document.getElementById('assistantText'),runTyped=document.getElementById('assistantTextExecute');
+  if(typed)typed.oninput=()=>{if(!state.assistantDemo)state.assistantDemo={};state.assistantDemo.draft=typed.value;save()};
+  if(runTyped)runTyped.onclick=()=>runAssistantText(typed.value);
+  if(typed)typed.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();runAssistantText(typed.value)}};
+ }
+ if(key==='automations'){
+  document.querySelectorAll('[data-rule-toggle]').forEach(input=>input.onchange=()=>{const a=automationData();a.enabled[input.dataset.ruleToggle]=input.checked;state.automationFeedback='Rule setting saved locally.';save();render()});
+  const event=document.getElementById('automationEvent');if(event)event.onchange=()=>{automationData().selectedEvent=event.value;state.automationFeedback='Sample event selected; nothing executed.';save();render()};
+  const run=document.getElementById('automationRun');if(run)run.onclick=()=>{const a=automationData(),ev=demoEvents.find(e=>e.id===a.selectedEvent),rule=demoRules.find(r=>r.event===ev?.event);const result=simulateAutomation(rule?.id,ev?.id);state.automationFeedback=result.message;save();render()};
+ }
+ if(key==='contacts'){
+  const search=document.getElementById('contactSearch');if(search)search.oninput=()=>{state.contactSearch=search.value;save();render();document.getElementById('contactSearch')?.focus()};
+  const form=document.getElementById('contactForm');if(form)form.onsubmit=e=>{e?.preventDefault?.();const name=document.getElementById('contactName').value.trim(),email=document.getElementById('contactEmail').value.trim(),phone=document.getElementById('contactPhone').value.trim(),notes=document.getElementById('contactNotes').value.trim(),conversationId=document.getElementById('contactConversation').value,callId=document.getElementById('contactCall').value;if(!name||email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return;const rows=contactsData(),c=rows.find(x=>x.id===state.editContact);const fields={name,email,phone,notes,conversationId,callId};if(c)Object.assign(c,fields);else rows.push({id:'contact-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),...fields});state.editContact=null;save();render()};
+  document.querySelectorAll('[data-contact-edit]').forEach(b=>b.onclick=()=>{state.editContact=b.dataset.contactEdit;render()});
+  const cancel=document.getElementById('contactCancelEdit');if(cancel)cancel.onclick=()=>{state.editContact=null;render()};
+  document.querySelectorAll('[data-contact-inbox]').forEach(a=>a.onclick=()=>{state.selectedConversation=a.dataset.contactInbox;save()});
+  document.querySelectorAll('[data-contact-call]').forEach(a=>a.onclick=()=>{state.callSearch=callsData().find(x=>x.id===a.dataset.contactCall)?.number||'';state.callFilter='all';save()});
+ }
+
+ if(key==='appointments'){
+  const form=document.getElementById('appointmentForm');if(form)form.onsubmit=e=>{e?.preventDefault?.();const name=document.getElementById('appointmentName').value.trim(),when=document.getElementById('appointmentWhen').value,service=document.getElementById('appointmentService').value.trim(),conversationId=document.getElementById('appointmentConversation').value;if(!name||!service||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(when))return;const rows=appointmentsData(),existing=rows.find(a=>a.id===state.editAppointment);let appt;if(existing){Object.assign(existing,{name,when,service,conversationId});appt=existing}else{appt={id:'appt-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),name,when,service,conversationId,status:'Scheduled'};rows.push(appt)}const conv=inboxData().find(c=>c.id===conversationId);const contact=conv?contactForConversation(conv):null;appt.contactId=contact?.id||null;reconcileAppointmentTask(appt);state.editAppointment=null;save();render()};
+  document.querySelectorAll('[data-appointment-edit]').forEach(b=>b.onclick=()=>{state.editAppointment=b.dataset.appointmentEdit;render()});
+  document.querySelectorAll('[data-appointment-toggle]').forEach(b=>b.onclick=()=>{const a=appointmentsData().find(x=>x.id===b.dataset.appointmentToggle);if(a){a.status=a.status==='Cancelled'?'Scheduled':'Cancelled';reconcileAppointmentTask(a);save();render()}});
+  const cancel=document.getElementById('appointmentCancelEdit');if(cancel)cancel.onclick=()=>{state.editAppointment=null;render()};
+ }
+ if(key==='presence'){
+  const website=document.getElementById('websiteDetails');if(website)website.onclick=()=>{presenceData().websiteDetails=!presenceData().websiteDetails;save();render()};
+  const task=document.getElementById('presenceTask');if(task)task.onclick=()=>{const p=presenceData(),id='presence-google-hours';p.fixTaskCreated=!p.fixTaskCreated;p.googleHoursMismatch=true;state.tasks=state.tasks.filter(t=>String(t.id)!==id);if(p.fixTaskCreated)state.tasks.push({id,text:'Review sample Google listing hours (9–16 vs website 9–17)',done:false});save();render()};
+ }
+ if(key==='calls'){
+  const search=document.getElementById('callSearch');if(search)search.oninput=()=>{state.callSearch=search.value;save();render();document.getElementById('callSearch')?.focus()};
+  const filter=document.getElementById('callFilter');if(filter)filter.onchange=()=>{state.callFilter=filter.value;save();render()};
+  const policy=document.getElementById('callPolicy');if(policy)policy.onchange=()=>{if(['voicemail','callback','owner'].includes(policy.value)){state.callPolicy=policy.value;save();render()}};
+  document.querySelectorAll('[data-call-followup]').forEach(b=>b.onclick=()=>{const c=callsData().find(x=>x.id===b.dataset.callFollowup);if(!c||c.kind!=='Missed')return;reconcileCallback(c);save();render()});
+ }
+ if(key==='inbox'){
+  const search=document.getElementById('inboxSearch');if(search)search.oninput=()=>{state.inboxSearch=search.value;save();render();const next=document.getElementById('inboxSearch');next?.focus()};
+  const filter=document.getElementById('inboxFilter');if(filter)filter.onchange=()=>{state.inboxFilter=filter.value;save();render()};
+  document.querySelectorAll('[data-conversation]').forEach(b=>b.onclick=()=>{const c=inboxData().find(c=>c.id===b.dataset.conversation);if(c){state.selectedConversation=c.id;c.unread=false;save();render()}});
+  const draft=document.getElementById('replyDraft');
+  const saveDraft=document.getElementById('saveDraft');if(saveDraft)saveDraft.onclick=()=>{const c=inboxData().find(c=>c.id===state.selectedConversation);if(c){c.draft=draft.value;save();render()}};
+  const simulate=document.getElementById('simulateReply');if(simulate)simulate.onclick=()=>{const c=inboxData().find(c=>c.id===state.selectedConversation);const message=draft.value.trim();if(c&&message){c.messages.push({direction:'out',text:message,at:'Demo now',status:'simulated · not delivered'});c.draft='';save();render()}};
+ }
+ if(key==='dashboard'){
+ const range=document.getElementById('dashboardRange');if(range)range.onchange=()=>{if(['7 days','30 days','90 days'].includes(range.value)){state.range=range.value;save();render()}};
+ document.querySelectorAll('[data-detail]').forEach(b=>b.onclick=()=>{state.detail=b.dataset.detail;save();render()});
+ const close=document.getElementById('closeDetail');if(close)close.onclick=()=>{state.detail=null;save();render()};
+ document.querySelectorAll('[data-task]').forEach(b=>b.onclick=()=>{const task=state.tasks.find(t=>String(t.id)===b.dataset.task);if(task){task.done=!task.done;save();render()}});
+ }}
+window.addEventListener('hashchange',()=>{open=false;render();});render();
+</script></body></html>+n.toFixed(2);
+ const expected=rows.reduce((sum,o)=>sum+Math.round(o.amount*o.probability*100),0)/100;
+ const summary='<p class="status">OFFLINE DEMO · Illustrative estimates only · Not actual revenue · No live data, calls or sends.</p><div class="grid">'+card('Visible opportunities','<strong>'+rows.length+'</strong><p>Filtered synthetic records</p>')+card('Urgent','<strong>'+rows.filter(o=>o.priority==='Urgent').length+'</strong><p>Needs owner review</p>')+card('Estimated recoverable value','<strong>'+money(expected)+'</strong><p>Sum of sample amount × assumed probability, not guaranteed</p>')+'</div>';
+ const controls='<div class="dashboard-controls"><label for="opportunityFilter">Filter opportunities</label><select id="opportunityFilter">'+[['all','All'],['urgent','Urgent'],['new','New'],['followed-up','Followed up']].map(([value,label])=>'<option value="'+value+'" '+(filter===value?'selected':'')+'>'+label+'</option>').join('')+'</select></div>';
+ const list=rows.length?rows.map(o=>card(esc(o.name)+' · '+esc(o.priority),'<p><strong>'+esc(o.kind)+'</strong> · '+esc(o.stage)+'</p><p>Estimated recoverable: '+money(Math.round(o.amount*o.probability*100)/100)+' (illustrative '+money(o.amount)+' × '+Math.round(o.probability*100)+'%)</p><p class="muted">Source: '+esc(o.source)+'</p><a href="'+o.target+'">'+esc(o.action)+'</a><p><button data-opportunity-detail="'+o.id+'" aria-expanded="'+(state.opportunityDetail===o.id)+'">View calculation and source</button></p>'+(state.opportunityDetail===o.id?'<p class="status">Assumption-based estimate only. No actual provider, quote, payment or customer record was queried. Owner approval required before any future external action.</p>':'')) .join(''):card('No matching opportunities','<p>Choose another filter to view the sample records.</p>');
+ return summary+controls+'<div class="grid">'+list+'</div>';
+}
+
 function content(key){
+ if(key==='opportunities')return opportunityContent();
  if(key==='connections')return settingsContent();
  if(key==='setup')return setupContent();
  if(key==='metrics')return metricsContent();
