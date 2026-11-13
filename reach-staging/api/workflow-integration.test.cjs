@@ -83,6 +83,7 @@ const {createDailyBriefing}=require('./daily-briefing.cjs');
 test('REACH 2.3 owner journey: missed call, matched lead, estimate, pipeline and deterministic report',async()=>{
  const sessions=newSessionStore(),base=adapter();
  const owner=sessions.issue({userId:'owner_a',tenantId:'tenant_a',role:'owner'});
+ const trustedOwner=sessions.resolve(owner.token);
  const stranger=sessions.issue({userId:'owner_b',tenantId:'tenant_b',role:'owner'});
  const state={leads:[],opportunities:[],estimates:[],followups:[],events:[]};
  const db={...base,async transaction(fn){
@@ -116,10 +117,10 @@ test('REACH 2.3 owner journey: missed call, matched lead, estimate, pipeline and
   }}));}catch(e){for(const k of Object.keys(state))state[k]=snapshot[k];throw e;}
  }};
  const missed=createMissedCallIngestor({sessions,db});
- const intake=createSyntheticLeadIntake({db,session:owner});
- const pipeline=createSyntheticPipeline({db,session:owner});
- const estimates=createSyntheticEstimates({db,session:owner});
- const briefing=createDailyBriefing({db,session:owner});
+ const intake=createSyntheticLeadIntake({db,session:trustedOwner});
+ const pipeline=createSyntheticPipeline({db,session:trustedOwner});
+ const estimates=createSyntheticEstimates({db,session:trustedOwner});
+ const briefing=createDailyBriefing({db,session:trustedOwner});
  const dashboard=createDashboardSelectors({sessions,db});
  const request={token:owner.token,csrf:owner.csrf,tenantId:'tenant_a',eventKey:'call14',phone:'+14155550123',occurredAt:'2026-11-12T10:00:00Z'};
  const first=await missed.ingest(request);assert.equal(first.status,201);
