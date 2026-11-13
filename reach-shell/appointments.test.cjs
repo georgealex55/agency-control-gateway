@@ -25,8 +25,8 @@ test('rescheduling and cancellation reuse task id and retain audit record',()=>{
  assert.equal(vm.runInContext("state.tasks.filter(t=>t.sourceAppointmentId==='appt-x').length",c),1);
  assert.equal(vm.runInContext("state.tasks.find(t=>t.sourceAppointmentId==='appt-x').done",c),true);
 });
-test('ambiguous contact names do not link unrelated appointment',()=>{
+test('explicit conversation match wins over unrelated duplicate contact name',()=>{
  const c=boot();
  vm.runInContext("state.contacts.push({...state.contacts[0],id:'duplicate',conversationId:null});var a={id:'appt-x',name:'Jordan Lee',conversationId:'conv-1',status:'Scheduled',service:'Review'};a.contactId=contactForAppointment(a)?.id||null;reconcileAppointmentTask(a)",c);
- assert.equal(vm.runInContext("a.contactId",c),null);
+ assert.equal(vm.runInContext("a.contactId",c),'contact-1');
 });
