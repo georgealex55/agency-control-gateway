@@ -257,3 +257,28 @@ test('demo export and two-step reset are local and safe',()=>{
  assert.equal(vm.runInContext('setupData().profile',h.context),'sample-local');
  assert.equal(vm.runInContext('state.business',h.context),'Demo Business');
 });
+
+test('REACH 2.3 owner opportunity board is labeled synthetic, filterable and accessible',()=>{
+ const h=harness();enterDemo(h);h.location.hash='#/opportunities';h.listeners.hashchange();
+ let page=h.element('app').innerHTML;
+ assert.match(page,/Business Opportunities/);
+ assert.match(page,/Estimated recoverable value/);
+ assert.match(page,/Illustrative estimates only/);
+ assert.match(page,/Source: Synthetic missed call/);
+ assert.match(page,/label for="opportunityFilter"/);
+ h.element('opportunityFilter').value='urgent';h.element('opportunityFilter').onchange();
+ page=h.element('app').innerHTML;
+ assert.match(page,/Jordan Lee/);
+ assert.doesNotMatch(page,/Taylor Brooks/);
+ assert.equal(vm.runInContext('state.opportunityFilter',h.context),'urgent');
+ assert.equal(vm.runInContext('opportunityFixtures.length',h.context),4);
+});
+test('one Connections menu destination exposes five setup sections without secret collection',()=>{
+ const h=harness();enterDemo(h);h.location.hash='#/connections';h.listeners.hashchange();
+ const page=h.element('app').innerHTML;
+ assert.equal((page.match(/href="#\/connections"/g)||[]).length,1);
+ for(const section of ['connection-data','connection-services','connection-api','connection-permissions','connection-health'])assert.match(page,new RegExp('id="'+section+'"'));
+ assert.match(page,/No keys or endpoints are collected/);
+ assert.match(page,/All providers are disconnected/);
+ assert.doesNotMatch(page,/type="password"[^>]*name="apiKey"/);
+});
