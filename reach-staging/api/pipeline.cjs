@@ -12,7 +12,7 @@ const NEXT=Object.freeze({
 const OWNERSHIP_UP='ALTER TABLE reach23_opportunities ADD COLUMN IF NOT EXISTS owner_user_id text;';
 const OWNERSHIP_DOWN='ALTER TABLE reach23_opportunities DROP COLUMN IF EXISTS owner_user_id;';
 function invalid(message){const e=new TypeError(message);e.code='INVALID_INPUT';throw e;}
-function createSyntheticPipeline({db,session}={}){
+function createSyntheticPipeline({db,session,verifyTenantMember}={}){
  if(!db||typeof db.transaction!=='function')throw new TypeError('Transactional staging adapter required');
  if(!session||!Object.isFrozen(session))throw new TypeError('Trusted frozen session required');
  async function mutate(tenantId,opportunityId,action,change){
@@ -37,8 +37,9 @@ function createSyntheticPipeline({db,session}={}){
     const userId=change.userId;
     if(!ID.test(userId||''))invalid('Invalid owner ID');
     // Membership must be verified from the same tenant, not caller-supplied role data.
-    const member=await tx.query('SELECT user_id FROM reach22_users WHERE tenant_id=$1 AND user_id=$2',[tenantId,userId]);
-    if(!member.rows.length){const e=new Error('Owner not found in business');e.code='NOT_FOUND';throw e;}
+    if(typeof verifyTenantMember!=='function')throw new TypeError('Tenant membership verifier required');
+    const verified=await verifyTenantMember({tenantId,userId,actorId:actor.userId,tx});
+    if(verified!==true){const e=new Error('Owner not found in business');e.code='NOT_FOUND';throw e;}
     if(current.owner_user_id===userId)return Object.freeze({duplicate:true,opportunityId,ownerUserId:userId});
     await tx.query('UPDATE reach23_opportunities SET owner_user_id=$3,updated_at=now() WHERE tenant_id=$1 AND id=$2',[tenantId,opportunityId,userId]);
     return Object.freeze({duplicate:false,opportunityId,ownerUserId:userId,source:'STAGING_SYNTHETIC'});
