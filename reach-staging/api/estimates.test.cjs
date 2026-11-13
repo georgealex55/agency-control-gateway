@@ -31,7 +31,7 @@ test('revisions increment and old open follow-up is cancelled',async()=>{
 test('cross-tenant access denied before any query',async()=>{
  const h=harness();
  await assert.rejects(h.api.revise('business-b',payload),/Forbidden/);
- await assert.rejects(h.api.due('business-b','2026-11-20T15:00:00Z'),/Forbidden/);
+ assert.throws(()=>h.api.due('business-b','2026-11-20T15:00:00Z'),/Forbidden/);
  assert.equal(h.calls.length,0);
 });
 test('rejects invalid amounts, timestamps and closed opportunities',async()=>{
