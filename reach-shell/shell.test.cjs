@@ -222,7 +222,7 @@ test('offline reports allow persisted period and source selection',()=>{
 });
 test('assistant executes deterministic task and navigation without network',()=>{
  const h=harness();enterDemo(h);h.location.hash='#/assistant';h.listeners.hashchange();
- assert.match(h.element('app').innerHTML,/not generative AI/);
+ assert.match(h.element('app').innerHTML,/Deterministic demo commands only · no AI model, API calls or outbound actions/);
  assert.equal(vm.runInContext("runAssistantCommand('task').status",h.context),'executed');
  assert.equal(vm.runInContext("state.tasks.filter(t=>t.text==='Review sample business health').length",h.context),1);
  vm.runInContext("runAssistantCommand('task')",h.context);
