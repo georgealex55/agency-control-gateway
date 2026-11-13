@@ -71,15 +71,15 @@ test('demo route names and disabled integrations are clearly labeled',()=>{
 test('dashboard period selection updates sample metrics and local state',()=>{
  const h=harness();enterDemo(h);
  assert.match(h.element('app').innerHTML,/Sample reporting period/);
- assert.match(h.element('app').innerHTML,/Sample calls · 2 missed/);
+ assert.match(h.element('app').innerHTML,/Stored sample calls · 2 missed/);
  h.element('dashboardRange').value='30 days';h.element('dashboardRange').onchange();
- assert.match(h.element('app').innerHTML,/Sample calls · 8 missed/);
+ assert.match(h.element('app').innerHTML,/Stored sample calls · 2 missed/);
  assert.equal(vm.runInContext('state.range',h.context),'30 days');
 });
 test('dashboard drilldown explains source and can be closed',()=>{
  const h=harness();enterDemo(h);
  vm.runInContext("state.detail='calls';save();render()",h.context);
- assert.match(h.element('app').innerHTML,/49|12 simulated calls/);
+ assert.match(h.element('app').innerHTML,/3 stored sample calls, including 2 missed/);
  assert.match(h.element('app').innerHTML,/No phone provider connected/);
  h.element('closeDetail').click();
  assert.doesNotMatch(h.element('app').innerHTML,/No phone provider connected/);
@@ -212,12 +212,12 @@ test('disabled automation and mismatched fixture cannot execute',()=>{
 
 test('offline reports allow persisted period and source selection',()=>{
  const h=harness();enterDemo(h);h.location.hash='#/metrics';h.listeners.hashchange();
- assert.match(h.element('app').innerHTML,/Reports · Offline fixtures/);
+ assert.match(h.element('app').innerHTML,/Reports · Stored offline demo records/);
  h.element('reportRange').value='30 days';h.element('reportRange').onchange();
  h.element('reportSource').value='calls';h.element('reportSource').onchange();
  assert.equal(vm.runInContext('reportData().range',h.context),'30 days');
  assert.equal(vm.runInContext('reportData().source',h.context),'calls');
- assert.match(h.element('app').innerHTML,/49/);
+ assert.match(h.element('app').innerHTML,/3<\/strong> Stored demo calls/);
  assert.equal(vm.runInContext("JSON.parse(localStorage.getItem('reach-demo-state')).report.source",h.context),'calls');
 });
 test('assistant executes deterministic task and navigation without network',()=>{
