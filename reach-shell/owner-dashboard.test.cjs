@@ -45,3 +45,23 @@ test('offline shell script parses and review tasks are owner-local, deduplicated
  assert.equal(vm.runInContext("queueOpportunityReview('missing-opportunity').status",c),'invalid');
  assert.match(vm.runInContext("state.tasks.find(t=>t.sourceOpportunityId==='opp-quote-1').text",c),/owner approval before contact/);
 });
+
+test('dashboard drilldown is defined and uses only synthetic details',()=>{
+ const c=boot();
+ vm.runInContext("state.detail='calls'",c);
+ const html=vm.runInContext("content('dashboard')",c);
+ assert.match(html,/Calls overview/);
+ assert.match(html,/No phone provider connected/);
+ assert.match(html,/id="closeDetail"/);
+});
+test('Connections hosts a persistent offline guided walkthrough with five sections',()=>{
+ const c=boot();
+ const html=vm.runInContext("settingsContent()",c);
+ for(const id of ['connection-data','connection-services','connection-api','connection-permissions','connection-health'])assert.match(html,new RegExp('id="'+id+'"'));
+ assert.match(html,/Guided connection setup · Offline walkthrough/);
+ assert.match(html,/data-setup-step="connections"/);
+ assert.match(html,/No credentials, network requests or external actions/);
+ vm.runInContext("setupData().completed.push('connections');save()",c);
+ assert.match(vm.runInContext("settingsContent()",c),/1 of 4 sample review steps marked complete/);
+ assert.equal(vm.runInContext("JSON.parse(localStorage.getItem('reach-demo-state')).setup.completed.includes('connections')",c),true);
+});
