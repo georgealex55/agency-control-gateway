@@ -4,11 +4,13 @@ on:
     branches:
       - experiment/gohyperlevel-synthetic-poc-20261104
     paths:
-      - 'ghl-gpt-gateway/lib/connections/**'\n      - 'ghl-gpt-gateway/db/staging/**'
+      - 'ghl-gpt-gateway/lib/connections/**'
+      - 'ghl-gpt-gateway/db/staging/**'
       - '.github/workflows/reach-personal-connections-contract.yml'
   pull_request:
     paths:
-      - 'ghl-gpt-gateway/lib/connections/**'\n      - 'ghl-gpt-gateway/db/staging/**'
+      - 'ghl-gpt-gateway/lib/connections/**'
+      - 'ghl-gpt-gateway/db/staging/**'
       - '.github/workflows/reach-personal-connections-contract.yml'
 permissions:
   contents: read
