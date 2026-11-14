@@ -1,0 +1,68 @@
+name: REACH persistent-volume recovery after actual service replacement
+
+on:
+  push:
+    branches:
+      - experiment/gohyperlevel-synthetic-poc-20261104
+    paths:
+      - .github/workflows/reach-persistent-recovery.yml
+      - scripts/reach-docker-persistent-recovery.mjs
+      - audit/gohyperlevel/reach-volume-recovery-phase.mjs
+      - scripts/reach-security-patch.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reach-persistent-volume-qa
+  cancel-in-progress: true
+
+jobs:
+  actual-service-recovery:
+    name: Isolated Docker volume, SIGKILL, new container, scheduler, idempotency
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out REACH isolated experiment branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          submodules: false
+
+      - name: Check out immutable original GoHyperLevel candidate
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: BAISESYSTEMS/GoHyperLevel
+          ref: 24ea786b85c3240ae4f24dcad6f657749730c56e
+          path: _upstream/gohyperlevel
+          persist-credentials: false
+          submodules: false
+
+      - name: Confirm pinned original commit
+        working-directory: _upstream/gohyperlevel
+        run: test "$(git rev-parse HEAD)" = "24ea786b85c3240ae4f24dcad6f657749730c56e"
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+
+      - name: Apply isolated member-bound API-key security fix
+        run: node scripts/reach-security-patch.mjs _upstream/gohyperlevel
+
+      - name: Verify Docker engine is available
+        run: docker version --format 'Docker {{.Server.Version}}'
+
+      - name: Start real server, hard-kill it, restore SQLite and verify workflows
+        run: node scripts/reach-docker-persistent-recovery.mjs _upstream/gohyperlevel
+        timeout-minutes: 22
+
+      - name: Upload synthetic recovery evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: reach-isolated-volume-recovery-evidence
+          path: ${{ runner.temp }}/reach-volume-recovery-evidence/
+          if-no-files-found: warn
+          retention-days: 14

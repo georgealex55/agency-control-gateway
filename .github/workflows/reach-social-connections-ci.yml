@@ -1,0 +1,46 @@
+name: REACH Social Connections staging contract checks
+on:
+  push:
+    branches:
+      - experiment/gohyperlevel-synthetic-poc-20261104
+    paths:
+      - 'ghl-gpt-gateway/app/api/platform/social/providers/**'
+      - 'ghl-gpt-gateway/lib/social-meta-*.ts'
+      - 'ghl-gpt-gateway/app/api/platform/social/meta/**'
+      - 'ghl-gpt-gateway/app/api/platform/social/route.ts'
+      - 'ghl-gpt-gateway/lib/social-store.ts'
+      - 'ghl-gpt-gateway/lib/social-api.ts'
+      - 'ghl-gpt-gateway/lib/social-contract.ts'
+      - 'ghl-gpt-gateway/lib/social-meta-pages.ts'
+      - 'ghl-gpt-gateway/lib/social-meta-instagram.ts'
+      - 'tests/social-meta-instagram-profile.test.mjs'
+      - 'tests/social-meta-facebook-page-discovery.test.mjs'
+      - 'ghl-gpt-gateway/lib/social-provider-catalog.ts'
+      - 'tests/social-provider-inventory-contract.test.mjs'
+      - 'tests/social-provider-setup-contract.test.mjs'
+      - 'ghl-gpt-gateway/app/social-studio.tsx'
+      - 'tests/social-provider-owner-ui.test.mjs'
+      - 'tests/social-meta-consent-workflow.test.mjs'
+      - 'tests/social-connections-ci-coverage.test.mjs'
+      - 'reach-shell/index.html'
+      - 'ghl-gpt-gateway/public/reach-demo/index.html'
+      - '.github/workflows/reach-social-connections-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  social-provider-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Verify standalone REACH demo mirrors staging shell
+        run: cmp reach-shell/index.html ghl-gpt-gateway/public/reach-demo/index.html
+      - name: Native Node social provider contract tests
+        run: node --test tests/social-provider-setup-contract.test.mjs tests/social-provider-inventory-contract.test.mjs tests/social-meta-facebook-page-discovery.test.mjs tests/social-meta-instagram-profile.test.mjs tests/social-provider-owner-ui.test.mjs tests/social-meta-consent-workflow.test.mjs tests/social-connections-ci-coverage.test.mjs

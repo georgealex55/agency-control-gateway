@@ -1,0 +1,45 @@
+name: Social Intelligence staging checks
+on:
+  push:
+    branches:
+      - feature/social-intelligence-stage-20261029
+      - feature/social-vercel-native-stage-20261029
+      - feature/social-meta-media-stage-20261029
+      - feature/social-private-blob-security-20261029
+      - feature/agency-five-seats-stage-20261029
+  pull_request:
+    branches:
+      - feature/origin-layout-platform-services-20261029
+      - feature/social-intelligence-stage-20261029
+      - feature/social-vercel-native-stage-20261029
+permissions:
+  contents: read
+jobs:
+  social-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+      - run: node --experimental-strip-types --test tests/agency-contracts.test.mjs tests/platform-core.test.mjs tests/source-layout.test.mjs tests/social-intelligence.test.mjs tests/social-native-queue.test.mjs tests/social-provider-readiness.test.mjs tests/social-meta-media.test.mjs tests/social-private-storage.test.mjs tests/social-meta-pages.test.mjs tests/agency-five-seats.test.mjs tests/social-calendar-ops.test.mjs tests/social-post-media.test.mjs tests/social-meta-instagram.test.mjs tests/social-queue-probe.test.mjs tests/social-meta-connections.test.mjs tests/social-meta-token-lifecycle.test.mjs tests/social-meta-canonical-redirect.test.mjs tests/upstream-engine-integration.test.mjs tests/gohyperlevel-audit.test.mjs
+  next-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ghl-gpt-gateway
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
