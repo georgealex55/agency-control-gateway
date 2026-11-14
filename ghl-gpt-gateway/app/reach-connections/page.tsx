@@ -1,92 +1,25 @@
 "use client";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { createAuthClient } from "@neondatabase/auth";
+import { useEffect, useState } from "react";
 
-type Health={
-  connected:boolean;reason:string;storageReady:boolean;authenticatedWritesEnabled:boolean;
-  authPending:boolean;environment:string;provider:string;externalActionsEnabled:boolean;
-};
-type RecordItem={id:string;kind:string;title:string;notes:string;created_at:string};
-const KINDS=[["lead","Lead"],["contact","Contact"],["appointment","Appointment"],
-  ["business_profile","Business profile"],["note","Note"]] as const;
-function tokenFromSession(result:unknown):string|null {
-  const obj=result as {data?:{session?:{access_token?:string;accessToken?:string}}}|null;
-  const value=obj?.data?.session?.access_token || obj?.data?.session?.accessToken;
-  return typeof value==="string"&&value.length>20?value:null;
-}
+type Health={connected:boolean;reason:string;storageReady:boolean;authenticatedWritesEnabled:boolean;authPending:boolean;environment:string;provider:string;externalActionsEnabled:boolean};
+const KINDS=[["lead","Lead"],["contact","Contact"],["appointment","Appointment"],["business_profile","Business profile"],["note","Note"]] as const;
+
 export default function ReachConnections(){
-  const auth=useMemo(()=>{
-    const base=process.env.NEXT_PUBLIC_REACH_NEON_AUTH_URL;
-    return base&&/^https:\/\//.test(base)?createAuthClient(base):null;
-  },[]);
   const [health,setHealth]=useState<Health|null>(null);
-  const [healthError,setHealthError]=useState("");
-  const [token,setToken]=useState<string|null>(null);
-  const [email,setEmail]=useState("");
-  const [password,setPassword]=useState("");
-  const [title,setTitle]=useState("");
+  const [error,setError]=useState("");
   const [kind,setKind]=useState("lead");
+  const [title,setTitle]=useState("");
   const [notes,setNotes]=useState("");
   const [approved,setApproved]=useState(false);
-  const [items,setItems]=useState<RecordItem[]>([]);
-  const [busy,setBusy]=useState(false);
-  const [message,setMessage]=useState("");
   async function refreshHealth(){
-    try{
+    try {
       const response=await fetch("/api/reach/personal/storage",{cache:"no-store"});
-      if(!response.ok)throw Error("Connection check unavailable");
-      setHealth(await response.json());setHealthError("");
-    }catch{setHealthError("Unable to verify database connection");}
+      if(!response.ok)throw new Error("Not available");
+      setHealth(await response.json());setError("");
+    }catch{setHealth(null);setError("Database health check unavailable");}
   }
-  async function loadRecords(t:string){
-    try{
-      const response=await fetch("/api/reach/personal/records",{cache:"no-store",headers:{"Authorization":"Bearer "+t}});
-      if(!response.ok){setItems([]);setMessage("Owner access is not yet authorized for storage");return;}
-      const data=await response.json();setItems(Array.isArray(data.records)?data.records:[]);
-    }catch{setMessage("Records could not be loaded");}
-  }
-  useEffect(()=>{
-    void refreshHealth();
-    if(auth)void auth.getSession().then(session=>{
-      const access=tokenFromSession(session);setToken(access);
-      if(access)void loadRecords(access);
-    }).catch(()=>setToken(null));
-  },[auth]);
-  async function signIn(event:FormEvent<HTMLFormElement>){
-    event.preventDefault();if(!auth)return;
-    setBusy(true);setMessage("");
-    try{
-      const result=await auth.signIn.email({email,password});
-      if(result.error){setMessage(result.error.message||"Sign-in unsuccessful");return;}
-      const session=await auth.getSession();
-      const access=tokenFromSession(session);setToken(access);
-      if(access){setMessage("Owner session verified");await loadRecords(access);}
-      else setMessage("Signed in, but a usable access token has not been issued");
-    }catch{setMessage("Authentication was not completed");}
-    finally{setPassword("");setBusy(false);}
-  }
-  async function signOut(){
-    if(auth)try{await auth.signOut();}catch{}
-    setToken(null);setItems([]);setMessage("Signed out");
-  }
-  async function save(event:FormEvent<HTMLFormElement>){
-    event.preventDefault();
-    if(!token||!health?.authenticatedWritesEnabled||!approved)return;
-    setBusy(true);setMessage("");
-    try{
-      const response=await fetch("/api/reach/personal/records",{
-        method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},
-        body:JSON.stringify({kind,title:title.trim(),notes:notes.trim(),approved:true,requestId:crypto.randomUUID()})
-      });
-      const data=await response.json();
-      if(!response.ok){setMessage(data.error||"Save failed");return;}
-      setMessage(data.duplicate?"This request was already saved":"Saved to Fieldclock Neon");
-      setTitle("");setNotes("");setApproved(false);await loadRecords(token);
-    }catch{setMessage("Unable to save this record");}
-    finally{setBusy(false);}
-  }
-  const ready=health?.connected===true;
-  const canWrite=ready&&health?.authenticatedWritesEnabled&&!!token;
+  useEffect(()=>{void refreshHealth();},[]);
+  const connected=health?.connected===true;
   return <main className="reachStage">
     <style>{`
       .reachStage{min-height:100vh;padding:32px 5vw;background:#0b1024;color:#eef1ff;font:16px system-ui,sans-serif}
@@ -99,53 +32,39 @@ export default function ReachConnections(){
       .reachStage textarea{min-height:95px}.reachStage button{padding:11px 16px;background:#6655df;color:white;border:0;border-radius:9px;margin-top:15px;cursor:pointer}
       .reachStage button:disabled{opacity:.45;cursor:not-allowed}.reachStage button:focus-visible,.reachStage a:focus-visible{outline:3px solid #abbeff}
       .reachStage .status{display:inline-block;padding:7px 12px;border-radius:99px;background:#293653}.reachStage .ok{background:#185c44}.reachStage .no{background:#5a3440}
-      .reachStage .notice{padding:14px;border-radius:10px;background:#202e4d}.reachStage .records{list-style:none;padding:0}.reachStage .records li{border-bottom:1px solid #394564;padding:12px 0}.reachStage small{display:block;color:#aebad8}
-      .reachStage .check{display:flex;align-items:center;gap:9px}.reachStage .check input{width:auto}
+      .reachStage .notice{padding:14px;border-radius:10px;background:#202e4d}.reachStage .check{display:flex;align-items:center;gap:9px}.reachStage .check input{width:auto}
     `}</style>
     <div className="wrap">
       <a href="/">← Agency dashboard</a>
       <h1>REACH · Connections</h1>
-      <p className="sub">Personal staging workspace. Neon database storage is separate from social, email and outbound integrations.</p>
+      <p className="sub">Personal staging workspace. Storage verification is live; owner login and customer data entry remain disabled until Neon Auth activation.</p>
       <section aria-label="Neon database connection">
         <h2>Neon storage · Fieldclock</h2>
-        <p><span className={"status "+(ready?"ok":"no")}>{health?(ready?"Verified database connection":"Not connected"):"Checking connection..."}</span></p>
-        <p className="sub">{healthError||(health?.reason==="verified_read_only_query"?"The application verified the staging database using its restricted server-side role.":health?.reason||"")} </p>
-        <p><strong>Storage:</strong> {ready?"Ready":"Unavailable"} &nbsp; <strong>Neon Auth:</strong> {health?.authPending?"Pending activation":"Configured"} &nbsp; <strong>External sends:</strong> Disabled</p>
+        <p><span className={"status "+(connected?"ok":"no")}>{health?(connected?"Verified database connection":"Not connected"):"Checking connection..."}</span></p>
+        <p className="sub">{error||(health?.reason==="verified_read_only_query"?"Database schema and restricted runtime role were verified.":health?.reason||"")} </p>
+        <p><strong>Storage:</strong> {connected?"Ready":"Unavailable"} &nbsp; <strong>Neon Auth:</strong> {health?.authPending?"Pending activation":"Not yet verified in browser"} &nbsp; <strong>External sends:</strong> Disabled</p>
         <button type="button" onClick={()=>void refreshHealth()}>Check connection again</button>
       </section>
       <div className="grid">
         <section>
           <h2>Secure owner login</h2>
-          {!auth?<p className="notice">Neon Auth is not provisioned yet. Staging storage is connected, but reading and writing records requires verified owner authentication.</p>
-          :token?<><p className="notice">Authenticated owner session is active.</p><button type="button" onClick={()=>void signOut()}>Sign out</button></>
-          :<form onSubmit={signIn}><label htmlFor="authEmail">Owner email</label>
-            <input id="authEmail" type="email" autoComplete="username" value={email} onChange={e=>setEmail(e.target.value)} required/>
-            <label htmlFor="authPassword">Password</label>
-            <input id="authPassword" type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} required/>
-            <button disabled={busy} type="submit">Sign in with Neon Auth</button></form>}
+          <p className="notice">Neon Auth activation and verified owner sign-in are required before this page can read or write stored records. The existing offline demo login is not accepted for real database access.</p>
+          <p className="sub">No passwords, tokens or provider credentials are entered into this page during preparation.</p>
         </section>
         <section>
-          <h2>Add a record</h2>
-          <form onSubmit={save}>
-            <label htmlFor="recordKind">Record type</label>
-            <select id="recordKind" value={kind} onChange={e=>setKind(e.target.value)}>{KINDS.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select>
-            <label htmlFor="recordTitle">Name or title</label>
-            <input id="recordTitle" value={title} maxLength={160} onChange={e=>setTitle(e.target.value)} required/>
-            <label htmlFor="recordNotes">Details</label>
-            <textarea id="recordNotes" maxLength={4000} value={notes} onChange={e=>setNotes(e.target.value)}/>
-            <label className="check"><input type="checkbox" checked={approved} onChange={e=>setApproved(e.target.checked)}/> I approve saving this record in staging Neon</label>
-            <button type="submit" disabled={!canWrite||!approved||busy||!title.trim()}>Save record</button>
-            {!canWrite&&<p className="sub">Saving unlocks after Neon Auth verifies the authorized owner.</p>}
-          </form>
+          <h2>Manual record entry · Prepared</h2>
+          <label htmlFor="recordKind">Record type</label>
+          <select id="recordKind" value={kind} onChange={e=>setKind(e.target.value)}>{KINDS.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select>
+          <label htmlFor="recordTitle">Name or title</label>
+          <input id="recordTitle" value={title} maxLength={160} onChange={e=>setTitle(e.target.value)}/>
+          <label htmlFor="recordNotes">Details</label>
+          <textarea id="recordNotes" value={notes} maxLength={4000} onChange={e=>setNotes(e.target.value)}/>
+          <label className="check"><input type="checkbox" checked={approved} onChange={e=>setApproved(e.target.checked)}/> I approve saving this record in staging Neon</label>
+          <button type="button" disabled>Save record · Activate Neon Auth first</button>
+          <p className="sub">These entries are not transmitted or retained while authentication is pending. The protected API enforces owner verification and explicit write approval.</p>
         </section>
       </div>
-      {message&&<p className="notice" role="status">{message}</p>}
-      <section><h2>Saved records</h2>
-        {!token?<p className="sub">Sign in as the verified owner to view saved data.</p>
-        :items.length===0?<p className="sub">No records in this workspace yet.</p>
-        :<ul className="records">{items.map(item=><li key={item.id}><strong>{item.title}</strong> · {item.kind}
-          <small>{item.notes}</small><small>{new Date(item.created_at).toLocaleString()}</small></li>)}</ul>}
-      </section>
+      <section><h2>Saved records</h2><p className="sub">A verified Neon Auth owner session is required to list records. The database currently contains no manually entered REACH records.</p></section>
     </div>
   </main>;
 }
