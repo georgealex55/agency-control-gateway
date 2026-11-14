@@ -470,6 +470,15 @@ const opportunityFixtures=[
  {id:'opp-inquiry-1',name:'Taylor Brooks',kind:'Unanswered inquiry',stage:'contacted',priority:'Normal',amount:190,probability:0.25,source:'Synthetic inbox inquiry · conv-3',action:'Review inquiry',target:'#/inbox'},
  {id:'opp-booking-1',name:'Sample booking',kind:'Appointment follow-up',stage:'booked',priority:'Normal',amount:120,probability:0.3,source:'Illustrative appointment fixture',action:'Review appointment',target:'#/appointments'}
 ];
+function queueOpportunityReview(id){
+ const o=opportunityFixtures.find(item=>item.id===id);
+ if(!o)return {status:'invalid'};
+ const taskId='opportunity-review-'+id;
+ if(state.tasks.some(t=>t.id===taskId))return {status:'duplicate',taskId};
+ state.tasks.push({id:taskId,text:'Review '+o.kind.toLowerCase()+' for '+o.name+' (offline only; owner approval before contact)',done:false,sourceOpportunityId:id});
+ save();
+ return {status:'created',taskId};
+}
 function opportunityContent(){
  const filter=['all','urgent','new','followed-up'].includes(state.opportunityFilter)?state.opportunityFilter:'all';
  const rows=opportunityFixtures.filter(o=>filter==='all'||(filter==='urgent'?o.priority==='Urgent':filter==='new'?o.stage==='new':o.stage!=='new'));
@@ -477,7 +486,7 @@ function opportunityContent(){
  const expected=rows.reduce((sum,o)=>sum+Math.round(o.amount*o.probability*100),0)/100;
  const summary='<p class="status">OFFLINE DEMO · Illustrative estimates only · Not actual revenue · No live data, calls or sends.</p><div class="grid">'+card('Visible opportunities','<strong>'+rows.length+'</strong><p>Filtered synthetic records</p>')+card('Urgent','<strong>'+rows.filter(o=>o.priority==='Urgent').length+'</strong><p>Needs owner review</p>')+card('Estimated recoverable value','<strong>'+money(expected)+'</strong><p>Sum of sample amount × assumed probability, not guaranteed</p>')+'</div>';
  const controls='<div class="dashboard-controls"><label for="opportunityFilter">Filter opportunities</label><select id="opportunityFilter">'+[['all','All'],['urgent','Urgent'],['new','New'],['followed-up','Followed up']].map(([value,label])=>'<option value="'+value+'" '+(filter===value?'selected':'')+'>'+label+'</option>').join('')+'</select></div>';
- const list=rows.length?rows.map(o=>card(esc(o.name)+' · '+esc(o.priority),'<p><strong>'+esc(o.kind)+'</strong> · '+esc(o.stage)+'</p><p>Estimated recoverable: '+money(Math.round(o.amount*o.probability*100)/100)+' (illustrative '+money(o.amount)+' × '+Math.round(o.probability*100)+'%)</p><p class="muted">Source: '+esc(o.source)+'</p><a href="'+o.target+'">'+esc(o.action)+'</a><p><button data-opportunity-detail="'+o.id+'" aria-expanded="'+(state.opportunityDetail===o.id)+'">View calculation and source</button></p>'+(state.opportunityDetail===o.id?'<p class="status">Assumption-based estimate only. No actual provider, quote, payment or customer record was queried. Owner approval required before any future external action.</p>':''))).join(''):card('No matching opportunities','<p>Choose another filter to view the sample records.</p>');
+ const list=rows.length?rows.map(o=>card(esc(o.name)+' · '+esc(o.priority),'<p><strong>'+esc(o.kind)+'</strong> · '+esc(o.stage)+'</p><p>Estimated recoverable: '+money(Math.round(o.amount*o.probability*100)/100)+' (illustrative '+money(o.amount)+' × '+Math.round(o.probability*100)+'%)</p><p class="muted">Source: '+esc(o.source)+'</p><a href="'+o.target+'">'+esc(o.action)+'</a><p><button data-opportunity-review="'+esc(o.id)+'">Create local review task</button></p><p><button data-opportunity-detail="'+o.id+'" aria-expanded="'+(state.opportunityDetail===o.id)+'">View calculation and source</button></p>'+(state.opportunityDetail===o.id?'<p class="status">Assumption-based estimate only. No actual provider, quote, payment or customer record was queried. Owner approval required before any future external action.</p>':''))).join(''):card('No matching opportunities','<p>Choose another filter to view the sample records.</p>');
  return summary+controls+'<div class="grid">'+list+'</div>';
 }
 
@@ -514,6 +523,7 @@ function nameFor(key){return pages.find(p=>p[0]===key)?.[1]||'Dashboard'}
 function bind(key){
  if(key==='opportunities'){
   const filter=document.getElementById('opportunityFilter');if(filter)filter.onchange=()=>{state.opportunityFilter=filter.value;save();render()};
+  document.querySelectorAll('[data-opportunity-review]').forEach(b=>b.onclick=()=>{queueOpportunityReview(b.dataset.opportunityReview);render()});
   document.querySelectorAll('[data-opportunity-detail]').forEach(b=>b.onclick=()=>{state.opportunityDetail=state.opportunityDetail===b.dataset.opportunityDetail?null:b.dataset.opportunityDetail;save();render()});
  }
  if(key==='connections'){
