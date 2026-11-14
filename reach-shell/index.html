@@ -501,6 +501,90 @@ function content(key){
   inbox:{title:'Inbox overview',text:summary.unread+' unread sample conversations and '+summary.inbox+' total sample conversations. No live messaging connected.'},
   presence:{title:'Website and Google',text:'2 offline sample presence sources. Google hours mismatch: '+(presenceData().googleHoursMismatch?'needs review.':'marked reviewed.')+' No live checks.'}
  };
+
+ const openAppointments=appointmentsData().filter(a=>a.status==='Scheduled');
+ const urgentOpportunities=opportunityFixtures.filter(o=>o.priority==='Urgent');
+ const estimatedOpportunityValue=opportunityFixtures.reduce((sum,o)=>sum+Math.round(o.amount*o.probability*100),0)/100;
+ const ownerOverview=card('Revenue opportunities · Illustrative','<strong>'+opportunityFixtures.length+'</strong><p>'+urgentOpportunities.length+' urgent for owner review · Estimated recoverable value: 
+ return '<div class="dashboard-controls"><label for="dashboardRange">Sample reporting period</label><select id="dashboardRange"><option value="7 days" '+(state.range==='7 days'?'selected':'')+'>Last 7 days</option><option value="30 days" '+(state.range==='30 days'?'selected':'')+'>Last 30 days</option><option value="90 days" '+(state.range==='90 days'?'selected':'')+'>Last 90 days</option></select><span class="muted">Stored demo totals (not date-filtered; fixture timestamps are not reliable)</span></div><div class="grid">'+card('Business Health','<strong class="good">'+(summary.healthHealthy===4?'Good':'Review')+'</strong><p>Offline demo checks · '+summary.healthHealthy+' of 4 healthy</p><button class="metric-button" data-detail="health">View health checks</button>')+card('Calls','<strong>'+summary.calls+'</strong><p>Stored sample calls · '+summary.missed+' missed</p><button class="metric-button" data-detail="calls">View call breakdown</button>')+card('Inbox','<strong>'+summary.unread+'</strong><p>Unread sample conversations · '+summary.inbox+' total</p><button class="metric-button" data-detail="inbox">View inbox details</button>')+card('Website & Google','<strong>2</strong><p>Offline sample presence sources</p><button class="metric-button" data-detail="presence">View presence checks</button>')+ownerOverview+card('Priority Actions','<p class="muted">'+summary.openTasks+' open of '+summary.totalTasks+' local tasks · '+summary.callbackOpen+' callbacks pending</p><div id="tasks">'+state.tasks.map(t=>'<p><button data-task="'+esc(t.id)+'">'+(t.done?'Reopen':'Resolve')+'</button> '+esc(t.text)+' '+(t.done?'✓':'')+'</p>').join('')+'</div>','wide alert')+card('Assistant','<p>Demo assistant not connected to an AI provider.</p><a href="#/assistant">Open assistant →</a>')+detail+'</div>';
+ }
+ return '<div class="grid">'+card(nameFor(key)+' · Preview','<p>This is a navigable staging screen. Interactive features will be added in subsequent runs.</p><p class="status">Not connected to external services</p>','wide placeholder')+card('Next step','<p>Continue the 12-run build to activate local demo workflows.</p>')+'</div>';
+}
+function nameFor(key){return pages.find(p=>p[0]===key)?.[1]||'Dashboard'}
+function bind(key){
+ if(key==='opportunities'){
+  const filter=document.getElementById('opportunityFilter');if(filter)filter.onchange=()=>{state.opportunityFilter=filter.value;save();render()};
+  document.querySelectorAll('[data-opportunity-detail]').forEach(b=>b.onclick=()=>{state.opportunityDetail=state.opportunityDetail===b.dataset.opportunityDetail?null:b.dataset.opportunityDetail;save();render()});
+ }
+ if(key==='connections'){
+  const profile=document.getElementById('setupProfile');if(profile)profile.onchange=()=>{if(['sample-local','sample-service'].includes(profile.value)){setupData().profile=profile.value;save();render()}};
+  const exp=document.getElementById('exportDemo');if(exp)exp.onclick=()=>{setupData().exportVisible=!setupData().exportVisible;save();render()};
+  const arm=document.getElementById('armReset');if(arm)arm.onclick=()=>{setupData().resetArmed=true;save();render()};
+  const cancel=document.getElementById('cancelReset');if(cancel)cancel.onclick=()=>{setupData().resetArmed=false;save();render()};
+  const confirm=document.getElementById('confirmReset');if(confirm)confirm.onclick=()=>{resetDemoState();render()};
+ }
+ if(key==='setup'){
+  document.querySelectorAll('[data-setup-step]').forEach(input=>input.onchange=()=>{const d=setupData(),id=input.dataset.setupStep;if(!setupSteps.some(([step])=>step===id))return;d.completed=d.completed.filter(x=>x!==id);if(input.checked)d.completed.push(id);save();render()});
+ }
+ if(key==='metrics'){
+  const range=document.getElementById('reportRange'),source=document.getElementById('reportSource');
+  if(range)range.onchange=()=>{reportData().range=range.value;save();render()};
+  if(source)source.onchange=()=>{reportData().source=source.value;save();render()};
+ }
+ if(key==='assistant'){
+  const select=document.getElementById('assistantCommand');if(select)select.onchange=()=>{if(!state.assistantDemo)state.assistantDemo={};state.assistantDemo.selected=select.value;save()};
+  const execute=document.getElementById('assistantExecute');if(execute)execute.onclick=()=>runAssistantCommand(select.value);
+  const typed=document.getElementById('assistantText'),runTyped=document.getElementById('assistantTextExecute');
+  if(typed)typed.oninput=()=>{if(!state.assistantDemo)state.assistantDemo={};state.assistantDemo.draft=typed.value;save()};
+  if(runTyped)runTyped.onclick=()=>runAssistantText(typed.value);
+  if(typed)typed.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();runAssistantText(typed.value)}};
+ }
+ if(key==='automations'){
+  document.querySelectorAll('[data-rule-toggle]').forEach(input=>input.onchange=()=>{const a=automationData();a.enabled[input.dataset.ruleToggle]=input.checked;state.automationFeedback='Rule setting saved locally.';save();render()});
+  const event=document.getElementById('automationEvent');if(event)event.onchange=()=>{automationData().selectedEvent=event.value;state.automationFeedback='Sample event selected; nothing executed.';save();render()};
+  const run=document.getElementById('automationRun');if(run)run.onclick=()=>{const a=automationData(),ev=demoEvents.find(e=>e.id===a.selectedEvent),rule=demoRules.find(r=>r.event===ev?.event);const result=simulateAutomation(rule?.id,ev?.id);state.automationFeedback=result.message;save();render()};
+ }
+ if(key==='contacts'){
+  const search=document.getElementById('contactSearch');if(search)search.oninput=()=>{state.contactSearch=search.value;save();render();document.getElementById('contactSearch')?.focus()};
+  const form=document.getElementById('contactForm');if(form)form.onsubmit=e=>{e?.preventDefault?.();const name=document.getElementById('contactName').value.trim(),email=document.getElementById('contactEmail').value.trim(),phone=document.getElementById('contactPhone').value.trim(),notes=document.getElementById('contactNotes').value.trim(),conversationId=document.getElementById('contactConversation').value,callId=document.getElementById('contactCall').value;if(!name||email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return;const rows=contactsData(),c=rows.find(x=>x.id===state.editContact);const fields={name,email,phone,notes,conversationId,callId};if(c)Object.assign(c,fields);else rows.push({id:'contact-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),...fields});state.editContact=null;save();render()};
+  document.querySelectorAll('[data-contact-edit]').forEach(b=>b.onclick=()=>{state.editContact=b.dataset.contactEdit;render()});
+  const cancel=document.getElementById('contactCancelEdit');if(cancel)cancel.onclick=()=>{state.editContact=null;render()};
+  document.querySelectorAll('[data-contact-inbox]').forEach(a=>a.onclick=()=>{state.selectedConversation=a.dataset.contactInbox;save()});
+  document.querySelectorAll('[data-contact-call]').forEach(a=>a.onclick=()=>{state.callSearch=callsData().find(x=>x.id===a.dataset.contactCall)?.number||'';state.callFilter='all';save()});
+ }
+
+ if(key==='appointments'){
+  const form=document.getElementById('appointmentForm');if(form)form.onsubmit=e=>{e?.preventDefault?.();const name=document.getElementById('appointmentName').value.trim(),when=document.getElementById('appointmentWhen').value,service=document.getElementById('appointmentService').value.trim(),conversationId=document.getElementById('appointmentConversation').value;if(!name||!service||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(when))return;const rows=appointmentsData(),existing=rows.find(a=>a.id===state.editAppointment);let appt;if(existing){Object.assign(existing,{name,when,service,conversationId});appt=existing}else{appt={id:'appt-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),name,when,service,conversationId,status:'Scheduled'};rows.push(appt)}const conv=inboxData().find(c=>c.id===conversationId);const contact=conv?contactForConversation(conv):null;appt.contactId=contact?.id||null;reconcileAppointmentTask(appt);state.editAppointment=null;save();render()};
+  document.querySelectorAll('[data-appointment-edit]').forEach(b=>b.onclick=()=>{state.editAppointment=b.dataset.appointmentEdit;render()});
+  document.querySelectorAll('[data-appointment-toggle]').forEach(b=>b.onclick=()=>{const a=appointmentsData().find(x=>x.id===b.dataset.appointmentToggle);if(a){a.status=a.status==='Cancelled'?'Scheduled':'Cancelled';reconcileAppointmentTask(a);save();render()}});
+  const cancel=document.getElementById('appointmentCancelEdit');if(cancel)cancel.onclick=()=>{state.editAppointment=null;render()};
+ }
+ if(key==='presence'){
+  const website=document.getElementById('websiteDetails');if(website)website.onclick=()=>{presenceData().websiteDetails=!presenceData().websiteDetails;save();render()};
+  const task=document.getElementById('presenceTask');if(task)task.onclick=()=>{const p=presenceData(),id='presence-google-hours';p.fixTaskCreated=!p.fixTaskCreated;p.googleHoursMismatch=true;state.tasks=state.tasks.filter(t=>String(t.id)!==id);if(p.fixTaskCreated)state.tasks.push({id,text:'Review sample Google listing hours (9–16 vs website 9–17)',done:false});save();render()};
+ }
+ if(key==='calls'){
+  const search=document.getElementById('callSearch');if(search)search.oninput=()=>{state.callSearch=search.value;save();render();document.getElementById('callSearch')?.focus()};
+  const filter=document.getElementById('callFilter');if(filter)filter.onchange=()=>{state.callFilter=filter.value;save();render()};
+  const policy=document.getElementById('callPolicy');if(policy)policy.onchange=()=>{if(['voicemail','callback','owner'].includes(policy.value)){state.callPolicy=policy.value;save();render()}};
+  document.querySelectorAll('[data-call-followup]').forEach(b=>b.onclick=()=>{const c=callsData().find(x=>x.id===b.dataset.callFollowup);if(!c||c.kind!=='Missed')return;reconcileCallback(c);save();render()});
+ }
+ if(key==='inbox'){
+  const search=document.getElementById('inboxSearch');if(search)search.oninput=()=>{state.inboxSearch=search.value;save();render();const next=document.getElementById('inboxSearch');next?.focus()};
+  const filter=document.getElementById('inboxFilter');if(filter)filter.onchange=()=>{state.inboxFilter=filter.value;save();render()};
+  document.querySelectorAll('[data-conversation]').forEach(b=>b.onclick=()=>{const c=inboxData().find(c=>c.id===b.dataset.conversation);if(c){state.selectedConversation=c.id;c.unread=false;save();render()}});
+  const draft=document.getElementById('replyDraft');
+  const saveDraft=document.getElementById('saveDraft');if(saveDraft)saveDraft.onclick=()=>{const c=inboxData().find(c=>c.id===state.selectedConversation);if(c){c.draft=draft.value;save();render()}};
+  const simulate=document.getElementById('simulateReply');if(simulate)simulate.onclick=()=>{const c=inboxData().find(c=>c.id===state.selectedConversation);const message=draft.value.trim();if(c&&message){c.messages.push({direction:'out',text:message,at:'Demo now',status:'simulated · not delivered'});c.draft='';save();render()}};
+ }
+ if(key==='dashboard'){
+ const range=document.getElementById('dashboardRange');if(range)range.onchange=()=>{if(['7 days','30 days','90 days'].includes(range.value)){state.range=range.value;save();render()}};
+ document.querySelectorAll('[data-detail]').forEach(b=>b.onclick=()=>{state.detail=b.dataset.detail;save();render()});
+ const close=document.getElementById('closeDetail');if(close)close.onclick=()=>{state.detail=null;save();render()};
+ document.querySelectorAll('[data-task]').forEach(b=>b.onclick=()=>{const task=state.tasks.find(t=>String(t.id)===b.dataset.task);if(task){task.done=!task.done;save();render()}});
+ }}
+window.addEventListener('hashchange',()=>{open=false;render();});render();
+</script></body></html>+estimatedOpportunityValue.toFixed(2)+'</p><p class="muted">Synthetic amounts × assumed probabilities. Not actual revenue or live leads.</p><a href="#/opportunities">Review opportunities and follow-ups</a>')+card('Appointments · Local demo','<strong>'+openAppointments.length+'</strong><p>Scheduled sample appointments · '+summary.callbackOpen+' open callback tasks</p><a href="#/appointments">Review appointments</a> · <a href="#/calls">Review missed calls</a>');
  const detail=state.detail&&details[state.detail]?card(details[state.detail].title,'<p>'+esc(details[state.detail].text)+'</p><button id="closeDetail">Close details</button>','wide detail'):'';
  return '<div class="dashboard-controls"><label for="dashboardRange">Sample reporting period</label><select id="dashboardRange"><option value="7 days" '+(state.range==='7 days'?'selected':'')+'>Last 7 days</option><option value="30 days" '+(state.range==='30 days'?'selected':'')+'>Last 30 days</option><option value="90 days" '+(state.range==='90 days'?'selected':'')+'>Last 90 days</option></select><span class="muted">Stored demo totals (not date-filtered; fixture timestamps are not reliable)</span></div><div class="grid">'+card('Business Health','<strong class="good">'+(summary.healthHealthy===4?'Good':'Review')+'</strong><p>Offline demo checks · '+summary.healthHealthy+' of 4 healthy</p><button class="metric-button" data-detail="health">View health checks</button>')+card('Calls','<strong>'+summary.calls+'</strong><p>Stored sample calls · '+summary.missed+' missed</p><button class="metric-button" data-detail="calls">View call breakdown</button>')+card('Inbox','<strong>'+summary.unread+'</strong><p>Unread sample conversations · '+summary.inbox+' total</p><button class="metric-button" data-detail="inbox">View inbox details</button>')+card('Website & Google','<strong>2</strong><p>Offline sample presence sources</p><button class="metric-button" data-detail="presence">View presence checks</button>')+card('Priority Actions','<p class="muted">'+summary.openTasks+' open of '+summary.totalTasks+' local tasks · '+summary.callbackOpen+' callbacks pending</p><div id="tasks">'+state.tasks.map(t=>'<p><button data-task="'+esc(t.id)+'">'+(t.done?'Reopen':'Resolve')+'</button> '+esc(t.text)+' '+(t.done?'✓':'')+'</p>').join('')+'</div>','wide alert')+card('Assistant','<p>Demo assistant not connected to an AI provider.</p><a href="#/assistant">Open assistant →</a>')+detail+'</div>';
  }
