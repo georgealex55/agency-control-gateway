@@ -31,3 +31,17 @@ test('dashboard appointment count reflects locally updated demo records',()=>{
  assert.match(before,/Appointments · Local demo<\/h3><strong>1<\/strong>/);
  assert.match(after,/Appointments · Local demo<\/h3><strong>2<\/strong>/);
 });
+
+test('offline shell script parses and review tasks are owner-local, deduplicated and persisted',()=>{
+ assert.doesNotThrow(()=>new Function(script));
+ const c=boot();
+ assert.match(vm.runInContext("opportunityContent()",c),/Create local review task/);
+ const first=vm.runInContext("queueOpportunityReview('opp-quote-1')",c);
+ assert.equal(first.status,'created');
+ const second=vm.runInContext("queueOpportunityReview('opp-quote-1')",c);
+ assert.equal(second.status,'duplicate');
+ assert.equal(vm.runInContext("state.tasks.filter(t=>t.sourceOpportunityId==='opp-quote-1').length",c),1);
+ assert.equal(vm.runInContext("JSON.parse(localStorage.getItem('reach-demo-state')).tasks.some(t=>t.sourceOpportunityId==='opp-quote-1')",c),true);
+ assert.equal(vm.runInContext("queueOpportunityReview('missing-opportunity').status",c),'invalid');
+ assert.match(vm.runInContext("state.tasks.find(t=>t.sourceOpportunityId==='opp-quote-1').text",c),/owner approval before contact/);
+});
