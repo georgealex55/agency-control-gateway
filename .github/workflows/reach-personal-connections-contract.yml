@@ -1,0 +1,23 @@
+name: REACH personal Connections fail-closed contract
+on:
+  push:
+    branches:
+      - experiment/gohyperlevel-synthetic-poc-20261104
+    paths:
+      - 'ghl-gpt-gateway/lib/connections/personal-staging-readiness.*'
+      - '.github/workflows/reach-personal-connections-contract.yml'
+  pull_request:
+    paths:
+      - 'ghl-gpt-gateway/lib/connections/personal-staging-readiness.*'
+      - '.github/workflows/reach-personal-connections-contract.yml'
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node --test ghl-gpt-gateway/lib/connections/personal-staging-readiness.test.cjs
