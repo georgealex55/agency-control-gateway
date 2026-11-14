@@ -440,7 +440,9 @@ function settingsContent(){
  const d=setupData();
  const options=[['sample-local','Sample Local Business'],['sample-service','Sample Service Studio']];
  const status=providerReadiness();
- return connectionSections+'<div class="grid">'+card('Owner profile · Demo only','<p class="muted">Switch between fictional workspace profiles. This is not a tenant or provider connection.</p><label for="setupProfile">Active sample profile</label><select id="setupProfile">'+options.map(([id,name])=>'<option value="'+id+'" '+(d.profile===id?'selected':'')+'>'+name+'</option>').join('')+'</select><p class="status">Profile choice persists in this browser. No secrets are requested.</p>')+
+ const done=setupSteps.filter(([id])=>d.completed.includes(id)).length;
+ const walkthrough=card('Guided connection setup · Offline walkthrough','<p class="muted">'+done+' of '+setupSteps.length+' sample review steps marked complete. These checks do not connect or authorize providers.</p><progress value="'+done+'" max="'+setupSteps.length+'">'+done+'/'+setupSteps.length+'</progress>'+setupSteps.map(([id,label])=>'<p><label><input type="checkbox" data-setup-step="'+id+'" '+(d.completed.includes(id)?'checked':'')+'> '+esc(label)+'</label></p>').join('')+'<p class="status">Simulation only · No credentials, network requests or external actions.</p>','wide');
+ return connectionSections+'<div class="grid">'+walkthrough+card('Owner profile · Demo only','<p class="muted">Switch between fictional workspace profiles. This is not a tenant or provider connection.</p><label for="setupProfile">Active sample profile</label><select id="setupProfile">'+options.map(([id,name])=>'<option value="'+id+'" '+(d.profile===id?'selected':'')+'>'+name+'</option>').join('')+'</select><p class="status">Profile choice persists in this browser. No secrets are requested.</p>')+
  card('Connections · Not connected','<p>Customer-owned services are configured after installation, not in this demo.</p>'+status.map(x=>'<p><strong>'+esc(x.label)+'</strong> · <span class="status">Not connected</span><br><span class="muted">Future setup: '+esc(x.requires)+'</span></p>').join(''),'wide')+
  card('Offline data controls','<p>Export displays JSON for manual copying. No file is uploaded or transmitted.</p><button id="exportDemo" aria-expanded="'+d.exportVisible+'">'+(d.exportVisible?'Hide':'Show')+' local JSON export</button> '+(d.resetArmed?'<button id="confirmReset">Confirm reset of sample data</button> <button id="cancelReset">Cancel reset</button>':'<button id="armReset">Reset demo data</button>')+(d.exportVisible?'<p><label for="exportJSON">Synthetic JSON export</label><textarea id="exportJSON" readonly rows="8">'+esc(exportDemoJSON())+'</textarea></p>':'')+'<p class="status">Reset only affects REACH demo local storage; it does not affect real accounts.</p>','wide')+'</div>';
 }
@@ -511,6 +513,7 @@ function content(key){
   presence:{title:'Website and Google',text:'2 offline sample presence sources. Google hours mismatch: '+(presenceData().googleHoursMismatch?'needs review.':'marked reviewed.')+' No live checks.'}
  };
 
+ const detail=details[state.detail]?card(details[state.detail].title,'<p>'+esc(details[state.detail].text)+'</p><button id="closeDetail">Close details</button>','wide detail'):'';
  const openAppointments=appointmentsData().filter(a=>a.status==='Scheduled');
  const urgentOpportunities=opportunityFixtures.filter(o=>o.priority==='Urgent');
  const estimatedOpportunityValue=opportunityFixtures.reduce((sum,o)=>sum+Math.round(o.amount*o.probability*100),0)/100;
@@ -527,6 +530,7 @@ function bind(key){
   document.querySelectorAll('[data-opportunity-detail]').forEach(b=>b.onclick=()=>{state.opportunityDetail=state.opportunityDetail===b.dataset.opportunityDetail?null:b.dataset.opportunityDetail;save();render()});
  }
  if(key==='connections'){
+  document.querySelectorAll('[data-setup-step]').forEach(input=>input.onchange=()=>{const d=setupData(),id=input.dataset.setupStep;if(!setupSteps.some(([step])=>step===id))return;d.completed=d.completed.filter(x=>x!==id);if(input.checked)d.completed.push(id);save();render()});
   const profile=document.getElementById('setupProfile');if(profile)profile.onchange=()=>{if(['sample-local','sample-service'].includes(profile.value)){setupData().profile=profile.value;save();render()}};
   const exp=document.getElementById('exportDemo');if(exp)exp.onclick=()=>{setupData().exportVisible=!setupData().exportVisible;save();render()};
   const arm=document.getElementById('armReset');if(arm)arm.onclick=()=>{setupData().resetArmed=true;save();render()};
