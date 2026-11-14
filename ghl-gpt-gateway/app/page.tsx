@@ -64,7 +64,7 @@ export default function Home() {
     <aside className="ag-side">
       <div className="ag-brand"><span className="ag-logo">A<span>•</span></span><div><b>Agency Control</b><small>UNIFIED WORKSPACE</small></div></div>
       <span className="ag-caption">PLATFORM</span>
-      <nav aria-label="Main navigation">{NAV.map(n=><button key={n.id} className={"ag-nav "+(view===n.id?"current":"")} onClick={()=>setView(n.id)}><span className="ag-nav-icon">{n.icon}</span><span>{n.label}</span></button>)}</nav>
+      <nav aria-label="Main navigation">{NAV.map(n=><button key={n.id} className={"ag-nav "+(view===n.id?"current":"")} onClick={()=>setView(n.id)}><span className="ag-nav-icon">{n.icon}</span><span>{n.label}</span></button>)}<a className="ag-nav" href="/reach-connections"><span className="ag-nav-icon">⛓</span><span>Connections · Neon</span></a></nav>
       <div className="ag-side-foot"><span className="ag-signal"/> Single administrator mode<small>Social Intelligence staging</small></div>
     </aside>
     <div className="ag-main">
