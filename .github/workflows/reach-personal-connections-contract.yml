@@ -4,11 +4,11 @@ on:
     branches:
       - experiment/gohyperlevel-synthetic-poc-20261104
     paths:
-      - 'ghl-gpt-gateway/lib/connections/personal-staging-readiness.*'
+      - 'ghl-gpt-gateway/lib/connections/**'\n      - 'ghl-gpt-gateway/db/staging/**'
       - '.github/workflows/reach-personal-connections-contract.yml'
   pull_request:
     paths:
-      - 'ghl-gpt-gateway/lib/connections/personal-staging-readiness.*'
+      - 'ghl-gpt-gateway/lib/connections/**'\n      - 'ghl-gpt-gateway/db/staging/**'
       - '.github/workflows/reach-personal-connections-contract.yml'
 permissions:
   contents: read
@@ -20,4 +20,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - run: node --test ghl-gpt-gateway/lib/connections/personal-staging-readiness.test.cjs
+      - run: node --test ghl-gpt-gateway/lib/connections/*.test.cjs
