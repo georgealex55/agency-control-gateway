@@ -34,7 +34,7 @@ export const REACH_FEATURES:ReachFeature[]=[
 ];
 export const REACH_GROUPS=["Workspace","Customers","Marketing","Operations","Intelligence","Platform"] as const;
 export function featureLabel(f:ReachFeature){return f.status==="staging"?"Staging":f.status==="source"?"Source only":f.status==="disabled"?"Disabled":"Planned";}
-export function featureOpenable(f:ReachFeature){return Boolean(f.screen||f.href);}
+export function featureOpenable(f:ReachFeature){return f.status!=="disabled"&&Boolean(f.screen||f.href);}
 type FeatureProps={onOpen:(f:ReachFeature)=>void;recent:string[]};
 export function ReachFeatureDirectory({onOpen,recent}:FeatureProps){
  const [query,setQuery]=useState("");
