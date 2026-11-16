@@ -52,6 +52,7 @@ export default function Home() {
     if(f.href){window.location.assign(f.href);return;}
     if(f.screen){setView(f.screen);window.scrollTo({top:0,behavior:"smooth"});}
   }
+  const selectedNavId:Record<View,string>={overview:"command",directory:"directory",clients:"workspaces",features:"features",services:"integrations",social:"social",settings:"settings",discover:"migration"};
   const searchResults=REACH_FEATURES.filter(f=>(f.title+" "+f.description+" "+f.detail).toLowerCase().includes(featureQuery.trim().toLowerCase()));
 
   useEffect(()=>{
@@ -91,7 +92,7 @@ export default function Home() {
       <div className="reach-side-heading">YOUR WORKSPACE <span>2.3</span></div>
       <nav aria-label="All REACH features" className="reach-nav">
         {REACH_GROUPS.map(group=><div className="reach-nav-group" key={group}><span className="reach-nav-caption">{group}</span>{REACH_FEATURES.filter(f=>f.group===group).map(f=>
-          <button key={f.id} className={"ag-nav reach-nav-item "+(f.screen===view&&f.id!=="social-calendar"&&f.id!=="media"&&f.id!=="insights"?"current":"")} onClick={()=>openFeature(f)} disabled={!featureOpenable(f)} title={f.detail} aria-label={f.title+": "+featureLabel(f)}>
+          <button key={f.id} className={"ag-nav reach-nav-item "+(f.id===selectedNavId[view]?"current":"")} onClick={()=>openFeature(f)} disabled={!featureOpenable(f)} title={f.detail} aria-label={f.title+": "+featureLabel(f)}>
             <span className="ag-nav-icon" aria-hidden="true">{f.icon}</span><span>{f.title}</span><i className={"reach-nav-dot "+f.status} aria-hidden="true"/>
           </button>)}</div>)}
       </nav>
