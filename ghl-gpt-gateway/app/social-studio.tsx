@@ -57,8 +57,8 @@ export default function SocialStudio(){
  const [probeMessage,setProbeMessage]=useState("Queue delivery has not been tested from this browser.");
  const [blobDiagnostic,setBlobDiagnostic]=useState<BlobDiagnostic|null>(null);
  const [tab,setTab]=useState<"composer"|"calendar"|"insights"|"metrics"|"providers"|"media">("composer");
- useEffect(()=>{if(new URLSearchParams(window.location.search).get("social")==="connections"){
-  setTab("providers");
+ useEffect(()=>{const socialView=new URLSearchParams(window.location.search).get("social");if(["connections","calendar","media","insights"].includes(socialView||"")){
+  setTab(socialView==="connections"?"providers":socialView==="calendar"?"calendar":socialView==="media"?"media":"insights");
   const status=new URLSearchParams(window.location.search).get("meta");
   if(status==="select")setMetaMessage("Meta authorization completed. Select the account you want to connect below.");
   if(status==="failed")setMetaMessage("Meta authorization did not complete. Check developer-app permissions and redirect URL.");
