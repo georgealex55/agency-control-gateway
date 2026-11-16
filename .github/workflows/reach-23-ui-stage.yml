@@ -1,0 +1,56 @@
+name: REACH 2.3 UI staging acceptance
+on:
+  push:
+    branches:
+      - experiment/reach-23-ui-redesign-staging-20261115
+    paths:
+      - 'ghl-gpt-gateway/app/page.tsx'
+      - 'ghl-gpt-gateway/app/reach-ui-23.tsx'
+      - 'ghl-gpt-gateway/app/reach-ui-23.css'
+      - 'ghl-gpt-gateway/app/layout.tsx'
+      - 'ghl-gpt-gateway/app/social-studio.tsx'
+      - 'tests/reach-23-ui-contract.test.mjs'
+      - 'reach-shell/index.html'
+      - 'ghl-gpt-gateway/public/reach-demo/index.html'
+      - '.github/workflows/reach-23-ui-stage.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Verify offline shell mirror
+        run: cmp reach-shell/index.html ghl-gpt-gateway/public/reach-demo/index.html
+      - name: Verify REACH 2.3 navigation and safety contracts
+        run: node --test tests/reach-23-ui-contract.test.mjs
+  typescript-next:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Install gateway dependencies without postinstall scripts
+        working-directory: ghl-gpt-gateway
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Typecheck
+        working-directory: ghl-gpt-gateway
+        run: npx tsc --noEmit
+      - name: Build Next.js staging app
+        working-directory: ghl-gpt-gateway
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: npm run build
