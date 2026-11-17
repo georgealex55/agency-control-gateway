@@ -163,3 +163,34 @@
  .reach-root .ag-footer{margin-bottom:60px}.reach-root .ag-social-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media(prefers-reduced-motion:reduce){.reach-root button,.reach-root .ag-side.reach-side{transition:none!important}.reach-shortcuts button:hover{transform:none}}
+
+
+/* Command Center real-data widgets and workspace controls */
+.reach-command-toolbar{display:flex;align-items:end;justify-content:space-between;flex-wrap:wrap;gap:16px;background:var(--reach-surface);border:1px solid var(--reach-border);border-radius:16px;padding:16px 20px;margin:18px 0}
+.reach-command-toolbar label{display:grid;gap:7px;color:var(--reach-muted);font-size:12px;font-weight:700;flex:1;max-width:420px}
+.reach-command-toolbar select{width:100%;min-width:180px;color:var(--reach-text);background:var(--reach-surface-raised);border:1px solid var(--reach-border);padding:12px 13px;border-radius:10px}
+.reach-command-toolbar>div,.reach-dashboard-bar>div:last-child{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.reach-dashboard-notice{margin:18px 0;padding:19px 22px;background:var(--reach-surface);border:1px solid var(--reach-border);border-radius:15px;color:var(--reach-text)}
+.reach-dashboard-notice strong{display:block;margin:0 0 8px}
+.reach-dashboard-notice p{font-size:12px!important;margin-bottom:13px!important}
+.reach-layout-notice{color:var(--reach-muted);font-size:11px!important;margin:0 0 14px!important}
+.reach-feed-meta{font-size:10px;display:block;color:var(--reach-muted);padding:0 0 12px;overflow-wrap:anywhere}
+.reach-command-data{display:grid;gap:7px}
+.reach-command-data>p{font-size:12px!important}
+.reach-data-row,.reach-provider-list>div{display:flex;gap:12px;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--reach-border);font-size:12px;color:var(--reach-muted)}
+.reach-data-row b,.reach-provider-list b{color:var(--reach-text);font-weight:800;font-size:12px;text-align:right}
+.reach-provider-list{display:grid;max-height:220px;overflow:auto}
+.reach-widget-disclaimer{border-left:2px solid var(--reach-accent);padding:8px 10px;margin-top:9px!important;color:var(--reach-muted);font-size:11px!important;background:var(--reach-surface-raised)}
+.reach-command-data .reach-inline-link{justify-self:start}
+.reach-command .reach-task-list>div>div{min-width:0}
+.reach-command .reach-shortcuts button:disabled{cursor:not-allowed;opacity:.45;transform:none}
+.reach-command-toolbar .reach-mode-tag{font-size:10px}
+@media(max-width:700px){
+ .reach-command-toolbar{align-items:stretch}
+ .reach-command-toolbar label{max-width:none;width:100%}
+ .reach-command-toolbar>div{width:100%;justify-content:space-between}
+ .reach-dashboard-bar{align-items:flex-start;flex-direction:column}
+ .reach-dashboard-bar>div:last-child{width:100%}
+ .reach-dashboard-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .reach-command .reach-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
