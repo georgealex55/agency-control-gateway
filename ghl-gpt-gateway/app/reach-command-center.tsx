@@ -10,6 +10,7 @@ type Monitor=CommandMonitor;
 type Providers=CommandProviders;
 type LayoutResponse={workspaceId:string;layout:CommandLayout;revision:number;saveEnabled:boolean};
 type Feed="insights"|"monitor"|"providers";
+type FeedError={message:string;action:"sign_in"|"retry"|"configure"|"select_workspace"};
 const titles:Record<CommandWidgetId,string>={
  readiness:"Workspace & system readiness",social:"Social content",connections:"Provider readiness",
  delivery:"Dry-run delivery monitoring",actions:"Priority action center",shortcuts:"Quick actions",roadmap:"Feature roadmap"
@@ -35,7 +36,7 @@ export default function ReachCommandCenter({onOpen,recent,authenticated,configur
  const [insights,setInsights]=useState<Insights|null>(null);
  const [monitor,setMonitor]=useState<Monitor|null>(null);
  const [providers,setProviders]=useState<Providers|null>(null);
- const [feedErrors,setFeedErrors]=useState<Partial<Record<Feed,string>>>({});
+ const [feedErrors,setFeedErrors]=useState<Partial<Record<Feed,FeedError>>>({});
  const [feedsLoading,setFeedsLoading]=useState(false);
  const [layout,setLayout]=useState<CommandLayout>(()=>normalizeCommandLayout(DEFAULT_COMMAND_LAYOUT));
  const [layoutSaving,setLayoutSaving]=useState(false);
@@ -50,10 +51,11 @@ export default function ReachCommandCenter({onOpen,recent,authenticated,configur
   const item=REACH_FEATURES.find(f=>f.id===id);
   if(item)onOpen(item);
  };
- const describe=(e:unknown)=>{
+ const failure=(e:unknown):FeedError=>{
   if(e instanceof CommandDataError&&e.status===401)onUnauthorized();
-  return commandErrorInfo(e).message;
+  return commandErrorInfo(e);
  };
+ const describe=(e:unknown)=>failure(e).message;
  useEffect(()=>{
   if(!authenticated){setWorkspaces([]);setWorkspaceId("");setWorkspaceError("");return;}
   const controller=new AbortController();setWorkspaceLoading(true);
@@ -81,13 +83,13 @@ export default function ReachCommandCenter({onOpen,recent,authenticated,configur
   Promise.all([
    loadCommandJson("/api/platform/social/insights"+query,controller.signal,raw=>parseCommandInsights(raw,workspaceId))
     .then(value=>{if(!controller.signal.aborted)setInsights(value);})
-    .catch(e=>{if(!controller.signal.aborted)setFeedErrors(p=>({...p,insights:describe(e)}));}),
+    .catch(e=>{if(!controller.signal.aborted)setFeedErrors(p=>({...p,insights:failure(e)}));}),
    loadCommandJson("/api/platform/social/monitor"+query,controller.signal,raw=>parseCommandMonitor(raw,workspaceId))
     .then(value=>{if(!controller.signal.aborted)setMonitor(value);})
-    .catch(e=>{if(!controller.signal.aborted)setFeedErrors(p=>({...p,monitor:describe(e)}));}),
+    .catch(e=>{if(!controller.signal.aborted)setFeedErrors(p=>({...p,monitor:failure(e)}));}),
    loadCommandJson("/api/platform/social/providers"+query,controller.signal,raw=>parseCommandProviders(raw,workspaceId))
     .then(value=>{if(!controller.signal.aborted)setProviders(value);})
-    .catch(e=>{if(!controller.signal.aborted)setFeedErrors(p=>({...p,providers:describe(e)}));})
+    .catch(e=>{if(!controller.signal.aborted)setFeedErrors(p=>({...p,providers:failure(e)}));})
   ]).finally(()=>{if(!controller.signal.aborted)setFeedsLoading(false);});
   return ()=>controller.abort();
  },[workspaceId,authenticated,refreshKey]);
@@ -144,8 +146,14 @@ export default function ReachCommandCenter({onOpen,recent,authenticated,configur
  const statusFeed=(kind:Feed)=>{
   const available=kind==="insights"?insights:kind==="monitor"?monitor:providers;
   return <div className="reach-feed-meta" role="status">
-   <span>{feedErrors[kind]?"Unavailable: "+feedErrors[kind]:feedsLoading?"Loading authorized staging data…":available?"Verified staging response":"No verified data loaded"}</span>
-   {feedErrors[kind]&&<button className="reach-inline-link" onClick={()=>setRefreshKey(n=>n+1)}>Retry data ↻</button>}
+   <span>{feedErrors[kind]?"Unavailable: "+feedErrors[kind]?.message:feedsLoading?"Loading authorized staging data…":available?"Verified staging response":"No verified data loaded"}</span>
+   {feedErrors[kind]&&<button className="reach-inline-link" onClick={()=>{
+    const action=feedErrors[kind]?.action;
+    if(action==="sign_in")open("workspaces");
+    else if(action==="configure")open("settings");
+    else if(action==="select_workspace")setWorkspaceReload(n=>n+1);
+    else setRefreshKey(n=>n+1);
+   }}>{feedErrors[kind]?.action==="sign_in"?"Sign in":feedErrors[kind]?.action==="configure"?"Review setup":feedErrors[kind]?.action==="select_workspace"?"Choose workspace":"Retry data"} ↗</button>}
   </div>;
  };
  return <div className="reach-command">
