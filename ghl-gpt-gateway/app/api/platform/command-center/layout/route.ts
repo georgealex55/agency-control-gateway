@@ -1,12 +1,13 @@
 import {NextRequest,NextResponse} from "next/server";
 import {adminAuthenticated,sameOrigin} from "@/lib/portal-auth";
 import {validWorkspaceId} from "@/lib/platform-validation";
-import {commandLayoutStage,getCommandLayout,saveCommandLayout} from "@/lib/reach-command-layout-store";
+import {commandLayoutStage,commandApprovedStorageConfigured,getCommandLayout,saveCommandLayout} from "@/lib/reach-command-layout-store";
 export const runtime="nodejs";export const dynamic="force-dynamic";
 function reply(payload:unknown,status=200){return NextResponse.json(payload,{status,headers:{"Cache-Control":"private, no-store"}});}
 function authorize(req:NextRequest,write=false){
  if(!adminAuthenticated(req))return reply({error:"Owner sign-in required"},401);
  if(!commandLayoutStage())return reply({error:"Command Center layout is preview-only"},403);
+ if(!commandApprovedStorageConfigured())return reply({error:"Isolated staging database approval is required"},428);
  if(write&&!sameOrigin(req))return reply({error:"Invalid request origin"},403);
  return null;
 }
