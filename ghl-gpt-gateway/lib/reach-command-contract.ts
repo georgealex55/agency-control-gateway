@@ -13,10 +13,12 @@ export function parseCommandLayout(value:unknown):CommandLayout|null{
  if(!value||typeof value!=="object"||Array.isArray(value))return null;
  const x=value as Record<string,unknown>;
  if(Object.keys(x).some(k=>!["order","hidden","wide"].includes(k)))return null;
- if(!uniqueWidgetList(x.order)||x.order.length!==COMMAND_WIDGET_IDS.length)return null;
- if(!COMMAND_WIDGET_IDS.every(id=>x.order.includes(id)))return null;
- if(!uniqueWidgetList(x.hidden)||!uniqueWidgetList(x.wide))return null;
- return {order:[...x.order],hidden:[...x.hidden],wide:[...x.wide]};
+ // Capture narrowed references: callbacks do not retain narrowing on mutable object fields.
+ const order=x.order,hidden=x.hidden,wide=x.wide;
+ if(!uniqueWidgetList(order)||order.length!==COMMAND_WIDGET_IDS.length)return null;
+ if(!COMMAND_WIDGET_IDS.every(id=>order.includes(id)))return null;
+ if(!uniqueWidgetList(hidden)||!uniqueWidgetList(wide))return null;
+ return {order:[...order],hidden:[...hidden],wide:[...wide]};
 }
 export function normalizeCommandLayout(value:unknown):CommandLayout{
  return parseCommandLayout(value)||{
