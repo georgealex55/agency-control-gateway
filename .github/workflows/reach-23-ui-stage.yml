@@ -10,6 +10,11 @@ on:
       - 'ghl-gpt-gateway/app/layout.tsx'
       - 'ghl-gpt-gateway/app/social-studio.tsx'
       - 'tests/reach-23-ui-contract.test.mjs'
+      - 'tests/reach-command-center.test.mjs'
+      - 'ghl-gpt-gateway/app/reach-command-center.tsx'
+      - 'ghl-gpt-gateway/lib/reach-command-*.ts'
+      - 'ghl-gpt-gateway/app/api/platform/command-center/**'
+      - 'ghl-gpt-gateway/lib/social-contract.ts'
       - 'reach-shell/index.html'
       - 'ghl-gpt-gateway/public/reach-demo/index.html'
       - '.github/workflows/reach-23-ui-stage.yml'
@@ -31,7 +36,7 @@ jobs:
       - name: Verify offline shell mirror
         run: cmp reach-shell/index.html ghl-gpt-gateway/public/reach-demo/index.html
       - name: Verify REACH 2.3 navigation and safety contracts
-        run: node --test tests/reach-23-ui-contract.test.mjs
+        run: node --test tests/reach-23-ui-contract.test.mjs tests/reach-command-center.test.mjs
   typescript-next:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
