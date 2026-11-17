@@ -113,7 +113,7 @@ export default function Home() {
       </header>
       {paletteOpen&&<div className="reach-palette-shade"><section role="dialog" aria-modal="true" aria-label="Find a REACH feature" className="reach-palette"><div className="reach-palette-top"><label htmlFor="reach-palette-search">Find a feature</label><button onClick={()=>setPaletteOpen(false)} aria-label="Close search">×</button></div><input id="reach-palette-search" type="search" autoFocus placeholder="Search CRM, social, inbox, automations…" value={featureQuery} onChange={e=>setFeatureQuery(e.target.value)}/><div className="reach-palette-results">{searchResults.map(f=><button key={f.id} disabled={!featureOpenable(f)} onClick={()=>openFeature(f)}><span className="reach-palette-icon" aria-hidden="true">{f.icon}</span><span><b>{f.title}</b><small>{f.group} · {f.detail}</small></span><em className={"reach-status "+f.status}>{featureLabel(f)}</em></button>)}{!searchResults.length&&<p>No matching tools.</p>}</div><p className="reach-palette-foot">Esc closes · disabled features cannot launch · no provider action is performed</p></section></div>}
       <main className="ag-content reach-content">
-        {view==="overview"&&<ReachCommandCenter authenticated={session.authenticated} configured={session.configured} onOpen={openFeature} recent={recent}/>}
+        {view==="overview"&&<ReachCommandCenter authenticated={session.authenticated} configured={session.configured} onOpen={openFeature} recent={recent} onUnauthorized={()=>setSession(s=>({...s,authenticated:false}))}/>}
         {view==="directory"&&<ReachFeatureDirectory onOpen={openFeature} recent={recent}/>}
         {view==="discover"&&<>
           <div className="ag-eyebrow">FINAL PHASE · NOT CONNECTING</div><h1>GHL migration comes last.</h1>
