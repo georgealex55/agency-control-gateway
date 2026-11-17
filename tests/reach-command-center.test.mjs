@@ -77,7 +77,7 @@ test("revision-safe persistence is scoped to a stored workspace and audited",()=
  assert.match(sql,/WHERE workspace_id=\$1::uuid AND revision=\$3::int/);
  assert.match(sql,/ON CONFLICT\(workspace_id\) DO NOTHING/);
  assert.match(store,/commandLayoutStatement\(expectedRevision\)/);
- assert.match(store,/reach\.dashboard\.layout_saved/);
+ assert.match(sql,/reach\.dashboard\.layout_saved/);
  assert.match(store,/if\(!result\.length\)return \{status:"conflict"/);
  assert.match(api,/status==="conflict".+409/);
 });
