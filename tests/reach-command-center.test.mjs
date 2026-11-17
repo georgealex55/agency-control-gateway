@@ -7,6 +7,9 @@ const contract=read("ghl-gpt-gateway/lib/reach-command-contract.ts");
 const store=read("ghl-gpt-gateway/lib/reach-command-layout-store.ts");
 const api=read("ghl-gpt-gateway/app/api/platform/command-center/layout/route.ts");
 const socialContract=read("ghl-gpt-gateway/lib/social-contract.ts");
+const data=read("ghl-gpt-gateway/lib/reach-command-data.ts");
+const sql=read("ghl-gpt-gateway/lib/reach-command-layout-sql.ts");
+const page=read("ghl-gpt-gateway/app/page.tsx");
 const widgets=["readiness","social","connections","delivery","actions","shortcuts","roadmap"];
 test("command center lists seven distinct functional owner widgets",()=>{
  const match=contract.match(/COMMAND_WIDGET_IDS=\[([^\]]+)\]/);
@@ -17,9 +20,9 @@ test("command center lists seven distinct functional owner widgets",()=>{
 });
 test("workspace inventory is authenticated and selected before data loads",()=>{
  assert.match(ui,/if\(!authenticated\)\{setWorkspaces\(\[\]\);setWorkspaceId\(""\)/);
- assert.match(ui,/getJson<\{workspaces:Workspace\[\]\}>\("\/api\/platform\/workspaces"/);
+ assert.match(ui,/loadCommandJson\("\/api\/platform\/workspaces",controller\.signal,parseCommandWorkspaces\)/);
  assert.match(ui,/setWorkspaceId\(old=>list\.some\(w=>w\.id===old\)/);
- assert.match(ui,/credentials:"same-origin",cache:"no-store",signal/);
+ assert.match(data,/credentials:"same-origin",cache:"no-store",signal/);
  assert.match(ui,/const controller=new AbortController\(\)/);
  assert.match(ui,/return \(\)=>controller\.abort\(\)/);
 });
@@ -27,7 +30,9 @@ test("data widgets fetch real selected-workspace social and delivery records",()
  for(const path of ["/api/platform/social/insights","/api/platform/social/monitor","/api/platform/social/providers"]){
   assert.ok(ui.includes('"'+path+'"'));
  }
- assert.match(ui,/value\.workspaceId!==workspaceId/);
+ assert.match(ui,/parseCommandInsights\(raw,workspaceId\)/);
+ assert.match(ui,/parseCommandMonitor\(raw,workspaceId\)/);
+ assert.match(ui,/parseCommandProviders\(raw,workspaceId\)/);
  assert.match(ui,/setFeedErrors\(p=>/);
  assert.match(ui,/setFeedsLoading\(true\)/);
  assert.match(ui,/insights\?\.drafts\.draft/);
@@ -69,8 +74,9 @@ test("database opt-in and branch isolation prevent involuntary layout writes",()
 test("revision-safe persistence is scoped to a stored workspace and audited",()=>{
  assert.match(store,/WHERE id=\$1::uuid LIMIT 1/);
  assert.match(store,/workspace_id UUID PRIMARY KEY REFERENCES agency_platform_workspaces/);
- assert.match(store,/WHERE agency_reach_command_layouts\.revision=\$3::int/);
- assert.match(store,/ON CONFLICT\(workspace_id\) DO UPDATE/);
+ assert.match(sql,/WHERE workspace_id=\$1::uuid AND revision=\$3::int/);
+ assert.match(sql,/ON CONFLICT\(workspace_id\) DO NOTHING/);
+ assert.match(store,/commandLayoutStatement\(expectedRevision\)/);
  assert.match(store,/reach\.dashboard\.layout_saved/);
  assert.match(store,/if\(!result\.length\)return \{status:"conflict"/);
  assert.match(api,/status==="conflict".+409/);
@@ -79,4 +85,21 @@ test("existing social studio remains restricted to named staging branch and expl
  assert.match(socialContract,/experiment\/reach-23-ui-redesign-staging-20261115/);
  assert.match(socialContract,/env\.VERCEL_ENV==="preview"/);
  assert.match(socialContract,/env\.SOCIAL_STAGING_ENABLED==="true"/);
+});
+
+test("separate refresh paths preserve unsaved layouts and allow explicit reload",()=>{
+ assert.match(ui,/const \[layoutReload,setLayoutReload\]=useState\(0\)/);
+ assert.match(ui,/const \[refreshKey,setRefreshKey\]=useState\(0\)/);
+ assert.match(ui,/},\[workspaceId,authenticated,refreshKey\]\);/);
+ assert.match(ui,/},\[workspaceId,authenticated,layoutReload\]\);/);
+ assert.match(ui,/Reload saved layout/);
+ assert.match(ui,/Another session changed this layout/);
+});
+test("invalid workspace responses clear privileged UI and expose explicit retries",()=>{
+ assert.match(page,/onUnauthorized=\{\(\)=>setSession\(s=>\(\{\.\.\.s,authenticated:false\}\)\)\}/);
+ assert.match(ui,/e instanceof CommandDataError&&e.status===401/);
+ assert.match(ui,/Retry workspaces/);
+ assert.match(ui,/Retry data/);
+ assert.match(ui,/No verified data loaded/);
+ assert.match(data,/raw\.workspaceId===workspaceId/);
 });
