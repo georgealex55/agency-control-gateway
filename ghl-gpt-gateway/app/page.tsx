@@ -4,7 +4,8 @@ import { MODULES, SAMPLE_TENANTS, type ModuleKey } from "@/lib/agency-platform";
 import PlatformWorkspaces from "./platform-workspaces";
 import ServiceCatalog from "./service-catalog";
 import SocialStudio from "./social-studio";
-import {REACH_FEATURES,REACH_GROUPS,ReachCommandCenter,ReachFeatureDirectory,featureLabel,featureOpenable,type ReachFeature,type ReachScreen} from "./reach-ui-23";
+import {REACH_FEATURES,REACH_GROUPS,ReachFeatureDirectory,featureLabel,featureOpenable,type ReachFeature,type ReachScreen} from "./reach-ui-23";
+import ReachCommandCenter from "./reach-command-center";
 
 type View=ReachScreen;
 type ScanLocation={id:string;name:string;locationId:string;features:Record<string,{status:string;count:number|null}>};
