@@ -46,10 +46,10 @@ test("layout schema rejects arbitrary widgets, unknown fields and duplicate IDs"
  assert.match(contract,/const allowed=new Set<string>\(COMMAND_WIDGET_IDS\)/);
  assert.match(contract,/new Set\(value\)\.size===value\.length/);
  assert.match(contract,/Object\.keys\(x\)\.some\(k=>!\["order","hidden","wide"\]\.includes\(k\)\)/);
- assert.match(contract,/x\.order\.length!==COMMAND_WIDGET_IDS\.length/);
- assert.match(contract,/COMMAND_WIDGET_IDS\.every\(id=>x\.order\.includes\(id\)\)/);
- assert.match(contract,/uniqueWidgetList\(x\.hidden\)/);
- assert.match(contract,/uniqueWidgetList\(x\.wide\)/);
+ assert.match(contract,/order\.length!==COMMAND_WIDGET_IDS\.length/);
+ assert.match(contract,/COMMAND_WIDGET_IDS\.every\(id=>order\.includes\(id\)\)/);
+ assert.match(contract,/uniqueWidgetList\(hidden\)/);
+ assert.match(contract,/uniqueWidgetList\(wide\)/);
 });
 test("owner layout endpoint denies unauthenticated, wrong-origin and non-staging writes",()=>{
  assert.match(api,/if\(!adminAuthenticated\(req\)\)/);
