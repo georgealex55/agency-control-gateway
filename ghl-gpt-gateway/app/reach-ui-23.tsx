@@ -52,30 +52,3 @@ export function ReachFeatureDirectory({onOpen,recent}:FeatureProps){
   {recent.length>0&&<p className="reach-detail-foot">Recent tools are kept in this browser session only. Connection and customer data are not stored in UI preferences.</p>}
  </section>;
 }
-type WidgetId="readiness"|"actions"|"shortcuts"|"roadmap";
-const initialWidgets:WidgetId[]=["readiness","actions","shortcuts","roadmap"];
-export function ReachCommandCenter({onOpen,authenticated,configured,recent}:FeatureProps&{authenticated:boolean;configured:boolean;recent:string[]}){
- const [order,setOrder]=useState<WidgetId[]>(initialWidgets);
- const [hidden,setHidden]=useState<WidgetId[]>([]);
- const [wide,setWide]=useState<WidgetId[]>(["actions","shortcuts"]);
- const [edit,setEdit]=useState(false);
- const open=(id:string)=>{const item=REACH_FEATURES.find(f=>f.id===id);if(item)onOpen(item);};
- const shift=(id:WidgetId,delta:number)=>{setOrder(old=>{const i=old.indexOf(id),j=i+delta;if(j<0||j>=old.length)return old;const next=[...old];[next[i],next[j]]=[next[j],next[i]];return next;});};
- const state=REACH_FEATURES.reduce((o,f)=>{o[f.status]=(o[f.status]||0)+1;return o;},{} as Record<string,number>);
- const widgetTitle:Record<WidgetId,string>={readiness:"Feature readiness",actions:"Priority action center",shortcuts:"Jump back in",roadmap:"What REACH includes"};
- return <div className="reach-command">
-  <div className="reach-intro reach-hero"><div><div className="ag-eyebrow">REACH 2.3 / OWNER COMMAND CENTER</div><h1>Your business, one clear view.</h1><p>Launch staging tools, inspect missing setup and find planned capabilities without artificial numbers or fake connections.</p><div className="reach-hero-actions"><button className="ag-primary" onClick={()=>open("directory")}>Explore all features ↗</button><button className="ag-secondary" onClick={()=>open("social")}>Open Social Studio</button></div></div><div className="reach-hero-art" aria-hidden="true"><span className="reach-orbit r1"/><span className="reach-orbit r2"/><b>R<span>•</span></b></div></div>
-  <div className="reach-dashboard-bar"><div><strong>Owner overview</strong><p>Layout changes apply to this session only.</p></div><button className="ag-secondary" onClick={()=>setEdit(x=>!x)} aria-pressed={edit}>{edit?"Finish customizing":"Customize layout"}</button></div>
-  <div className="reach-dashboard-metrics" aria-label="Feature directory counts"><div><span>Listed features</span><strong>{REACH_FEATURES.length}</strong><small>Directory entries, not customer accounts</small></div><div><span>Staging surfaces</span><strong>{state.staging||0}</strong><small>May require authorization</small></div><div><span>Source groundwork</span><strong>{state.source||0}</strong><small>Not verified live</small></div><div><span>Planned / disabled</span><strong>{(state.planned||0)+(state.disabled||0)}</strong><small>Not available to launch</small></div></div>
-  <div className="reach-bento-grid">
-   {order.filter(id=>!hidden.includes(id)).map(id=><section key={id} className={"reach-widget "+(wide.includes(id)?"wide":"")}><div className="reach-widget-head"><h2>{widgetTitle[id]}</h2>{edit&&<div className="reach-widget-actions"><button aria-label={"Move "+widgetTitle[id]+" earlier"} onClick={()=>shift(id,-1)}>↑</button><button aria-label={"Move "+widgetTitle[id]+" later"} onClick={()=>shift(id,1)}>↓</button><button aria-label={"Resize "+widgetTitle[id]} onClick={()=>setWide(x=>x.includes(id)?x.filter(v=>v!==id):[...x,id])}>⇲</button><button aria-label={"Hide "+widgetTitle[id]} onClick={()=>setHidden(x=>[...x,id])}>×</button></div>}</div>
-    {id==="readiness"&&<div className="reach-readiness"><div><span className="reach-readiness-symbol">◎</span><strong>{authenticated?"Owner session active":configured?"Sign-in required":"Admin setup required"}</strong><p>{authenticated?"You can use authorized staging modules. Social provider consent is not assumed.":configured?"Sign in to access workspace data and Social Studio.":"Configure administrator credentials before opening protected data."}</p></div><button className="reach-inline-link" onClick={()=>open(authenticated?"workspaces":"settings")}>View {authenticated?"workspaces":"settings"} →</button></div>}
-    {id==="actions"&&<div className="reach-task-list"><div><span className="reach-task-number">01</span><div><strong>Review connections</strong><p>Provider permissions and OAuth readiness; no account is presumed connected.</p></div><button onClick={()=>open("social-connections")}>View</button></div><div><span className="reach-task-number">02</span><div><strong>Verify administrator access</strong><p>Owner-only access remains required before customer workspace data is shown.</p></div><button onClick={()=>open("settings")}>Check</button></div><div><span className="reach-task-number">03</span><div><strong>Keep publishing disabled</strong><p>Social content remains internal until a separately approved release.</p></div><span className="reach-lock">Locked</span></div></div>}
-    {id==="shortcuts"&&<div className="reach-shortcuts">{["workspaces","social","social-connections","neon","features","integrations"].map(v=>{const f=REACH_FEATURES.find(x=>x.id===v)!;return <button key={v} onClick={()=>onOpen(f)}><span aria-hidden="true">{f.icon}</span><strong>{f.title}</strong><small>{featureLabel(f)}</small></button>;})}</div>}
-    {id==="roadmap"&&<div className="reach-roadmap"><p>Full navigation includes customer communication, marketing, AI, analytics, automation and platform administration. Planned capabilities appear disabled rather than simulated as live.</p><div>{REACH_GROUPS.map(g=><span key={g}>{g}</span>)}</div><button className="reach-inline-link" onClick={()=>open("directory")}>Browse the complete directory →</button></div>}
-   </section>)}
-  </div>
-  {hidden.length>0&&<button className="ag-secondary" onClick={()=>setHidden([])}>Restore hidden dashboard widgets ({hidden.length})</button>}
-  {recent.length>0&&<div className="reach-recent"><b>Recently opened</b>{recent.map(id=>{const f=REACH_FEATURES.find(x=>x.id===id);return f?<button key={id} onClick={()=>onOpen(f)}>{f.title} ↗</button>:null;})}</div>}
- </div>;
-}
