@@ -33,7 +33,7 @@ test("data widgets fetch real selected-workspace social and delivery records",()
  assert.match(ui,/insights\?\.drafts\.draft/);
  assert.match(ui,/insights\?\.scheduledNextSevenDays/);
  assert.match(ui,/monitor\?\.summary\.attention/);
- assert.match(ui,/return typeof n==="number"&&Number\.isFinite\(n\)\?n\.toLocaleString\(\):"—"/);
+ assert.match(ui,/typeof n==="number"&&Number\.isFinite\(n\)\?n\.toLocaleString\(\):"—"/);
 });
 test("no external publishing, fabricated money metrics or enabled unbuilt actions",()=>{
  assert.doesNotMatch(ui,/\/api\/platform\/social\/dispatch|sendMessage\(|publishPost\(/);
