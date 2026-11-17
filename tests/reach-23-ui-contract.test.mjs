@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 const read=(p)=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
 const catalog=read("ghl-gpt-gateway/app/reach-ui-23.tsx");
+const command=read("ghl-gpt-gateway/app/reach-command-center.tsx");
 const app=read("ghl-gpt-gateway/app/page.tsx");
 const css=read("ghl-gpt-gateway/app/reach-ui-23.css");
 const layout=read("ghl-gpt-gateway/app/layout.tsx");
@@ -65,12 +66,13 @@ test("social deep links route only to existing internal tabs",()=>{
  assert.match(catalog,/href:"\/\?social=media"/);
  assert.match(catalog,/href:"\/\?social=insights"/);
 });
-test("dashboard customization never transmits or persists dashboard data",()=>{
- assert.match(catalog,/setOrder\(old=>/);
- assert.match(catalog,/setHidden\(x=>/);
- assert.match(catalog,/setWide\(x=>/);
- assert.match(catalog,/session only/);
- assert.doesNotMatch(catalog,/fetch\(|localStorage|sessionStorage|navigator\.sendBeacon/);
+test("dashboard personalization uses a validated owner-only staging layout endpoint",()=>{
+ assert.match(command,/setLayout\(old=>update\(old\)\)/);
+ assert.match(command,/getJson<LayoutResponse>/);
+ assert.match(command,/expectedRevision:layoutRevision/);
+ assert.match(command,/setLayoutRevision\(json\.revision\)/);
+ assert.doesNotMatch(command,/localStorage|sessionStorage|navigator\.sendBeacon/);
+ assert.match(command,/saveEnabled/);
 });
 test("staging boundary is visible and outbound/social operations are not introduced",()=>{
  assert.match(app,/STAGING ONLY/);
