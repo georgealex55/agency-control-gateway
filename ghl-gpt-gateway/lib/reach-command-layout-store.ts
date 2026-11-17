@@ -1,6 +1,7 @@
 import {readySql,platformStorageConfigured} from "@/lib/platform-store";
 import {parseCommandLayout,DEFAULT_COMMAND_LAYOUT,type CommandLayout} from "@/lib/reach-command-contract";
 import {validWorkspaceId} from "@/lib/platform-validation";
+import {createHash,timingSafeEqual} from "node:crypto";
 import {commandLayoutStatement} from "@/lib/reach-command-layout-sql";
 type Row={revision:number;layout:unknown};
 function rows<T>(x:unknown):T[]{if(Array.isArray(x))return x as T[];if(x&&typeof x==="object"&&"rows" in x&&Array.isArray(x.rows))return x.rows as T[];throw Error("Invalid database response");}
@@ -8,15 +9,30 @@ function rows<T>(x:unknown):T[]{if(Array.isArray(x))return x as T[];if(x&&typeof
 export function commandLayoutStage():boolean{
  return process.env.VERCEL_ENV==="preview"&&process.env.VERCEL_GIT_COMMIT_REF==="experiment/reach-23-ui-redesign-staging-20261115";
 }
+/**
+ * The existing AGENCY_PLATFORM_DATABASE_URL is set in global Vercel scopes.
+ * A branch name alone cannot prove that this URL is isolated from production.
+ * Require a separately approved exact credential fingerprint and opt-in flag
+ * before ANY new dashboard handler calls readySql() (which can create tables).
+ * Keep the expected fingerprint in a branch-scoped sensitive Vercel variable.
+ */
+export function commandApprovedStorageConfigured():boolean{
+ if(!commandLayoutStage()||process.env.REACH_COMMAND_ISOLATED_STORAGE_ENABLED!=="true"||!platformStorageConfigured())return false;
+ const uri=process.env.AGENCY_PLATFORM_DATABASE_URL?.trim()||"";
+ const expected=process.env.REACH_COMMAND_APPROVED_DATABASE_SHA256?.trim().toLowerCase()||"";
+ if(!/^[0-9a-f]{64}$/.test(expected)||!uri)return false;
+ const actual=createHash("sha256").update(uri,"utf8").digest();
+ return timingSafeEqual(actual,Buffer.from(expected,"hex"));
+}
 export function commandLayoutWritesEnabled():boolean{
- return commandLayoutStage()&&process.env.REACH_COMMAND_LAYOUT_WRITES_ENABLED==="true"&&platformStorageConfigured();
+ return commandApprovedStorageConfigured()&&process.env.REACH_COMMAND_LAYOUT_WRITES_ENABLED==="true";
 }
 const ddl="CREATE TABLE IF NOT EXISTS agency_reach_command_layouts ("+
  "workspace_id UUID PRIMARY KEY REFERENCES agency_platform_workspaces(id) ON DELETE RESTRICT,"+
  "layout JSONB NOT NULL,revision INT NOT NULL DEFAULT 1 CHECK(revision>0),"+
  "updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())";
 async function openWorkspace(workspaceId:string){
- if(!validWorkspaceId(workspaceId)||!platformStorageConfigured())return null;
+ if(!validWorkspaceId(workspaceId)||!commandApprovedStorageConfigured())return null;
  const db=await readySql();
  const found=rows<{id:string}>(await db.query("SELECT id FROM agency_platform_workspaces WHERE id=$1::uuid LIMIT 1",[workspaceId]));
  return found.length===1?db:null;
