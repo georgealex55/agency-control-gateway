@@ -10,6 +10,7 @@ const socialContract=read("ghl-gpt-gateway/lib/social-contract.ts");
 const data=read("ghl-gpt-gateway/lib/reach-command-data.ts");
 const sql=read("ghl-gpt-gateway/lib/reach-command-layout-sql.ts");
 const page=read("ghl-gpt-gateway/app/page.tsx");
+const readiness=read("ghl-gpt-gateway/app/api/platform/command-center/readiness/route.ts");
 const widgets=["readiness","social","connections","delivery","actions","shortcuts","roadmap"];
 test("command center lists seven distinct functional owner widgets",()=>{
  const match=contract.match(/COMMAND_WIDGET_IDS=\[([^\]]+)\]/);
@@ -102,4 +103,22 @@ test("invalid workspace responses clear privileged UI and expose explicit retrie
  assert.match(ui,/Retry data/);
  assert.match(ui,/No verified data loaded/);
  assert.match(data,/raw\.workspaceId===workspaceId/);
+});
+
+test("dashboard checks isolated database readiness BEFORE reading workspaces",()=>{
+ assert.match(ui,/loadCommandJson\("\/api\/platform\/command-center\/readiness",controller\.signal,parseCommandReadiness\)/);
+ assert.match(ui,/\.then\(\(\)=>loadCommandJson\("\/api\/platform\/workspaces"/);
+ assert.match(ui,/Review owner setup/);
+});
+test("no accidental global database access without separate staging approval",()=>{
+ assert.match(store,/REACH_COMMAND_ISOLATED_STORAGE_ENABLED!=="true"/);
+ assert.match(store,/REACH_COMMAND_APPROVED_DATABASE_SHA256/);
+ assert.match(store,/createHash\("sha256"\)/);
+ assert.match(store,/timingSafeEqual/);
+ assert.match(store,/!commandApprovedStorageConfigured\(\)\)return null/);
+ assert.match(store,/return commandApprovedStorageConfigured\(\)&&process\.env\.REACH_COMMAND_LAYOUT_WRITES_ENABLED==="true"/);
+ assert.match(readiness,/if\(!adminAuthenticated\(req\)\)/);
+ assert.match(readiness,/if\(!commandApprovedStorageConfigured\(\)\)/);
+ assert.match(api,/if\(!commandApprovedStorageConfigured\(\)\)/);
+ assert.doesNotMatch(readiness,/readySql\(|process\.env\.AGENCY_PLATFORM_DATABASE_URL/);
 });
