@@ -90,3 +90,13 @@ test("SQL splits atomic first insertion from revision CAS and audits only change
   assert.doesNotMatch(value,/access_token|client_secret|password/);
  }
 });
+
+test("staging storage preflight is a strict synthetic contract",()=>{
+ assert.deepEqual(data.parseCommandReadiness({isolatedStorageApproved:true,layoutWritesEnabled:false}),{
+  isolatedStorageApproved:true,layoutWritesEnabled:false
+ });
+ assert.throws(()=>data.parseCommandReadiness({isolatedStorageApproved:false,layoutWritesEnabled:false}),/Invalid staging storage approval/);
+ assert.throws(()=>data.parseCommandReadiness({isolatedStorageApproved:true,layoutWritesEnabled:"true"}),/Invalid staging storage approval/);
+ assert.deepEqual(data.commandErrorInfo(new data.CommandDataError(428,"Not approved")),{message:
+  "Isolated staging database approval is required before any workspace data can be read.",action:"configure"});
+});
