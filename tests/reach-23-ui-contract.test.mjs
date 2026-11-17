@@ -68,7 +68,7 @@ test("social deep links route only to existing internal tabs",()=>{
 });
 test("dashboard personalization uses a validated owner-only staging layout endpoint",()=>{
  assert.match(command,/setLayout\(old=>update\(old\)\)/);
- assert.match(command,/getJson<LayoutResponse>/);
+ assert.match(command,/loadCommandJson\("\/api\/platform\/command-center\/layout"/);
  assert.match(command,/expectedRevision:layoutRevision/);
  assert.match(command,/setLayoutRevision\(json\.revision\)/);
  assert.doesNotMatch(command,/localStorage|sessionStorage|navigator\.sendBeacon/);
