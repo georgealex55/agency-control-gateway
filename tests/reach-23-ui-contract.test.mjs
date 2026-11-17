@@ -70,7 +70,7 @@ test("dashboard personalization uses a validated owner-only staging layout endpo
  assert.match(command,/setLayout\(old=>update\(old\)\)/);
  assert.match(command,/loadCommandJson\("\/api\/platform\/command-center\/layout"/);
  assert.match(command,/expectedRevision:layoutRevision/);
- assert.match(command,/setLayoutRevision\(json\.revision\)/);
+ assert.match(command,/setLayoutRevision\(result\.revision\)/);
  assert.doesNotMatch(command,/localStorage|sessionStorage|navigator\.sendBeacon/);
  assert.match(command,/saveEnabled/);
 });
