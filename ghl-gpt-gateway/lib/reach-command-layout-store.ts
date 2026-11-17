@@ -1,6 +1,7 @@
 import {readySql,platformStorageConfigured} from "@/lib/platform-store";
 import {parseCommandLayout,DEFAULT_COMMAND_LAYOUT,type CommandLayout} from "@/lib/reach-command-contract";
 import {validWorkspaceId} from "@/lib/platform-validation";
+import {commandLayoutStatement} from "@/lib/reach-command-layout-sql";
 type Row={revision:number;layout:unknown};
 function rows<T>(x:unknown):T[]{if(Array.isArray(x))return x as T[];if(x&&typeof x==="object"&&"rows" in x&&Array.isArray(x.rows))return x.rows as T[];throw Error("Invalid database response");}
 // Explicit staging branch and opt-in. The preview must not inherit write access from a different branch.
@@ -26,7 +27,9 @@ export async function getCommandLayout(workspaceId:string):Promise<{found:boolea
  if(!commandLayoutWritesEnabled())return {found:true,layout:DEFAULT_COMMAND_LAYOUT,revision:0,saveEnabled:false};
  await db.query(ddl);
  const saved=rows<Row>(await db.query("SELECT layout,revision FROM agency_reach_command_layouts WHERE workspace_id=$1::uuid",[workspaceId]))[0];
- return {found:true,layout:saved?parseCommandLayout(saved.layout)||DEFAULT_COMMAND_LAYOUT:DEFAULT_COMMAND_LAYOUT,
+ const parsed=saved?parseCommandLayout(saved.layout):null;
+ if(saved&&!parsed)throw Error("Saved dashboard layout is invalid");
+ return {found:true,layout:parsed||DEFAULT_COMMAND_LAYOUT,
   revision:saved?Number(saved.revision):0,saveEnabled:true};
 }
 export async function saveCommandLayout(workspaceId:string,layoutValue:unknown,expectedRevision:unknown){
@@ -36,15 +39,10 @@ export async function saveCommandLayout(workspaceId:string,layoutValue:unknown,e
  const db=await openWorkspace(workspaceId);
  if(!db)return {status:"not_found" as const};
  await db.query(ddl);
+ // Atomic insert-only on the first save; compare-and-set update on later saves.
+ // Rows returning from the statement correspond to exactly one audit receipt.
  const result=rows<{revision:number}>(await db.query(
-  "WITH saved AS ("+
-  "INSERT INTO agency_reach_command_layouts(workspace_id,layout,revision) "+
-  "SELECT id,$2::jsonb,1 FROM agency_platform_workspaces WHERE id=$1::uuid AND $3::int=0 "+
-  "ON CONFLICT(workspace_id) DO UPDATE SET layout=EXCLUDED.layout,revision=agency_reach_command_layouts.revision+1,updated_at=now() "+
-  "WHERE agency_reach_command_layouts.revision=$3::int RETURNING workspace_id,revision),"+
-  "audit AS (INSERT INTO agency_platform_audit_events(workspace_id,action,detail) "+
-  "SELECT workspace_id,'reach.dashboard.layout_saved',jsonb_build_object('revision',revision) FROM saved RETURNING id) "+
-  "SELECT revision FROM saved",[workspaceId,JSON.stringify(layout),expectedRevision]
+  commandLayoutStatement(expectedRevision),[workspaceId,JSON.stringify(layout),expectedRevision]
  ));
  if(!result.length)return {status:"conflict" as const};
  return {status:"saved" as const,revision:Number(result[0].revision),layout};
