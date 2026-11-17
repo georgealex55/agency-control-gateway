@@ -14,6 +14,11 @@ export type CommandMonitor={
 };
 export type CommandProvider={id:string;name:string;connectionStatus:string;connectedAccounts:number;publishingEnabled:false};
 export type CommandProviders={workspaceId:string;connections:CommandProvider[];publishingEnabled:false;realMetricsAvailable:false};
+export type CommandReadiness={isolatedStorageApproved:true;layoutWritesEnabled:boolean};
+export function parseCommandReadiness(raw:unknown):CommandReadiness{
+ if(!isRecord(raw)||raw.isolatedStorageApproved!==true||typeof raw.layoutWritesEnabled!=="boolean")throw new CommandDataError(422,"Invalid staging storage approval");
+ return {isolatedStorageApproved:true,layoutWritesEnabled:raw.layoutWritesEnabled};
+}
 export class CommandDataError extends Error {
  constructor(public readonly status:number, message:string){super(message);this.name="CommandDataError";}
 }
@@ -82,6 +87,7 @@ export function commandErrorInfo(error:unknown):{message:string;action:CommandEr
   if(error.status===403)return {message:"This feature is not enabled for the current staging branch.",action:"configure"};
   if(error.status===404)return {message:"This workspace or layout was not found.",action:"select_workspace"};
   if(error.status===422)return {message:"The staging service returned an invalid or mismatched workspace response.",action:"retry"};
+  if(error.status===428)return {message:"Isolated staging database approval is required before any workspace data can be read.",action:"configure"};
   if(error.status===503)return {message:"The staging storage or service is unavailable.",action:"retry"};
  }
  return {message:"Could not load current staging data. Check connectivity and retry.",action:"retry"};
