@@ -2,7 +2,7 @@
 import {useEffect,useState} from "react";
 import {REACH_FEATURES,type ReachFeature} from "./reach-ui-23";
 import {DEFAULT_COMMAND_LAYOUT,normalizeCommandLayout,parseCommandLayout,type CommandLayout,type CommandWidgetId} from "@/lib/reach-command-contract";
-import {CommandDataError,commandErrorInfo,loadCommandJson,parseCommandWorkspaces,parseCommandInsights,parseCommandMonitor,parseCommandProviders,type CommandWorkspace,type CommandInsights,type CommandMonitor,type CommandProviders} from "@/lib/reach-command-data";
+import {CommandDataError,commandErrorInfo,loadCommandJson,parseCommandReadiness,parseCommandWorkspaces,parseCommandInsights,parseCommandMonitor,parseCommandProviders,type CommandWorkspace,type CommandInsights,type CommandMonitor,type CommandProviders} from "@/lib/reach-command-data";
 
 type Workspace=CommandWorkspace;
 type Insights=CommandInsights;
@@ -57,7 +57,9 @@ export default function ReachCommandCenter({onOpen,recent,authenticated,configur
  useEffect(()=>{
   if(!authenticated){setWorkspaces([]);setWorkspaceId("");setWorkspaceError("");return;}
   const controller=new AbortController();setWorkspaceLoading(true);
-  loadCommandJson("/api/platform/workspaces",controller.signal,parseCommandWorkspaces)
+  // Never query the potentially global platform DB until isolated-preview approval is verified.
+  loadCommandJson("/api/platform/command-center/readiness",controller.signal,parseCommandReadiness)
+   .then(()=>loadCommandJson("/api/platform/workspaces",controller.signal,parseCommandWorkspaces))
    .then(list=>{
     if(controller.signal.aborted)return;
     setWorkspaces(list);
@@ -157,7 +159,7 @@ export default function ReachCommandCenter({onOpen,recent,authenticated,configur
    <div><span className="reach-mode-tag">{authenticated?"Owner session":"Sign-in required"}</span><button className="ag-secondary" disabled={!workspaceId||feedsLoading} onClick={()=>setRefreshKey(n=>n+1)}>Refresh data</button></div>
   </section>
   {!authenticated&&<section className="reach-dashboard-notice" role="status"><strong>{configured?"Owner sign-in required":"Owner access must be configured"}</strong><p>Sign in through an existing protected REACH workspace to load internal business data. No customer information appears before authorization.</p><button className="ag-secondary" onClick={()=>open("workspaces")}>Open administrator sign-in</button></section>}
-  {authenticated&&workspaceError&&<p className="reach-dashboard-notice" role="alert">Workspace loading failed: {workspaceError} <button className="ag-secondary" onClick={()=>setWorkspaceReload(n=>n+1)}>Retry workspaces</button></p>}
+  {authenticated&&workspaceError&&<p className="reach-dashboard-notice" role="alert">Workspace loading failed: {workspaceError} <button className="ag-secondary" onClick={()=>setWorkspaceReload(n=>n+1)}>Retry workspaces</button> <button className="ag-secondary" onClick={()=>open("settings")}>Review owner setup</button></p>}
   {authenticated&&!workspaceLoading&&!workspaceError&&!workspaces.length&&<section className="reach-dashboard-notice"><strong>No platform workspaces available</strong><p>Create an isolated staging workspace first. Dashboard metrics are unavailable until a workspace exists.</p><button className="ag-secondary" onClick={()=>open("workspaces")}>Manage workspaces</button></section>}
   <div className="reach-dashboard-bar"><div><strong>{selected?selected.name+" · owner dashboard":"Owner overview"}</strong><p>{selected?"Workspace-scoped data and optional saved layout":"Select an authorized workspace to see verified staging records."}</p></div><div><button className="ag-secondary" onClick={()=>setEdit(v=>!v)} aria-pressed={edit}>{edit?"Finish customizing":"Customize layout"}</button>{edit&&<><button className="ag-primary" disabled={!workspaceId||!saveEnabled||layoutSaving||layoutLoading} onClick={()=>void saveLayout()}>{layoutSaving?"Saving…":"Save layout"}</button><button className="ag-secondary" disabled={!workspaceId||layoutSaving||layoutLoading} onClick={()=>setLayoutReload(n=>n+1)}>Reload saved layout</button></>}</div></div>
   <p className="reach-layout-notice" role="status">{layoutNotice}</p>
