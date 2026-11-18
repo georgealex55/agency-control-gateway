@@ -11,6 +11,8 @@ const data=read("ghl-gpt-gateway/lib/reach-command-data.ts");
 const sql=read("ghl-gpt-gateway/lib/reach-command-layout-sql.ts");
 const page=read("ghl-gpt-gateway/app/page.tsx");
 const readiness=read("ghl-gpt-gateway/app/api/platform/command-center/readiness/route.ts");
+const workspacesRoute=read("ghl-gpt-gateway/app/api/platform/workspaces/route.ts");
+const socialGate=read("ghl-gpt-gateway/lib/social-api.ts");
 const widgets=["readiness","social","connections","delivery","actions","shortcuts","roadmap"];
 test("command center lists seven distinct functional owner widgets",()=>{
  const match=contract.match(/COMMAND_WIDGET_IDS=\[([^\]]+)\]/);
@@ -70,16 +72,19 @@ test("database opt-in and branch isolation prevent involuntary layout writes",()
  assert.match(store,/process\.env\.VERCEL_GIT_COMMIT_REF==="experiment\/reach-23-ui-redesign-staging-20261115"/);
  assert.match(store,/process\.env\.REACH_COMMAND_LAYOUT_WRITES_ENABLED==="true"/);
  assert.match(store,/if\(!commandLayoutWritesEnabled\(\)\)return \{status:"disabled"/);
- assert.match(store,/if\(!commandLayoutWritesEnabled\(\)\)return \{found:true,layout:DEFAULT_COMMAND_LAYOUT/);
+ assert.match(store,/readCommandLayoutRow\(run,workspaceId,writesEnabled\)/);
+ assert.match(sql,/COMMAND_LAYOUT_TABLE_EXISTS_SQL/);
+ assert.match(sql,/if\(!table\?\.table_name\)return null/);
 });
 test("revision-safe persistence is scoped to a stored workspace and audited",()=>{
  assert.match(store,/WHERE id=\$1::uuid LIMIT 1/);
- assert.match(store,/workspace_id UUID PRIMARY KEY REFERENCES agency_platform_workspaces/);
+ assert.match(sql,/workspace_id UUID PRIMARY KEY REFERENCES agency_platform_workspaces/);
  assert.match(sql,/WHERE workspace_id=\$1::uuid AND revision=\$3::int/);
  assert.match(sql,/ON CONFLICT\(workspace_id\) DO NOTHING/);
- assert.match(store,/commandLayoutStatement\(expectedRevision\)/);
+ assert.match(sql,/commandLayoutStatement\(expectedRevision\)/);
+ assert.match(store,/persistCommandLayoutRow\(run,workspaceId,JSON\.stringify\(layout\),expectedRevision\)/);
  assert.match(sql,/reach\.dashboard\.layout_saved/);
- assert.match(store,/if\(!result\.length\)return \{status:"conflict"/);
+ assert.match(store,/if\(revision===null\)return \{status:"conflict"/);
  assert.match(api,/status==="conflict".+409/);
 });
 test("existing social studio remains restricted to named staging branch and explicit flag",()=>{
@@ -121,4 +126,13 @@ test("no accidental global database access without separate staging approval",()
  assert.match(readiness,/if\(!commandApprovedStorageConfigured\(\)\)/);
  assert.match(api,/if\(!commandApprovedStorageConfigured\(\)\)/);
  assert.doesNotMatch(readiness,/readySql\(|process\.env\.AGENCY_PLATFORM_DATABASE_URL/);
+});
+
+test("underlying staging workspace and social endpoints reject unapproved database even if directly called",()=>{
+ assert.match(workspacesRoute,/if\(commandLayoutStage\(\)&&!commandApprovedStorageConfigured\(\)\)return reply/);
+ assert.match(socialGate,/if\(commandLayoutStage\(\)&&!commandApprovedStorageConfigured\(\)\)return reply/);
+ assert.match(workspacesRoute,/if\(!adminAuthenticated\(req\)\)/);
+ assert.match(socialGate,/if\(!adminAuthenticated\(req\)\)/);
+ assert.match(workspacesRoute,/if\(!sameOrigin\(req\)\)/);
+ assert.match(socialGate,/if\(write&&!sameOrigin\(req\)\)/);
 });
