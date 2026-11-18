@@ -61,7 +61,7 @@ test("social deep links route only to existing internal tabs",()=>{
   assert.match(social,new RegExp('"'+kind+'"'));
  }
  assert.match(social,/setTab\(socialView==="connections"\?"providers"/);
- assert.match(catalog,/href:"\/\?social=connections"/);
+ assert.match(catalog,/href:"\/connections"/);
  assert.match(catalog,/href:"\/\?social=calendar"/);
  assert.match(catalog,/href:"\/\?social=media"/);
  assert.match(catalog,/href:"\/\?social=insights"/);
@@ -75,14 +75,14 @@ test("dashboard personalization uses a validated owner-only staging layout endpo
  assert.match(command,/saveEnabled/);
 });
 test("staging boundary is visible and outbound/social operations are not introduced",()=>{
- assert.match(app,/STAGING ONLY/);
+ assert.match(app,/LIMITED RELEASE/);
  assert.match(app,/No external publishing/);
  assert.match(catalog,/publishing disabled/);
  assert.doesNotMatch(catalog,/fetch\(|axios|Authorization:|client_secret|access_token/);
  assert.doesNotMatch(app,/\/api\/platform\/social\/dispatch.+method:"POST"/);
 });
 test("owner can reach existing functional pages and isolated connections",()=>{
- for(const url of ["/?social=connections","/reach-connections"]){
+ for(const url of ["/connections","/reach-connections"]){
   assert.ok(catalog.includes('href:"'+url+'"'));
  }
  for(const view of ["directory","clients","social","services","settings","features"]){
