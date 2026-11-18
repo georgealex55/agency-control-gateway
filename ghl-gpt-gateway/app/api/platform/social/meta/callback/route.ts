@@ -11,7 +11,10 @@ import {readInstagramProfessionalProfile} from "@/lib/social-meta-instagram";
 export const runtime="nodejs";export const dynamic="force-dynamic";
 const noStore={"Cache-Control":"no-store"};
 function toSocial(req:NextRequest,status:"failed"|"canceled"|"select"){
- const destination=new URL("/",req.nextUrl.origin);destination.searchParams.set("social","connections");destination.searchParams.set("meta",status);
+ const production=process.env.VERCEL_ENV==="production";
+ const destination=new URL(production?"/connections":"/",req.nextUrl.origin);
+ if(!production)destination.searchParams.set("social","connections");
+ destination.searchParams.set("meta",status);
  const response=NextResponse.redirect(destination,{status:303,headers:noStore});
  response.cookies.set("agency_meta_nonce","",{path:"/api/platform/social/meta/callback",httpOnly:true,secure:true,sameSite:"lax",maxAge:0});
  return response;
