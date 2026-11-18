@@ -5,8 +5,11 @@ import {createHash,timingSafeEqual} from "node:crypto";
 import {readCommandLayoutRow,persistCommandLayoutRow,type LayoutSqlRunner} from "@/lib/reach-command-layout-sql";
 function rows<T>(x:unknown):T[]{if(Array.isArray(x))return x as T[];if(x&&typeof x==="object"&&"rows" in x&&Array.isArray(x.rows))return x.rows as T[];throw Error("Invalid database response");}
 // Explicit staging branch and opt-in. The preview must not inherit write access from a different branch.
+export function commandIsReach23Branch():boolean{
+ return process.env.VERCEL_GIT_COMMIT_REF==="experiment/reach-23-ui-redesign-staging-20261115";
+}
 export function commandLayoutStage():boolean{
- return process.env.VERCEL_ENV==="preview"&&process.env.VERCEL_GIT_COMMIT_REF==="experiment/reach-23-ui-redesign-staging-20261115";
+ return process.env.VERCEL_ENV==="preview"&&commandIsReach23Branch();
 }
 /**
  * The existing AGENCY_PLATFORM_DATABASE_URL is set in global Vercel scopes.
