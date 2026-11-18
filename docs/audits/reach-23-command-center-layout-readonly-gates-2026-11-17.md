@@ -29,3 +29,13 @@ Verified code HEAD: e5e120508af699f3f4c79dab3bf4d7c79b7a0d81
 
 ## Safety
 No production/main commits, shared credentials changes, live customer data reads, Neon schema writes, external publishing, SMS, DMs, automated post scheduling, or paid resource provisioning. No claim of real social connections or live business analytics.
+
+## Final environment-promotion safety check (same development pass)
+- Final tested behavioral code SHA: 88711d2ccb2d3716e36b62b8e6495c071ba463c8.
+- The exact REACH 2.3 branch is now recognized separately from preview status. Workspace GET/POST and the common social API gate require an approved isolated database whenever the branch ref matches REACH 2.3, **including an accidental non-preview deployment**. The separate Command Center preflight and layout endpoints continue to require VERCEL_ENV=preview and the exact branch, so no new operational access is activated outside preview.
+- GitHub Actions https://github.com/georgealex55/agency-control-gateway/actions/runs/44222168575: completed SUCCESS at behavioral SHA 88711d2c. Native contracts 25/25 passed; synthetic runtime tests 10/10 passed; TypeScript check, Next.js build and standalone-demo mirror comparison all passed.
+- Vercel deployment dpl_GQbvRdmBZ4nhLHJ5YUHeqDXCau7M READY at the exact behavioral SHA, preview https://agency-control-gateway-816cd7ui1-georgealex1925-2750s-projects.vercel.app . A READY deployment does not verify live authenticated data access.
+- Vercel branch-specific environment variable inventory for experiment/reach-23-ui-redesign-staging-20261115: zero entries. No new flags, secrets, credentials, branches, database operations, provisioning, schema changes, or paid resources were introduced.
+- All synthetic SQL assertions use an in-memory executor representing fictional workspaces. They do not prove actual PostgreSQL transactions, Neon connectivity, a logged-in owner browser session, or real business analytics.
+
+**Explicit approval required before activation:** Select an isolated non-production Neon database/branch and authorize any necessary resource setup; then approve branch-only Vercel owner credentials, DB URL, fingerprint, isolation flag and optional layout writes. Independently test against that approved database with fictional workspaces and audit receipts. Do not reuse the globally scoped platform URL by default.
