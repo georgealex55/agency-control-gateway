@@ -19,6 +19,8 @@ on:
       - 'ghl-gpt-gateway/lib/reach-command-*.ts'
       - 'ghl-gpt-gateway/app/api/platform/command-center/**'
       - 'ghl-gpt-gateway/lib/social-contract.ts'
+      - 'ghl-gpt-gateway/lib/social-api.ts'
+      - 'ghl-gpt-gateway/app/api/platform/workspaces/route.ts'
       - 'reach-shell/index.html'
       - 'ghl-gpt-gateway/public/reach-demo/index.html'
       - '.github/workflows/reach-23-ui-stage.yml'
