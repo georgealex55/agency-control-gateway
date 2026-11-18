@@ -100,3 +100,57 @@ test("staging storage preflight is a strict synthetic contract",()=>{
  assert.deepEqual(data.commandErrorInfo(new data.CommandDataError(428,"Not approved")),{message:
   "Isolated staging database approval is required before any workspace data can be read.",action:"configure"});
 });
+
+test("synthetic workspace SQL adapter: first save, reload, later save, stale revision, tenant isolation",async()=>{
+ const tenants=new Set([a,b]),rows=new Map(),receipts=[];
+ let created=false,ddlCount=0;
+ const run=async(statement,params=[])=>{
+  if(statement===sql.COMMAND_LAYOUT_TABLE_EXISTS_SQL)return [{table_name:created?"agency_reach_command_layouts":null}];
+  if(statement===sql.COMMAND_LAYOUT_TABLE_DDL){created=true;ddlCount++;return [];}
+  if(statement===sql.COMMAND_LAYOUT_GET_SQL){
+   if(!created)throw Error("table absent");
+   const entry=rows.get(params[0]);return entry?[{layout:entry.layout,revision:entry.revision}]:[];
+  }
+  if(statement===sql.COMMAND_LAYOUT_INSERT_SQL){
+   const [id,serialized]=params;
+   if(!tenants.has(id)||rows.has(id))return [];
+   rows.set(id,{layout:JSON.parse(serialized),revision:1});
+   receipts.push({workspaceId:id,revision:1,action:"reach.dashboard.layout_saved"});
+   return [{revision:1}];
+  }
+  if(statement===sql.COMMAND_LAYOUT_UPDATE_SQL){
+   const [id,serialized,expected]=params;
+   const prior=rows.get(id);
+   if(!prior||prior.revision!==expected)return [];
+   const revision=prior.revision+1;
+   rows.set(id,{layout:JSON.parse(serialized),revision});
+   receipts.push({workspaceId:id,revision,action:"reach.dashboard.layout_saved"});
+   return [{revision}];
+  }
+  throw Error("Unexpected SQL statement");
+ };
+ const firstRead=await sql.readCommandLayoutRow(run,a,false);
+ assert.equal(firstRead,null);
+ assert.equal(ddlCount,0,"read-only must not create schema");
+ const first=await sql.persistCommandLayoutRow(run,a,JSON.stringify(layout.DEFAULT_COMMAND_LAYOUT),0);
+ assert.equal(first,1);
+ const same=await sql.readCommandLayoutRow(run,a,false);
+ assert.equal(same.revision,1);
+ assert.deepEqual(same.layout,layout.DEFAULT_COMMAND_LAYOUT);
+ const variant={...layout.DEFAULT_COMMAND_LAYOUT,hidden:["roadmap"],wide:["social"]};
+ const second=await sql.persistCommandLayoutRow(run,a,JSON.stringify(variant),1);
+ assert.equal(second,2);
+ const stale=await sql.persistCommandLayoutRow(run,a,JSON.stringify(variant),1);
+ assert.equal(stale,null);
+ const illegal=await sql.persistCommandLayoutRow(run,"33333333-3333-4333-8333-333333333333",JSON.stringify(variant),0);
+ assert.equal(illegal,null);
+ assert.equal(await sql.readCommandLayoutRow(run,b,false),null);
+ const bfirst=await sql.persistCommandLayoutRow(run,b,JSON.stringify(layout.DEFAULT_COMMAND_LAYOUT),0);
+ assert.equal(bfirst,1,"second tenant revision starts independently");
+ assert.equal((await sql.readCommandLayoutRow(run,a,false)).revision,2);
+ assert.equal((await sql.readCommandLayoutRow(run,b,false)).revision,1);
+ assert.deepEqual(receipts.map(r=>r.workspaceId),[a,a,b],"conflicts and nonexistent tenants must not write audit receipts");
+ const previousDdl=ddlCount;
+ await sql.readCommandLayoutRow(run,a,false);
+ assert.equal(ddlCount,previousDdl,"read-only persisted layout fetch never executes DDL");
+});
