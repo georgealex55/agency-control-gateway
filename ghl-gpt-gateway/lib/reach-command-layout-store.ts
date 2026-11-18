@@ -2,8 +2,7 @@ import {readySql,platformStorageConfigured} from "@/lib/platform-store";
 import {parseCommandLayout,DEFAULT_COMMAND_LAYOUT,type CommandLayout} from "@/lib/reach-command-contract";
 import {validWorkspaceId} from "@/lib/platform-validation";
 import {createHash,timingSafeEqual} from "node:crypto";
-import {commandLayoutStatement} from "@/lib/reach-command-layout-sql";
-type Row={revision:number;layout:unknown};
+import {readCommandLayoutRow,persistCommandLayoutRow,type LayoutSqlRunner} from "@/lib/reach-command-layout-sql";
 function rows<T>(x:unknown):T[]{if(Array.isArray(x))return x as T[];if(x&&typeof x==="object"&&"rows" in x&&Array.isArray(x.rows))return x.rows as T[];throw Error("Invalid database response");}
 // Explicit staging branch and opt-in. The preview must not inherit write access from a different branch.
 export function commandLayoutStage():boolean{
@@ -27,10 +26,6 @@ export function commandApprovedStorageConfigured():boolean{
 export function commandLayoutWritesEnabled():boolean{
  return commandApprovedStorageConfigured()&&process.env.REACH_COMMAND_LAYOUT_WRITES_ENABLED==="true";
 }
-const ddl="CREATE TABLE IF NOT EXISTS agency_reach_command_layouts ("+
- "workspace_id UUID PRIMARY KEY REFERENCES agency_platform_workspaces(id) ON DELETE RESTRICT,"+
- "layout JSONB NOT NULL,revision INT NOT NULL DEFAULT 1 CHECK(revision>0),"+
- "updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())";
 async function openWorkspace(workspaceId:string){
  if(!validWorkspaceId(workspaceId)||!commandApprovedStorageConfigured())return null;
  const db=await readySql();
@@ -40,13 +35,15 @@ async function openWorkspace(workspaceId:string){
 export async function getCommandLayout(workspaceId:string):Promise<{found:boolean;layout:CommandLayout;revision:number;saveEnabled:boolean}>{
  const db=await openWorkspace(workspaceId);
  if(!db)return {found:false,layout:DEFAULT_COMMAND_LAYOUT,revision:0,saveEnabled:false};
- if(!commandLayoutWritesEnabled())return {found:true,layout:DEFAULT_COMMAND_LAYOUT,revision:0,saveEnabled:false};
- await db.query(ddl);
- const saved=rows<Row>(await db.query("SELECT layout,revision FROM agency_reach_command_layouts WHERE workspace_id=$1::uuid",[workspaceId]))[0];
+ // Read existing saved preferences even if this approved preview is currently read-only.
+ // No layout DDL is executed unless writes are explicitly opted in.
+ const writesEnabled=commandLayoutWritesEnabled();
+ const run:LayoutSqlRunner=(statement,params)=>params?db.query(statement,params):db.query(statement);
+ const saved=await readCommandLayoutRow(run,workspaceId,writesEnabled);
  const parsed=saved?parseCommandLayout(saved.layout):null;
  if(saved&&!parsed)throw Error("Saved dashboard layout is invalid");
  return {found:true,layout:parsed||DEFAULT_COMMAND_LAYOUT,
-  revision:saved?Number(saved.revision):0,saveEnabled:true};
+  revision:saved?saved.revision:0,saveEnabled:writesEnabled};
 }
 export async function saveCommandLayout(workspaceId:string,layoutValue:unknown,expectedRevision:unknown){
  const layout=parseCommandLayout(layoutValue);
@@ -54,12 +51,9 @@ export async function saveCommandLayout(workspaceId:string,layoutValue:unknown,e
  if(!commandLayoutWritesEnabled())return {status:"disabled" as const};
  const db=await openWorkspace(workspaceId);
  if(!db)return {status:"not_found" as const};
- await db.query(ddl);
- // Atomic insert-only on the first save; compare-and-set update on later saves.
- // Rows returning from the statement correspond to exactly one audit receipt.
- const result=rows<{revision:number}>(await db.query(
-  commandLayoutStatement(expectedRevision),[workspaceId,JSON.stringify(layout),expectedRevision]
- ));
- if(!result.length)return {status:"conflict" as const};
- return {status:"saved" as const,revision:Number(result[0].revision),layout};
+ // The SQL adapter uses exact workspace-scoped, compare-and-set statements.
+ const run:LayoutSqlRunner=(statement,params)=>params?db.query(statement,params):db.query(statement);
+ const revision=await persistCommandLayoutRow(run,workspaceId,JSON.stringify(layout),expectedRevision);
+ if(revision===null)return {status:"conflict" as const};
+ return {status:"saved" as const,revision,layout};
 }
