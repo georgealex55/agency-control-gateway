@@ -1,4 +1,4 @@
-import {createHash,timingSafeEqual} from "node:crypto";
+import {productionDatabaseApproved} from "@/lib/reach-connection-approval";
 import {stageEnabled} from "@/lib/social-contract";
 import {commandApprovedStorageConfigured} from "@/lib/reach-command-layout-store";
 
@@ -8,12 +8,7 @@ import {commandApprovedStorageConfigured} from "@/lib/reach-command-layout-store
  * configured account login and a separately enabled read-only consent flow.
  */
 export function productionConnectionApproved(env:NodeJS.ProcessEnv=process.env):boolean{
- if(env.VERCEL_ENV!=="production"||env.REACH_CONNECTIONS_PRODUCTION_ENABLED!=="true")return false;
- const database=env.AGENCY_PLATFORM_DATABASE_URL?.trim()||"";
- const fingerprint=env.REACH_CONNECTIONS_APPROVED_DATABASE_SHA256?.trim().toLowerCase()||"";
- if(!database||!/^[0-9a-f]{64}$/.test(fingerprint))return false;
- const actual=createHash("sha256").update(database,"utf8").digest();
- return timingSafeEqual(actual,Buffer.from(fingerprint,"hex"));
+ return productionDatabaseApproved(env);
 }
 export function connectionRuntimeEnabled(env:NodeJS.ProcessEnv=process.env):boolean{
  if(stageEnabled(env))return commandApprovedStorageConfigured();
