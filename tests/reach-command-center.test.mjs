@@ -129,7 +129,8 @@ test("no accidental global database access without separate staging approval",()
 });
 
 test("underlying staging workspace and social endpoints reject unapproved database even if directly called",()=>{
- assert.match(workspacesRoute,/if\(commandIsReach23Branch\(\)&&!commandApprovedStorageConfigured\(\)\)return reply/);
+ assert.match(workspacesRoute,/commandIsReach23Branch\(\)&&!commandApprovedStorageConfigured\(\)/);
+ assert.match(workspacesRoute,/VERCEL_ENV==="production"&&!productionConnectionApproved\(\)/);
  assert.match(socialGate,/if\(commandIsReach23Branch\(\)&&!commandApprovedStorageConfigured\(\)\)return reply/);
  assert.match(store,/export function commandIsReach23Branch\(\)/);
  assert.match(store,/process\.env\.VERCEL_ENV==="preview"&&commandIsReach23Branch\(\)/);
