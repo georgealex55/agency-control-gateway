@@ -1,5 +1,5 @@
 import {NextRequest} from "next/server";
-import {gate,reply} from "@/lib/social-api";
+import {connectionGate,reply} from "@/lib/social-api";
 import {validId} from "@/lib/social-contract";
 import {metaConnectionCredential,markMetaVerified} from "@/lib/social-meta-connection-store";
 import {listFacebookPages} from "@/lib/social-meta-pages";
@@ -7,7 +7,7 @@ import {readInstagramProfessionalProfile} from "@/lib/social-meta-instagram";
 import {validGraphVersion} from "@/lib/social-meta-contract";
 export const runtime="nodejs";export const dynamic="force-dynamic";
 export async function POST(req:NextRequest){
- const denied=gate(req,true);if(denied)return denied;
+ const denied=connectionGate(req,true);if(denied)return denied;
  if(process.env.SOCIAL_META_CONNECTIONS_ENABLED!=="true")return reply({error:"Meta account checks disabled"},423);
  let raw:unknown;try{raw=await req.json();}catch{return reply({error:"Invalid JSON"},400);}
  const o=raw&&typeof raw==="object"&&!Array.isArray(raw)?raw as Record<string,unknown>:null;
