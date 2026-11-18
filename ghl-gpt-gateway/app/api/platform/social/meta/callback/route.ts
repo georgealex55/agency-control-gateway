@@ -1,6 +1,6 @@
 import {createHash,timingSafeEqual} from "node:crypto";
 import {NextRequest,NextResponse} from "next/server";
-import {stageEnabled} from "@/lib/social-contract";
+import {connectionRuntimeEnabled} from "@/lib/reach-connection-runtime";
 import {metaConfigured,metaSetupStatus} from "@/lib/social-meta-contract";
 import {verifyMetaConsent} from "@/lib/social-meta-crypto";
 import {consumeMetaFlow,stageMetaCandidates} from "@/lib/social-meta-connection-store";
@@ -24,8 +24,8 @@ function sameNonce(a:string,b:string){
  * The legacy admin session itself is SameSite=Strict and is not sent from Meta's cross-site redirect.
  */
 export async function GET(req:NextRequest){
- if(!stageEnabled(process.env)||process.env.SOCIAL_META_CONNECTIONS_ENABLED!=="true"){
-  return NextResponse.json({error:"Meta connections are disabled in this staging deployment"},{status:423,headers:noStore});
+ if(!connectionRuntimeEnabled()||process.env.SOCIAL_META_CONNECTIONS_ENABLED!=="true"){
+  return NextResponse.json({error:"Meta connections are disabled in this environment"},{status:423,headers:noStore});
  }
  const state=req.nextUrl.searchParams.get("state")||"";
  const cookie=req.cookies.get("agency_meta_nonce")?.value||"";
