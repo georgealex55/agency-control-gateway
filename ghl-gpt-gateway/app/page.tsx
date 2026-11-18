@@ -1,18 +1,27 @@
 "use client";
 import { useEffect, useState, type FormEvent } from "react";
 import { MODULES, SAMPLE_TENANTS, type ModuleKey } from "@/lib/agency-platform";
+import PlatformWorkspaces from "./platform-workspaces";
+import ServiceCatalog from "./service-catalog";
+import SocialStudio from "./social-studio";
+import {REACH_FEATURES,REACH_GROUPS,ReachFeatureDirectory,featureLabel,featureOpenable,type ReachFeature,type ReachScreen} from "./reach-ui-23";
+import ReachCommandCenter from "./reach-command-center";
 
-type View="overview"|"discover"|"clients"|"features"|"settings";
+type View=ReachScreen;
 type ScanLocation={id:string;name:string;locationId:string;features:Record<string,{status:string;count:number|null}>};
 const NAV:{id:View;label:string;icon:string}[]=[
-  {id:"overview",label:"Overview",icon:"◫"},
-  {id:"discover",label:"GHL Discovery",icon:"◎"},
-  {id:"clients",label:"Client Workspaces",icon:"▦"},
+  {id:"overview",label:"Command Center",icon:"◫"},
+  {id:"directory",label:"All Features",icon:"▦"},
+  {id:"clients",label:"Workspaces",icon:"▦"},
+  {id:"services",label:"Platform Studios",icon:"◈"},
+  {id:"social",label:"Social Intelligence",icon:"↗"},
   {id:"features",label:"Feature Catalog",icon:"▧"},
-  {id:"settings",label:"Settings",icon:"⚙"}
+  {id:"settings",label:"Settings",icon:"⚙"},
+  {id:"discover",label:"GHL Migration (later)",icon:"◎"}
 ];
 export default function Home() {
   const [view,setView]=useState<View>("overview");
+  useEffect(()=>{if(["connections","calendar","media","insights"].includes(new URLSearchParams(window.location.search).get("social")||""))setView("social");},[]);
   const [selected,setSelected]=useState("sample-web");
   const [session,setSession]=useState({configured:false,authenticated:false,loaded:false});
   const [password,setPassword]=useState("");
@@ -23,6 +32,30 @@ export default function Home() {
   const [limited,setLimited]=useState(false);
   const [requests,setRequests]=useState<ModuleKey[]>([]);
   const [filter,setFilter]=useState("");
+  const [theme,setTheme]=useState<"dark"|"light">("dark");
+  const [accent,setAccent]=useState<"violet"|"blue"|"emerald">("violet");
+  const [paletteOpen,setPaletteOpen]=useState(false);
+  const [featureQuery,setFeatureQuery]=useState("");
+  const [mobileNavOpen,setMobileNavOpen]=useState(false);
+  const [recent,setRecent]=useState<string[]>([]);
+  useEffect(()=>{
+    const keydown=(e:KeyboardEvent)=>{
+      if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();setPaletteOpen(x=>!x);}
+      if(e.key==="Escape"){setPaletteOpen(false);setMobileNavOpen(false);}
+    };
+    window.addEventListener("keydown",keydown);
+    return ()=>window.removeEventListener("keydown",keydown);
+  },[]);
+  function openFeature(f:ReachFeature){
+    if(!featureOpenable(f))return;
+    setRecent(old=>[f.id,...old.filter(id=>id!==f.id)].slice(0,5));
+    setPaletteOpen(false);setMobileNavOpen(false);setFeatureQuery("");
+    if(f.href){window.location.assign(f.href);return;}
+    if(f.screen){setView(f.screen);window.scrollTo({top:0,behavior:"smooth"});}
+  }
+  const selectedNavId:Record<View,string>={overview:"command",directory:"directory",clients:"workspaces",features:"features",services:"integrations",social:"social",settings:"settings",discover:"migration"};
+  const searchResults=REACH_FEATURES.filter(f=>(f.title+" "+f.description+" "+f.detail).toLowerCase().includes(featureQuery.trim().toLowerCase()));
+
   useEffect(()=>{
     fetch("/api/portal/session",{cache:"no-store"}).then(r=>r.json())
       .then(v=>setSession({configured:v.configured===true,authenticated:v.authenticated===true,loaded:true}))
@@ -54,49 +87,78 @@ export default function Home() {
     }catch(e){setError(e instanceof Error?e.message:"Scan unavailable");}
     finally{setScanLoading(false);}
   }
-  return <div className="ag-shell">
-    <aside className="ag-side">
-      <div className="ag-brand"><span className="ag-logo">A<span>•</span></span><div><b>Agency Control</b><small>UNIFIED WORKSPACE</small></div></div>
-      <span className="ag-caption">PLATFORM</span>
-      <nav aria-label="Main navigation">{NAV.map(n=><button key={n.id} className={"ag-nav "+(view===n.id?"current":"")} onClick={()=>setView(n.id)}><span className="ag-nav-icon">{n.icon}</span><span>{n.label}</span></button>)}</nav>
-      <div className="ag-side-foot"><span className="ag-signal"/> GHL integration preserved<small>Milestone 01 · Agency foundation</small></div>
+  return <div className="ag-shell reach-root" data-theme={theme} data-accent={accent}>
+    <aside className={"ag-side reach-side "+(mobileNavOpen?"open":"")}>
+      <div className="ag-brand reach-brand"><span className="ag-logo reach-logo">R<span>•</span></span><div><b>REACH</b><small>BUSINESS OPERATING SYSTEM</small></div><button className="reach-close-menu" onClick={()=>setMobileNavOpen(false)} aria-label="Close navigation">×</button></div>
+      <div className="reach-side-heading">YOUR WORKSPACE <span>2.3</span></div>
+      <nav aria-label="All REACH features" className="reach-nav">
+        {REACH_GROUPS.map(group=><div className="reach-nav-group" key={group}><span className="reach-nav-caption">{group}</span>{REACH_FEATURES.filter(f=>f.group===group).map(f=>
+          <button key={f.id} className={"ag-nav reach-nav-item "+(f.id===selectedNavId[view]?"current":"")} onClick={()=>openFeature(f)} disabled={!featureOpenable(f)} title={f.detail} aria-label={f.title+": "+featureLabel(f)}>
+            <span className="ag-nav-icon" aria-hidden="true">{f.icon}</span><span>{f.title}</span><i className={"reach-nav-dot "+f.status} aria-hidden="true"/>
+          </button>)}</div>)}
+      </nav>
+      <div className="ag-side-foot reach-side-foot"><span className="reach-owner-indicator"/> OWNER ONLY <small>Owner access · provider publishing disabled</small></div>
     </aside>
+    {mobileNavOpen&&<button className="reach-nav-backdrop" onClick={()=>setMobileNavOpen(false)} aria-label="Close feature navigation"/>}
     <div className="ag-main">
-      <header className="ag-top"><div>Agency <span>/</span> <strong>{NAV.find(n=>n.id===view)?.label}</strong></div><div className="ag-topright"><span className="ag-stage"><span className="ag-signal"/> Preview foundation</span><button className="ag-avatar" onClick={()=>setView("settings")}>AC</button></div></header>
-      <main className="ag-content">
-        {view==="overview"&&<>
-          <div className="ag-eyebrow">YOUR COMMAND CENTER</div>
-          <div className="ag-intro-head"><div><h1>One platform. Every client.</h1><p>Powerful behind the scenes. Simple for the people using it.</p></div><button className="ag-primary" onClick={()=>setView("discover")}>◎ Scan my agency →</button></div>
-          <div className="ag-banner"><span>i</span><div><strong>Foundation milestone — sample client profiles</strong><p>No real customer information is shown on this page until a protected, read-only agency scan succeeds.</p></div><button onClick={()=>setView("discover")}>Agency scan →</button></div>
-          <div className="ag-metrics"><Metric title="Sample workspaces" value="03" sub="Website · LMS · marketing" icon="▦"/><Metric title="Service modules" value="07" sub="Controlled feature access" icon="▧"/><Metric title="Proposed starter plan" value="$30" sub="Per month · planning only" icon="$"/><Metric title="Agency subaccounts found" value={locations?String(locations.length):"—"} sub={locations?"Read-only scan":"Scan not run"} icon="◎"/></div>
-          <div className="ag-columns"><section className="ag-card"><Head title="Client experiences" sub="Tailored by business type."/><div className="ag-rows">{SAMPLE_TENANTS.map((t,i)=><button className="ag-tenant" key={t.id} onClick={()=>{setSelected(t.id);setView("clients");}}><span className={"ag-tenant-icon i"+i}>{["◈","▤","↗"][i]}</span><span><b>{t.name}</b><small>{t.category}</small></span><i>DEMO</i><em>›</em></button>)}</div></section>
-          <section className="ag-card"><Head title="First milestone" sub="A safe path away from GHL clutter."/><div className="ag-steps"><Step number="01" title="Agency scan & inventory" sub="Discover subaccounts through your main connection." active/><Step number="02" title="Select client experience" sub="Website, learning, and marketing views."/><Step number="03" title="Approve capabilities" sub="Control available feature packages."/><Step number="04" title="Migrate after verification" sub="Maintain existing client environments." /></div></section></div>
-        </>}
+      <header className="ag-top reach-top">
+        <div className="reach-breadcrumb"><button className="reach-mobile-menu" onClick={()=>setMobileNavOpen(true)} aria-label="Open all feature navigation" aria-expanded={mobileNavOpen}>☰</button><span>REACH</span><span aria-hidden="true">/</span><strong>{NAV.find(n=>n.id===view)?.label||"All Features"}</strong></div>
+        <div className="ag-topright reach-topright">
+          <button className="reach-search-trigger" onClick={()=>setPaletteOpen(true)} aria-label="Search REACH features"><span aria-hidden="true">⌕</span> Search features <kbd>Ctrl K</kbd></button>
+          <label className="reach-accent-select">Accent <select aria-label="REACH accent color" value={accent} onChange={e=>setAccent(e.target.value as "violet"|"blue"|"emerald")}><option value="violet">Violet</option><option value="blue">Blue</option><option value="emerald">Emerald</option></select></label>
+          <button className="reach-theme-button" onClick={()=>setTheme(t=>t==="dark"?"light":"dark")} aria-label={theme==="dark"?"Switch to light theme":"Switch to dark theme"} title="Toggle color theme">{theme==="dark"?"☀":"☾"}</button>
+          <a className="reach-login-nav" href="/connections">Connections</a>
+          {!session.authenticated&&<a className="reach-login-nav" href="/login">Owner sign-in</a>}
+          {session.authenticated&&<button className="reach-login-nav" onClick={()=>void logout()}>Sign out</button>}
+          <span className="ag-stage">LIMITED RELEASE</span>
+          <button className="ag-avatar" onClick={()=>setView("settings")} aria-label="Owner settings">R</button>
+        </div>
+      </header>
+      {paletteOpen&&<div className="reach-palette-shade"><section role="dialog" aria-modal="true" aria-label="Find a REACH feature" className="reach-palette"><div className="reach-palette-top"><label htmlFor="reach-palette-search">Find a feature</label><button onClick={()=>setPaletteOpen(false)} aria-label="Close search">×</button></div><input id="reach-palette-search" type="search" autoFocus placeholder="Search CRM, social, inbox, automations…" value={featureQuery} onChange={e=>setFeatureQuery(e.target.value)}/><div className="reach-palette-results">{searchResults.map(f=><button key={f.id} disabled={!featureOpenable(f)} onClick={()=>openFeature(f)}><span className="reach-palette-icon" aria-hidden="true">{f.icon}</span><span><b>{f.title}</b><small>{f.group} · {f.detail}</small></span><em className={"reach-status "+f.status}>{featureLabel(f)}</em></button>)}{!searchResults.length&&<p>No matching tools.</p>}</div><p className="reach-palette-foot">Esc closes · disabled features cannot launch · no provider action is performed</p></section></div>}
+      <main className="ag-content reach-content">
+        {view==="overview"&&<ReachCommandCenter authenticated={session.authenticated} configured={session.configured} onOpen={openFeature} recent={recent} onUnauthorized={()=>setSession(s=>({...s,authenticated:false}))}/>}
+        {view==="directory"&&<ReachFeatureDirectory onOpen={openFeature} recent={recent}/>}
         {view==="discover"&&<>
-          <div className="ag-eyebrow">INTEGRATION STUDIO</div><h1>Connect once. See every subaccount.</h1><p className="ag-subhead">Your primary GHL agency authorization discovers the subaccounts it manages. Clients do not connect individually.</p>
-          <section className="ag-card ag-connect"><div className="ag-connecthead"><span className="ag-largeicon">◎</span><div><h2>Main GoHighLevel agency connection</h2><p>One primary agency connection · up to 8 subaccounts per scan · no individual client authorization</p></div><span className="ag-readonly">READ ONLY</span></div>
-          {session.loaded&&!session.configured&&<div className="ag-note"><b>Admin access needs configuration</b><p>Configure <code>AGENCY_PORTAL_PASSWORD_SHA256</code> and <code>AGENCY_PORTAL_SESSION_SECRET</code> in your Vercel project. No GHL keys are sent to the browser.</p></div>}
-          {session.configured&&!session.authenticated&&<form onSubmit={login} className="ag-login"><label htmlFor="adminpass">Administrator password</label><div><input id="adminpass" type="password" minLength={12} required autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Enter admin password"/><button className="ag-primary" disabled={loading}>{loading?"Signing in…":"Unlock scanner →"}</button></div></form>}
-          {session.authenticated&&<div className="ag-actionbar"><span className="ag-green">● Signed in as agency admin</span><div><button className="ag-secondary" onClick={logout}>Sign out</button><button className="ag-primary" disabled={scanLoading} onClick={scan}>{scanLoading?"Scanning…":"Scan agency subaccounts →"}</button></div></div>}
-          {error&&<p className="ag-error" role="alert">{error}</p>}
+          <div className="ag-eyebrow">FINAL PHASE · NOT CONNECTING</div><h1>GHL migration comes last.</h1>
+          <p className="ag-subhead">Build websites, courses, CRM, scheduling and social automation on your own platform first. Only after those tools pass acceptance tests will you inspect and migrate agency records from GoHighLevel.</p>
+          <section className="ag-card"><Head title="Current migration boundary" sub="Existing gateway integration preserved but not required for this milestone."/>
+            <div className="ag-ws-note"><b>No GHL scanning or connection is needed now.</b><p>Client workspaces and feature planning are native to Agency Control and are designed to be completely independent of the GHL account.</p></div>
+            <div className="ag-scope">{[["01","Build core","Workspaces, permissions and modules"],["02","Build services","Websites, learning, CRM and social"],["03","Verify replacement","Staging tests and client acceptance"],["04","Import from GHL","Agency-only authorization and migration"]].map(x=><div className="ag-scopeitem" key={x[0]}><span>{x[0]}</span><div><b>{x[1]}</b><small>{x[2]}</small></div></div>)}</div>
+            <p className="ag-footnote">No scan, OAuth installation, customer data transfer, or external service connection is performed from this page.</p>
           </section>
-          {locations&&session.authenticated?<section className="ag-card"><Head title={String(locations.length)+" agency subaccounts discovered"} sub={limited?"Showing the first eight agency subaccounts; pagination is planned.":"Read-only summary from the main agency integration. Some feature counts require automatically derived location access."}/><div className="ag-rows">{locations.map(loc=><div key={loc.id} className="ag-location"><div><b>{loc.name}</b><small>Location: {loc.locationId}</small></div><div className="ag-tags">{Object.entries(loc.features).map(([name,data])=><span key={name} className={data.status==="available"?"ag-tag":"ag-tag muted"}>{name}: {data.count===null?"unavailable":data.count}</span>)}</div></div>)}</div>{locations.length===0&&<p>No locations returned for this connection.</p>}</section>:<section className="ag-card"><Head title="Discovery scope" sub="Inventory only, no content migration."/><div className="ag-scope">{[["⌂","Websites & funnels","Page/funnel inventory"],["⚡","Workflows","Existing automation definitions"],["#","Social accounts","Connected social profile inventory"],["▤","Blogs","Blog list availability"]].map(x=><div className="ag-scopeitem" key={x[1]}><span>{x[0]}</span><div><b>{x[1]}</b><small>{x[2]}</small></div></div>)}</div><p className="ag-footnote">Contact data, course content, messages, and page HTML are not exported or copied in this milestone.</p></section>}
         </>}
         {view==="clients"&&<>
-          <div className="ag-eyebrow">CLIENT EXPERIENCE DESIGN</div><h1>Less clutter. Better results.</h1><p className="ag-subhead">These previews demonstrate what each of your three types of clients would see.</p>
-          <div className="ag-clientlayout"><section className="ag-card"><input className="ag-search" placeholder="Search sample workspaces" aria-label="Search sample workspaces" value={filter} onChange={e=>setFilter(e.target.value)}/>{SAMPLE_TENANTS.filter(t=>t.name.toLowerCase().includes(filter.toLowerCase())).map(t=><button key={t.id} className={"ag-tenant "+(selected===t.id?"selected":"")} onClick={()=>setSelected(t.id)}><span className="ag-tenant-icon">▦</span><span><b>{t.name}</b><small>{t.category}</small></span><em>›</em></button>)}</section>
-          <section className="ag-card"><div className="ag-previewtag">CLIENT VIEW PREVIEW <span>DEMO</span></div><h2>{demo.name}</h2><p>{demo.category}</p><div className="ag-modulegrid">{active.map(g=>{const m=MODULES.find(x=>x.key===g.module);return m?<div className="ag-module" key={g.module}><span>◈</span><b>{m.title}</b><small>{m.description}</small></div>:null;})}</div><div className="ag-footnote">Additional features stay hidden until agency approval and backend provisioning. <button onClick={()=>setView("features")}>View catalog →</button></div></section></div>
+          <div className="ag-eyebrow">PLATFORM FOUNDATION</div><h1>Your own client workspaces.</h1>
+          <p className="ag-subhead">Create business accounts and plan their features here without depending on GHL.</p>
+          {session.loaded&&!session.configured&&<div className="ag-note"><b>Administrator sign-in must be configured first.</b><p>Set <code>AGENCY_PORTAL_PASSWORD_SHA256</code> and <code>AGENCY_PORTAL_SESSION_SECRET</code> in Vercel. Once signed in, a separate platform database can store workspaces and feature plans.</p></div>}
+          {session.configured&&!session.authenticated&&<section className="ag-card"><Head title="Agency administrator login" sub="Required to read and manage your platform database."/><form onSubmit={login} className="ag-login"><label htmlFor="platform-adminpass">Administrator password</label><div><input id="platform-adminpass" type="password" minLength={12} autoComplete="current-password" required placeholder="Administrator password" value={password} onChange={e=>setPassword(e.target.value)}/><button className="ag-primary" disabled={loading}>{loading?"Signing in…":"Sign in →"}</button></div></form>{error&&<p className="ag-error" role="alert">{error}</p>}</section>}
+          {session.authenticated&&<PlatformWorkspaces/>}
+          {!session.authenticated&&<section className="ag-card"><Head title="Example workspace types" sub="Design references only; they are not real client accounts."/><div className="ag-rows">{SAMPLE_TENANTS.map(t=><div className="ag-tenant" key={t.id}><span className="ag-tenant-icon">▦</span><span><b>{t.name}</b><small>{t.category} · SAMPLE</small></span></div>)}</div></section>}
         </>}
+        {view==="services"&&(!session.authenticated?
+          <section className="ag-card"><h2>Administrator sign-in required</h2>
+           {!session.configured?<p>Configure staging administrator access first.</p>:
+            <form onSubmit={login} className="ag-login"><label htmlFor="engines-adminpass">Administrator password</label><div>
+             <input id="engines-adminpass" type="password" minLength={12} autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)} placeholder="Administrator password"/>
+             <button className="ag-primary" disabled={loading}>{loading?"Signing in…":"Unlock Platform Studios"}</button></div></form>}
+           {error&&<p className="ag-error" role="alert">{error}</p>}
+          </section>:<ServiceCatalog/>)} 
+        {view==="social"&&(!session.authenticated?<section className="ag-card"><h2>Agency administrator access required</h2>
+          {!session.configured?<p>Configure administrator access in the staging Vercel environment before managing real social drafts.</p>:<form onSubmit={login} className="ag-login"><label htmlFor="social-adminpass">Administrator password</label><div><input id="social-adminpass" type="password" minLength={12} autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)} placeholder="Administrator password"/><button className="ag-primary" disabled={loading}>{loading?"Signing in…":"Unlock Social Intelligence"}</button></div></form>}
+          {error&&<p className="ag-error" role="alert">{error}</p>}
+        </section>:<SocialStudio/>)}
         {view==="features"&&<>
           <div className="ag-eyebrow">FEATURE GOVERNANCE</div><h1>Give clients exactly what they need.</h1><p className="ag-subhead">Agency-approved modules, staged gradually. Requests below are previews—not billing or live activation.</p>
           <section className="ag-card"><Head title="Available modules" sub="Feature packages for your $30 entry-level model"/>{MODULES.map(m=><div key={m.key} className="ag-featurerow"><span className="ag-tenant-icon">{m.key==="lms"?"▤":m.key==="social"?"#":m.key==="automation"?"⚡":"◈"}</span><div><b>{m.title}</b><small>{m.description}</small></div>{m.upgrade?<button className={"ag-secondary "+(requests.includes(m.key)?"ag-selected":"")} onClick={()=>setRequests(v=>v.includes(m.key)?v.filter(x=>x!==m.key):[...v,m.key])}>{requests.includes(m.key)?"Staged ✓":"Preview request"}</button>:<span className="ag-included">Core package</span>}</div>)}<p className="ag-footnote">Preview requests remain in this browser screen. No GHL writes, payments or backend grants are performed.</p></section>
         </>}
         {view==="settings"&&<>
           <div className="ag-eyebrow">PLATFORM SETUP</div><h1>Secure by default.</h1><p className="ag-subhead">Integration and account controls for the first milestone.</p>
-          <div className="ag-columns"><section className="ag-card"><Head title="Admin access"/><Status title="Administrator login" value={session.configured?"Configured":"Setup required"}/><Status title="Active session" value={session.authenticated?"Authenticated":"Not signed in"}/><Status title="Scanner" value="Read only"/><Status title="Client login" value="Not enabled"/></section><section className="ag-card"><Head title="Integration readiness"/><Status title="Main GHL agency connection" value="Preserved · agency-wide"/><Status title="Feature requests" value="Preview only"/><Status title="Stripe billing" value="Not connected"/><Status title="Frappe / Postiz" value="Not connected"/></section></div>
+          <div className="ag-columns"><section className="ag-card"><Head title="Admin access"/><Status title="Administrator login" value={session.configured?"Configured":"Setup required"}/><Status title="Active session" value={session.authenticated?"Authenticated":"Not signed in"}/><Status title="Scanner" value="Deferred"/><Status title="User access" value="Single administrator only"/></section><section className="ag-card"><Head title="Integration readiness"/><Status title="GHL migration" value="Deferred to final phase"/><Status title="Feature requests" value="Preview only"/><Status title="Stripe billing" value="Not connected"/><Status title="Frappe / Postiz" value="Not connected"/></section></div>
           <section className="ag-card"><Head title="Required Vercel secrets" sub="Never put secret values in the GitHub repo."/><code className="ag-code">AGENCY_PORTAL_PASSWORD_SHA256 = SHA-256 hash of a strong admin password</code><code className="ag-code">AGENCY_PORTAL_SESSION_SECRET = separate 32+ character random secret</code><p className="ag-footnote">Enable Vercel access protection / edge rate limits before using administrator login broadly. Existing gateway OAuth and API routes remain unchanged.</p></section>
         </>}
-      </main><footer className="ag-footer">AGENCY CONTROL <span>·</span> Milestone 01 <span>·</span> Client data unchanged</footer>
+      </main>
+      <nav className="reach-mobile-bottom" aria-label="Mobile quick navigation">{["command","directory","social","settings"].map(id=>{const f=REACH_FEATURES.find(x=>x.id===id)!;return <button key={id} className={f.screen===view?"active":""} onClick={()=>openFeature(f)}><span aria-hidden="true">{f.icon}</span><small>{id==="command"?"Home":id==="directory"?"Features":id==="social"?"Social":"Settings"}</small></button>;})}<button onClick={()=>setMobileNavOpen(true)}><span aria-hidden="true">☰</span><small>All</small></button></nav>
+      <footer className="ag-footer reach-footer">REACH 2.3 <span>·</span> Owner-only access <span>·</span> No external publishing or GHL migration</footer>
     </div>
   </div>;
 }

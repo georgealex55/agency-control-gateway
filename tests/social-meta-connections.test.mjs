@@ -1,0 +1,54 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+import {randomBytes} from "node:crypto";
+import {encryptMetaToken,decryptMetaToken,signMetaConsent,verifyMetaConsent} from "../ghl-gpt-gateway/lib/social-meta-crypto.ts";
+const owner="8bba25e1-dc8e-4601-8bf2-91092f097bcc",other="bccf663f-097d-4324-a155-963b08eadb30",pending="11111111-1111-4111-8111-111111111111";
+test("OAuth pending credentials use distinct workspace-bound envelopes",()=>{
+ const key=randomBytes(32).toString("base64url"),token="FAKE_PROVIDER_READONLY_TEST_TOKEN";
+ const enc=encryptMetaToken(token,key,owner,"facebook_pages",pending);
+ assert.equal(decryptMetaToken(enc,key,owner,"facebook_pages",pending),token);
+ assert.throws(()=>decryptMetaToken(enc,key,other,"facebook_pages",pending));
+ assert.throws(()=>decryptMetaToken(enc,key,owner,"instagram_professional",pending));
+ assert(!enc.includes(token));
+});
+test("OAuth state requires correct signature, time and browser cookie check",()=>{
+ const secret=randomBytes(48).toString("base64url"),now=Date.now(),nonce=randomBytes(32).toString("base64url");
+ const state=signMetaConsent({workspaceId:owner,provider:"facebook_pages",nonce,expires:now+5*60*1000},secret);
+ assert.equal(verifyMetaConsent(state,secret,now)?.nonce,nonce);
+ assert.equal(verifyMetaConsent(state,secret,now+5*60*1000),null);
+ const code=readFileSync(new URL("../ghl-gpt-gateway/app/api/platform/social/meta/callback/route.ts",import.meta.url),"utf8");
+ assert(code.includes("sameNonce(cookie,parsed.nonce)"));
+ assert(code.includes("consumeMetaFlow("));
+ assert(code.includes('sameSite:"lax"'));
+ assert(code.includes('return toSocial(req,"select")'));
+});
+test("Meta flow remains opt-in and account selection is explicit",()=>{
+ const start=readFileSync(new URL("../ghl-gpt-gateway/app/api/platform/social/meta/start/route.ts",import.meta.url),"utf8");
+ assert(start.includes('SOCIAL_META_CONNECTIONS_ENABLED!=="true"'));
+ assert(start.includes("gate(req,true)"));
+ assert(start.includes("req.nextUrl.origin"));
+ assert(start.includes("response.cookies.set("));
+ const store=readFileSync(new URL("../ghl-gpt-gateway/lib/social-meta-connection-store.ts",import.meta.url),"utf8");
+ assert(store.includes("expires_at>now()"));
+ assert(store.includes("consumed_at IS NULL"));
+ assert(store.includes("DELETE FROM agency_social_meta_pending"));
+ assert(store.includes("WHERE id=$1::uuid AND workspace_id=$2::uuid"));
+ assert(store.includes("candidates.find(c=>c.id===accountId)"));
+ assert(store.includes("encrypted_access_token=EXCLUDED.encrypted_access_token"));
+ const route=readFileSync(new URL("../ghl-gpt-gateway/app/api/platform/social/meta/connections/route.ts",import.meta.url),"utf8");
+ assert(route.includes("selectMetaCandidate("));
+ assert(route.includes("disconnectMeta("));
+ assert(route.includes("gate(req,true)"));
+});
+test("separate fixed OAuth endpoints are read-only and do not publish",()=>{
+ const exchange=readFileSync(new URL("../ghl-gpt-gateway/lib/social-meta-oauth-server.ts",import.meta.url),"utf8");
+ assert(exchange.includes("https://graph.facebook.com/"));
+ assert(exchange.includes("https://api.instagram.com/oauth/access_token"));
+ assert(exchange.includes('redirect:"error"'));
+ assert(!/media_publish|pages_manage_posts|content_publish/.test(exchange));
+ const page=readFileSync(new URL("../ghl-gpt-gateway/app/social-studio.tsx",import.meta.url),"utf8");
+ assert(page.includes("Connect read-only"));
+ assert(page.includes("Disconnect"));
+ assert(!page.includes("Publish to Instagram"));
+});

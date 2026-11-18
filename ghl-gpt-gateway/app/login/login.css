@@ -1,0 +1,12 @@
+.reach-auth{min-height:100dvh;padding:28px;display:grid;place-items:center;background:radial-gradient(circle at 80% 5%,#292c67,#0a1024 55%);color:#edf0ff;font:15px/1.55 system-ui,-apple-system,Segoe UI,sans-serif}
+.reach-auth *{box-sizing:border-box}.reach-auth-card{width:min(100%,465px);background:#171f37;border:1px solid #3a4565;border-radius:22px;padding:clamp(24px,5vw,40px);box-shadow:0 20px 70px #0005}
+.reach-auth-mark{display:grid;place-items:center;width:54px;height:54px;border-radius:15px;background:#9185ff;color:#0e1430;font-size:32px;font-weight:850;margin-bottom:28px}
+.reach-auth-mark span{color:white}.reach-auth-eyebrow{font-size:10px;letter-spacing:2px;color:#b3acff;font-weight:800}
+.reach-auth h1{font-size:34px;letter-spacing:-1.2px;margin:6px 0}.reach-auth-muted,.reach-auth-foot{color:#afbdd7;font-size:13px}
+.reach-auth form{display:grid;gap:12px;margin-top:23px}.reach-auth label{font-size:13px;font-weight:700}
+.reach-auth input{width:100%;background:#0a1228;color:white;border:1px solid #5c6585;padding:13px;border-radius:10px;font-size:16px}
+.reach-auth button,.reach-auth-action{padding:12px 15px;border:0;border-radius:10px;background:#9387ff;color:#111631;font-weight:850;cursor:pointer;text-align:center;text-decoration:none;display:block}
+.reach-auth button:disabled{opacity:.5;cursor:not-allowed}.reach-auth input:focus-visible,.reach-auth a:focus-visible,.reach-auth button:focus-visible{outline:3px solid #cdc7ff;outline-offset:3px}
+.reach-auth-status{display:grid;gap:8px;margin-top:22px;padding:15px;background:#222e4c;border:1px solid #445579;border-radius:12px}
+.reach-auth-status p{font-size:12px;margin:0;color:#c0cce0}.reach-auth-status code{font-size:11px;overflow-wrap:anywhere}
+.reach-auth-error{color:#ffc3c3;font-size:13px}.reach-auth-foot{margin-top:25px}.reach-auth-foot a{color:#d1caff}

@@ -16,7 +16,9 @@
     "mcp-handler": "^2.2.0",
     "zod": "^4.2.0",
     "@modelcontextprotocol/server": "^2.0.0",
-    "jose": "^6.1.0"
+    "jose": "^6.1.0",
+    "@vercel/queue": "0.10.0",
+    "@vercel/blob": "2.8.2"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

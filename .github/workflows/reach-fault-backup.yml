@@ -1,0 +1,107 @@
+name: REACH synthetic fault injection and encrypted backup restore
+
+on:
+  push:
+    branches:
+      - experiment/gohyperlevel-synthetic-poc-20261104
+    paths:
+      - .github/workflows/reach-fault-backup.yml
+      - scripts/reach-docker-fault-matrix.mjs
+      - scripts/reach-docker-encrypted-restore.mjs
+      - scripts/reach-workflow-idempotency-patch.mjs
+      - scripts/reach-workflow-fault-injection-patch.mjs
+      - audit/gohyperlevel/reach-fault-phase.mjs
+      - audit/gohyperlevel/reach-encrypted-backup.mjs
+      - audit/gohyperlevel/reach-backup-restore-phase.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fault-injection:
+    name: SIGKILL before/after internal action and cursor checkpoint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out isolated REACH experiment
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          submodules: false
+      - name: Check out immutable upstream
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: BAISESYSTEMS/GoHyperLevel
+          ref: 24ea786b85c3240ae4f24dcad6f657749730c56e
+          path: _upstream/gohyperlevel
+          persist-credentials: false
+          submodules: false
+      - name: Verify upstream source pin
+        working-directory: _upstream/gohyperlevel
+        run: test "$(git rev-parse HEAD)" = "24ea786b85c3240ae4f24dcad6f657749730c56e"
+      - name: Use Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+      - name: Apply staged security and local action receipt overlays
+        run: |
+          node scripts/reach-security-patch.mjs _upstream/gohyperlevel
+          node scripts/reach-workflow-idempotency-patch.mjs _upstream/gohyperlevel
+          node scripts/reach-workflow-fault-injection-patch.mjs _upstream/gohyperlevel
+      - name: Verify Docker engine
+        run: docker version --format 'Docker {{.Server.Version}}'
+      - name: Execute four real SIGKILL fault scenarios
+        run: node scripts/reach-docker-fault-matrix.mjs _upstream/gohyperlevel
+        timeout-minutes: 24
+      - name: Upload synthetic fault evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: reach-action-checkpoint-fault-results
+          path: ${{ runner.temp }}/reach-fault-evidence/
+          retention-days: 14
+          if-no-files-found: warn
+
+  encrypted-restore:
+    name: SQLite authenticated encryption and fresh Docker volume restore
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out isolated REACH experiment
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          submodules: false
+      - name: Check out immutable upstream
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: BAISESYSTEMS/GoHyperLevel
+          ref: 24ea786b85c3240ae4f24dcad6f657749730c56e
+          path: _upstream/gohyperlevel
+          persist-credentials: false
+          submodules: false
+      - name: Verify upstream source pin
+        working-directory: _upstream/gohyperlevel
+        run: test "$(git rev-parse HEAD)" = "24ea786b85c3240ae4f24dcad6f657749730c56e"
+      - name: Use Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+      - name: Apply staged field-access and internal idempotency overlays
+        run: |
+          node scripts/reach-security-patch.mjs _upstream/gohyperlevel
+          node scripts/reach-workflow-idempotency-patch.mjs _upstream/gohyperlevel
+      - name: Verify Docker engine
+        run: docker version --format 'Docker {{.Server.Version}}'
+      - name: Create, encrypt, corrupt-test and restore real SQLite backup
+        run: node scripts/reach-docker-encrypted-restore.mjs _upstream/gohyperlevel
+        timeout-minutes: 24
+      - name: Upload synthetic restore report (never the encrypted archive or keys)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: reach-encrypted-backup-restore-evidence
+          path: ${{ runner.temp }}/reach-backup-evidence/
+          retention-days: 14
+          if-no-files-found: warn

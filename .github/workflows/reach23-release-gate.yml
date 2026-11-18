@@ -1,0 +1,41 @@
+name: REACH 2.3 production release gate
+on:
+  push:
+    branches:
+      - release/reach23-owner-login-connections-20261117
+      - main
+    paths:
+      - 'ghl-gpt-gateway/**'
+      - 'tests/reach-*.test.mjs'
+      - 'reach-shell/index.html'
+      - '.github/workflows/reach23-release-gate.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  acceptance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Verify standalone shell mirrors
+        run: cmp reach-shell/index.html ghl-gpt-gateway/public/reach-demo/index.html
+      - name: Install locked application dependencies without scripts
+        working-directory: ghl-gpt-gateway
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Test owner login and production connection security
+        run: node --test tests/reach-owner-connections.test.mjs tests/reach-23-ui-contract.test.mjs tests/reach-command-center.test.mjs tests/reach-command-runtime.test.mjs
+      - name: Typecheck Next.js REACH app
+        working-directory: ghl-gpt-gateway
+        run: npx tsc --noEmit
+      - name: Build Next.js without production credentials
+        working-directory: ghl-gpt-gateway
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: npm run build
