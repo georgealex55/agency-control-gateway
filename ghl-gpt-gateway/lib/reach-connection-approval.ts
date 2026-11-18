@@ -5,6 +5,7 @@ import {createHash,timingSafeEqual} from "node:crypto";
  * never expose the credential, digest or authentication secret to clients.
  */
 export type ConnectionEnvironment={
+ [key:string]:string|undefined;
  VERCEL_ENV?:string;
  REACH_CONNECTIONS_PRODUCTION_ENABLED?:string;
  AGENCY_PLATFORM_DATABASE_URL?:string;
