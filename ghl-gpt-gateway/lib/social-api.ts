@@ -1,7 +1,7 @@
 import {NextRequest,NextResponse} from "next/server";
 import {adminAuthenticated,sameOrigin} from "@/lib/portal-auth";
 import {stageEnabled,validId} from "@/lib/social-contract";
-import {commandLayoutStage,commandApprovedStorageConfigured} from "@/lib/reach-command-layout-store";
+import {commandIsReach23Branch,commandApprovedStorageConfigured} from "@/lib/reach-command-layout-store";
 export const noCache={"Cache-Control":"no-store"};
 export function reply(value:unknown,status=200){return NextResponse.json(value,{status,headers:noCache});}
 export function gate(req:NextRequest,write=false):NextResponse|null{
@@ -9,7 +9,7 @@ export function gate(req:NextRequest,write=false):NextResponse|null{
  if(!adminAuthenticated(req))return reply({error:"Agency administrator sign-in required"},401);
  if(!stageEnabled(process.env))return reply({error:"Social Intelligence is isolated to the staging branch"},403);
  // Defense in depth: reject direct social API calls on REACH 2.3 without an approved isolated database.
- if(commandLayoutStage()&&!commandApprovedStorageConfigured())return reply({error:"Isolated staging storage approval required"},428);
+ if(commandIsReach23Branch()&&!commandApprovedStorageConfigured())return reply({error:"Isolated staging storage approval required"},428);
  return null;
 }
 export function workspaceFromQuery(req:NextRequest):string|null{
