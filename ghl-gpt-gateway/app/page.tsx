@@ -97,7 +97,7 @@ export default function Home() {
             <span className="ag-nav-icon" aria-hidden="true">{f.icon}</span><span>{f.title}</span><i className={"reach-nav-dot "+f.status} aria-hidden="true"/>
           </button>)}</div>)}
       </nav>
-      <div className="ag-side-foot reach-side-foot"><span className="reach-owner-indicator"/> OWNER ONLY <small>Staging · provider publishing disabled</small></div>
+      <div className="ag-side-foot reach-side-foot"><span className="reach-owner-indicator"/> OWNER ONLY <small>Owner access · provider publishing disabled</small></div>
     </aside>
     {mobileNavOpen&&<button className="reach-nav-backdrop" onClick={()=>setMobileNavOpen(false)} aria-label="Close feature navigation"/>}
     <div className="ag-main">
@@ -107,7 +107,10 @@ export default function Home() {
           <button className="reach-search-trigger" onClick={()=>setPaletteOpen(true)} aria-label="Search REACH features"><span aria-hidden="true">⌕</span> Search features <kbd>Ctrl K</kbd></button>
           <label className="reach-accent-select">Accent <select aria-label="REACH accent color" value={accent} onChange={e=>setAccent(e.target.value as "violet"|"blue"|"emerald")}><option value="violet">Violet</option><option value="blue">Blue</option><option value="emerald">Emerald</option></select></label>
           <button className="reach-theme-button" onClick={()=>setTheme(t=>t==="dark"?"light":"dark")} aria-label={theme==="dark"?"Switch to light theme":"Switch to dark theme"} title="Toggle color theme">{theme==="dark"?"☀":"☾"}</button>
-          <span className="ag-stage">STAGING ONLY</span>
+          <a className="reach-login-nav" href="/connections">Connections</a>
+          {!session.authenticated&&<a className="reach-login-nav" href="/login">Owner sign-in</a>}
+          {session.authenticated&&<button className="reach-login-nav" onClick={()=>void logout()}>Sign out</button>}
+          <span className="ag-stage">LIMITED RELEASE</span>
           <button className="ag-avatar" onClick={()=>setView("settings")} aria-label="Owner settings">R</button>
         </div>
       </header>
@@ -155,7 +158,7 @@ export default function Home() {
         </>}
       </main>
       <nav className="reach-mobile-bottom" aria-label="Mobile quick navigation">{["command","directory","social","settings"].map(id=>{const f=REACH_FEATURES.find(x=>x.id===id)!;return <button key={id} className={f.screen===view?"active":""} onClick={()=>openFeature(f)}><span aria-hidden="true">{f.icon}</span><small>{id==="command"?"Home":id==="directory"?"Features":id==="social"?"Social":"Settings"}</small></button>;})}<button onClick={()=>setMobileNavOpen(true)}><span aria-hidden="true">☰</span><small>All</small></button></nav>
-      <footer className="ag-footer reach-footer">REACH 2.3 <span>·</span> Owner-only staging <span>·</span> No external publishing or GHL migration</footer>
+      <footer className="ag-footer reach-footer">REACH 2.3 <span>·</span> Owner-only access <span>·</span> No external publishing or GHL migration</footer>
     </div>
   </div>;
 }
