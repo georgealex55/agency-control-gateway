@@ -194,3 +194,8 @@
  .reach-dashboard-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
  .reach-command .reach-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+/* Production-safe owner and connection navigation */
+.reach-root .reach-login-nav{display:inline-flex;align-items:center;justify-content:center;min-height:35px;padding:8px 11px;border:1px solid var(--reach-border);border-radius:9px;background:var(--reach-surface-raised);color:var(--reach-text);text-decoration:none;font-size:11px;font-weight:750}
+.reach-root .reach-login-nav:hover{border-color:var(--reach-accent)}
+@media(max-width:700px){.reach-root .reach-login-nav{padding:7px 8px;font-size:10px}.reach-root .reach-topright{gap:4px!important}}
