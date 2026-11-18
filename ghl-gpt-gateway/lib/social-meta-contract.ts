@@ -55,7 +55,11 @@ export function metaSetupStatus(env:Record<string,string|undefined>,provider:Met
  const callbackUrl=validMetaRedirect(env.SOCIAL_META_REDIRECT_URI)?env.SOCIAL_META_REDIRECT_URI!:null;
  const callbackOrigin=callbackUrl?new URL(callbackUrl).origin:null;
  const stageBranch=env.VERCEL_BRANCH_URL?.trim();
- const branchMatches=Boolean(callbackUrl&&(!stageBranch||new URL(callbackUrl).hostname===stageBranch));
+ // Production callbacks must match the configured canonical origin exactly.
+ // Preview callbacks additionally match the branch alias, not transient deployment hosts.
+ const branchMatches=env.VERCEL_ENV==="production"?
+  Boolean(callbackOrigin&&requestOrigin===callbackOrigin):
+  Boolean(callbackUrl&&(!stageBranch||new URL(callbackUrl).hostname===stageBranch));
  const isCanonicalHost=Boolean(callbackOrigin&&requestOrigin===callbackOrigin);
  const featureEnabled=env.SOCIAL_META_CONNECTIONS_ENABLED==="true";
  return {
