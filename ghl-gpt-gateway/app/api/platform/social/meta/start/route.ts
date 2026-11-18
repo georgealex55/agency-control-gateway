@@ -1,15 +1,16 @@
 import {randomBytes} from "node:crypto";
 import {NextRequest} from "next/server";
-import {gate,reply} from "@/lib/social-api";
-import {validId,stageEnabled} from "@/lib/social-contract";
+import {connectionGate,reply} from "@/lib/social-api";
+import {validId} from "@/lib/social-contract";
+import {connectionRuntimeEnabled} from "@/lib/reach-connection-runtime";
 import {isMetaProvider,metaConfigured,metaSetupStatus,buildMetaAuthorizeURL} from "@/lib/social-meta-contract";
 import {signMetaConsent} from "@/lib/social-meta-crypto";
 import {createMetaFlow} from "@/lib/social-meta-connection-store";
 import {oauthSettings} from "@/lib/social-meta-oauth-server";
 export const runtime="nodejs";export const dynamic="force-dynamic";
 export async function POST(req:NextRequest){
- const denied=gate(req,true);if(denied)return denied;
- if(!stageEnabled(process.env)||process.env.SOCIAL_META_CONNECTIONS_ENABLED!=="true")return reply({error:"Read-only Meta connections are disabled in staging"},423);
+ const denied=connectionGate(req,true);if(denied)return denied;
+ if(!connectionRuntimeEnabled()||process.env.SOCIAL_META_CONNECTIONS_ENABLED!=="true")return reply({error:"Read-only Meta connections are not enabled for this environment"},423);
  let raw:unknown;try{raw=await req.json();}catch{return reply({error:"Invalid JSON"},400);}
  const input=raw&&typeof raw==="object"&&!Array.isArray(raw)?raw as Record<string,unknown>:null;
  if(!input||!validId(input.workspaceId)||!isMetaProvider(input.provider))return reply({error:"Valid workspace and Meta provider required"},400);
@@ -17,7 +18,7 @@ export async function POST(req:NextRequest){
  const settings=oauthSettings(process.env,input.provider);
  const setup=metaSetupStatus(process.env,input.provider,req.nextUrl.origin);
  if(!setup.isCanonicalHost||!setup.branchMatches)return reply({
-  error:"OAuth must start from the verified staging branch URL, not a unique deployment or production hostname",
+  error:"OAuth must start from the configured canonical callback hostname",
   canonicalStagingUrl:setup.callbackUrl?new URL(setup.callbackUrl).origin:null
  },409);
  const nonce=randomBytes(32).toString("base64url"),expires=Date.now()+10*60*1000;
