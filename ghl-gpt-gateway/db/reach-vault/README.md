@@ -1,0 +1,11 @@
+# REACH 2.3 persistent owner Neon vault
+- Target: project red-violet-71016741, main branch br-sweet-frost-bd8jhzep, database reach_platform.
+- Additive, independent of workspace/social schema. V001 enables FORCE RLS without any policy (fail closed).
+- Create a non-admin read_write role reach_vault_app scoped to only database reach_platform and schema reach_vault.
+- Apply V002 only after role creation, then audit pg_roles, grants, RLS, and schema CREATE permissions.
+- Production-only REACH_VAULT_DATABASE_URL for reach_vault_app and independent 32-byte base64url REACH_VAULT_ENCRYPTION_KEY.
+- Do not overwrite existing AGENCY_PLATFORM_DATABASE_URL; no other apps/data changed.
+- Rotate encryption keys only with a reviewed re-encryption path; disabling the vault should preserve encrypted records.
+- Single authenticated REACH owner only. This is NOT a multi-tenant customer vault.
+- Social provider OAuth remains gated pending the separate workspace/Meta schema and Meta app credentials. Publishing stays disabled.
+- Never log database URLs or encryption keys. No automatic DROP/TRUNCATE in rollback.
