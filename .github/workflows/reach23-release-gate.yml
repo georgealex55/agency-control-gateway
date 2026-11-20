@@ -3,10 +3,12 @@ on:
   push:
     branches:
       - release/reach23-owner-login-connections-20261117
+      - test/reach-owner-session-http-20261119
       - main
     paths:
       - 'ghl-gpt-gateway/**'
       - 'tests/reach-*.test.mjs'
+      - 'tests/reach-owner-session-http.mjs'
       - 'reach-shell/index.html'
       - '.github/workflows/reach23-release-gate.yml'
   workflow_dispatch:
@@ -39,3 +41,7 @@ jobs:
         env:
           NEXT_TELEMETRY_DISABLED: "1"
         run: npm run build
+      - name: Verify owner login over real localhost HTTP with fictional credentials
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: node tests/reach-owner-session-http.mjs
