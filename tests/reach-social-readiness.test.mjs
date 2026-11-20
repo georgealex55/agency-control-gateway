@@ -8,6 +8,8 @@ test("Meta social readiness connects to exact hub status, never treats setup as 
  assert.match(ui,/item\.launchEnabled/);
  assert.match(ui,/storageApproved/);
  assert.match(ui,/Missing developer configuration/);
+ assert.match(ui,/reach-meta-setup-/);
+ assert.match(ui,/Start here: enter your developer App ID and Secret/);
  assert.match(ui,/Publishing & messaging/);
  assert.match(ui,/Disabled/);
  assert.match(ui,/api\/platform\/social\/meta\/callback/);

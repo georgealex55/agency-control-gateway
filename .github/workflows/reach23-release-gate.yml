@@ -5,6 +5,7 @@ on:
       - release/reach23-owner-login-connections-20261117
       - test/reach-owner-session-http-20261119
       - main
+      - fix/reach-social-connect-buttons-20261119
       - feature/reach-23-meta-app-onboarding-20261119
       - feature/reach-23-meta-owner-staging-20261120
       - feature/reach-23-persistent-neon-vault-20261120

@@ -87,6 +87,8 @@ test("connection actions are explicit, selected workspace scoped and read-only",
  assert.match(connectionUI,/workspaceId:workspace/);
  assert.match(connectionUI,/Account selected\. Read-only verification is available/);
  assert.match(connectionUI,/Developer authorization not available/);
+ assert.match(connectionUI,/guideMetaSetup\(/);
+ assert.match(connectionUI,/Set up /);
  assert.doesNotMatch(connectionUI,/localStorage|sessionStorage|access_token|client_secret/);
 });
 test("UI never infers connection from provider config or enables posting",()=>{
