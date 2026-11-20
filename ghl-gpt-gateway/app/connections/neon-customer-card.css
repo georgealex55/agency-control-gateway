@@ -26,3 +26,6 @@
 .reach-neon-verified code{font-family:ui-monospace,monospace}
 .reach-neon-error{background:#422631;border:1px solid #bd6464;color:#ffdadd}
 @media(max-width:660px){.reach-neon-card{padding:17px}.reach-neon-fields{grid-template-columns:1fr}.reach-neon-heading{flex-direction:column;gap:10px}}
+
+.reach-neon-actions button:nth-child(2){background:#326f68;color:#eefdf5}
+.reach-neon-verified button{margin-top:9px;background:#293c53;color:#f0f5ff;border:1px solid #85adbe}

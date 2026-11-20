@@ -1,11 +1,12 @@
 "use client";
-import {useState,type FormEvent} from "react";
+import {useEffect,useState,type FormEvent} from "react";
 import "./neon-customer-card.css";
 
 type Mode="url"|"fields";
 type Verification={verified:true;connectionSaved:false;storageActivated:false;database:string;role:string;check:"read_only_select";note:string};
+type LiveNeon={connected:true;scope:"owner_session";persisted:false;storageActivated:false;readOnly:true;database:string;role:string;hostname:string;expiresAt:string;verifiedAt:string};
 
-/** Owner-only onboarding test; no browser or server credential persistence. */
+/** Owner-only Neon connection verification and encrypted temporary session. No durable credential vault. */
 export default function NeonCustomerCard(){
  const [mode,setMode]=useState<Mode>("url");
  const [dsn,setDsn]=useState("");
@@ -17,16 +18,42 @@ export default function NeonCustomerCard(){
  const [branch,setBranch]=useState("");
  const [busy,setBusy]=useState(false);
  const [result,setResult]=useState<Verification|null>(null);
+ const [live,setLive]=useState<LiveNeon|null>(null);
  const [error,setError]=useState("");
  const clearSecret=()=>{setDsn("");setPassword("");};
+ useEffect(()=>{
+  let active=true;
+  fetch("/api/reach/connections/neon/live",{credentials:"same-origin",cache:"no-store"})
+   .then(async response=>{if(!response.ok)throw Error("Live Neon status unavailable");return response.json() as Promise<LiveNeon|{connected:false}>;})
+   .then(value=>{if(active)setLive(value.connected===true?value as LiveNeon:null);})
+   .catch(()=>{if(active)setLive(null);});
+  return()=>{active=false;};
+ },[]);
+ async function disconnect(){
+  if(busy)return;
+  setBusy(true);setError("");setInfo("");
+  try{
+   const response=await fetch("/api/reach/connections/neon/live",{
+    method:"DELETE",credentials:"same-origin",cache:"no-store",redirect:"error",
+    referrerPolicy:"no-referrer"
+   });
+   if(!response.ok)throw Error("Could not disconnect this Neon session.");
+   setLive(null);setResult(null);clearSecret();
+   setInfo("Neon session disconnected; no database records or credentials were changed.");
+  }catch(cause){setError(cause instanceof Error?cause.message:"Disconnect failed.");}
+  finally{setBusy(false);}
+ }
+ const [info,setInfo]=useState("");
  async function verify(event:FormEvent<HTMLFormElement>){
   event.preventDefault();if(busy)return;
-  setBusy(true);setError("");setResult(null);
+  const submitter=(event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement|null;
+  const connect=submitter?.value==="connect";
+  setBusy(true);setError("");setResult(null);setInfo("");
   let connectionString="";
   try{
    if(mode==="url")connectionString=dsn.trim();
    else connectionString="postgresql://"+encodeURIComponent(role)+":"+encodeURIComponent(password)+"@"+host.trim().toLowerCase()+"/"+encodeURIComponent(database.trim())+"?sslmode=require";
-   const response=await fetch("/api/reach/connections/neon/verify",{
+   const response=await fetch(connect?"/api/reach/connections/neon/live":"/api/reach/connections/neon/verify",{
     method:"POST",credentials:"same-origin",cache:"no-store",redirect:"error",
     referrerPolicy:"no-referrer",
     headers:{"Content-Type":"application/json"},body:JSON.stringify({connectionString})
@@ -37,11 +64,20 @@ export default function NeonCustomerCard(){
       value.error:"Connection verification failed.";
     throw Error(msg);
    }
-   if(!value||typeof value!=="object"||!("verified" in value)||value.verified!==true||
-      !("connectionSaved" in value)||value.connectionSaved!==false||
+   if(connect){
+    if(!value||typeof value!=="object"||!("connected" in value)||value.connected!==true||
+      !("persisted" in value)||value.persisted!==false||
       !("storageActivated" in value)||value.storageActivated!==false)
-    throw Error("The server did not confirm a read-only verification.");
-   setResult(value as Verification);
+     throw Error("The server did not establish a secure Neon session.");
+    setLive(value as LiveNeon);
+    setInfo("Neon connected for this owner session. Credentials expire automatically; no workspace data writes are enabled.");
+   }else{
+    if(!value||typeof value!=="object"||!("verified" in value)||value.verified!==true||
+       !("connectionSaved" in value)||value.connectionSaved!==false||
+       !("storageActivated" in value)||value.storageActivated!==false)
+     throw Error("The server did not confirm a read-only verification.");
+    setResult(value as Verification);
+   }
   }catch(cause){
    setError(cause instanceof Error?cause.message:"Connection verification failed.");
   }finally{
@@ -53,9 +89,9 @@ export default function NeonCustomerCard(){
    <div><span className="reach-neon-eyebrow">CUSTOMER CONNECTIONS · READ-ONLY VERIFICATION</span>
     <h2 id="reach-neon-heading">Neon database</h2>
     <p>Enter your own Neon PostgreSQL credentials and run a read-only connection test.</p></div>
-   <span className="reach-neon-status">Not saved</span>
+   <span className="reach-neon-status">{live?"Connected · session only":"Not connected"}</span>
   </div>
-  <p className="reach-neon-warning"><strong>Verification only:</strong> This form does not store credentials, activate REACH production storage, create tables, change permissions, or connect customer records. Use a limited database role rather than an owner/admin role.</p>
+  <p className="reach-neon-warning"><strong>Live session connection:</strong> REACH can verify and keep a Neon connection active in your signed-in browser for up to four hours using an encrypted, HttpOnly session cookie. This does not provide permanent credential storage, activate REACH workspace data, create tables, or change permissions. A limited database role is recommended.</p>
   <form onSubmit={event=>void verify(event)} autoComplete="off">
    <fieldset className="reach-neon-mode">
     <legend>How would you like to enter the connection?</legend>
@@ -95,10 +131,18 @@ export default function NeonCustomerCard(){
     <small>These labels stay in this form; they are not submitted or authenticated by the SQL connection test.</small>
    </details>
    <div className="reach-neon-actions">
-    <button type="submit" disabled={busy}>{busy?"Checking Neon…":"Test connection (read-only)"}</button>
-    <span>No credentials are saved</span>
+    <button type="submit" value="verify" disabled={busy}>{busy?"Checking Neon…":"Test connection (read-only)"}</button>
+    <button type="submit" value="connect" disabled={busy}>{busy?"Connecting…":live?"Replace live session":"Connect Neon (4-hour session)"}</button>
+    <span>No credentials are saved permanently</span>
    </div>
   </form>
+  {live&&<div className="reach-neon-verified" role="status">
+   <strong>Neon connected for this session</strong>
+   <p>Database: <code>{live.database}</code> · Role: <code>{live.role}</code></p>
+   <p>Live link expires: {new Date(live.expiresAt).toLocaleString()}. This connection is not persistent across logins or devices; REACH customer data storage is still gated.</p>
+   <button type="button" disabled={busy} onClick={()=>void disconnect()}>Disconnect Neon</button>
+  </div>}
+  {info&&<div className="reach-neon-verified" role="status">{info}</div>}
   {result&&<div className="reach-neon-verified" role="status">
    <strong>Read-only connectivity verified</strong>
    <p>Database: <code>{result.database}</code> · Role: <code>{result.role}</code></p>
