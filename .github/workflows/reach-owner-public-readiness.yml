@@ -34,3 +34,5 @@ jobs:
           }
           if(response.status!==200||!parsed||typeof parsed.configured!=="boolean")process.exitCode=1;
           NODE
+
+# Repeat public readiness check after restoring the original temporary password hash.
