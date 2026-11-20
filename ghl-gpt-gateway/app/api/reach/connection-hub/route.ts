@@ -5,18 +5,19 @@ import {META_PROVIDERS,metaSetupStatus} from "@/lib/social-meta-contract";
 import {connectionRuntimeEnabled,connectionRuntimeStatus} from "@/lib/reach-connection-runtime";
 import {listPlatformWorkspaces} from "@/lib/platform-store";
 import {ownerSocialStorageConfigured,ownerSocialWorkspace} from "@/lib/reach-social-owner-db";
+import {resolvedMetaEnv} from "@/lib/reach-meta-app-vault";
 export const runtime="nodejs";export const dynamic="force-dynamic";
 const reply=(data:unknown,status=200)=>NextResponse.json(data,{status,headers:{"Cache-Control":"private, no-store"}});
 /** Returns no secrets, raw tokens or unverifiable 'connected' indicators. */
 export async function GET(req:NextRequest){
  if(!adminAuthenticated(req))return reply({error:"Owner sign-in required"},401);
  const enabled=connectionRuntimeEnabled(),environment=connectionRuntimeStatus();
- const meta=META_PROVIDERS.map(provider=>{
-  const status=metaSetupStatus(process.env,provider,req.nextUrl.origin);
+ const meta=await Promise.all(META_PROVIDERS.map(async provider=>{
+  const status=metaSetupStatus(await resolvedMetaEnv(provider),provider,req.nextUrl.origin);
   return {provider,appConfigured:status.appConfigured,missingSettings:status.missingSettings,
    permissions:status.permissions,callbackUrl:status.callbackUrl,
    launchEnabled:enabled&&status.launchEnabled,readOnly:true,publishingEnabled:false};
- });
+ }));
  const providers=SOCIAL_PROVIDER_CATALOG.map(p=>({
   id:p.id,name:p.name,accounts:p.accounts,scopes:[...p.scopes],appSetup:p.appSetup,
   mode:p.id==="facebook"||p.id==="instagram"?"read_only" as const:"setup_required" as const,

@@ -8,6 +8,7 @@ import {oauthSettings,exchangeMetaCode} from "@/lib/social-meta-oauth-server";
 import {exchangeFacebookLongLived,exchangeInstagramLongLived} from "@/lib/social-meta-token-lifecycle";
 import {listFacebookPages} from "@/lib/social-meta-pages";
 import {readInstagramProfessionalProfile} from "@/lib/social-meta-instagram";
+import {resolvedMetaEnv} from "@/lib/reach-meta-app-vault";
 export const runtime="nodejs";export const dynamic="force-dynamic";
 const noStore={"Cache-Control":"no-store"};
 function toSocial(req:NextRequest,status:"failed"|"canceled"|"select"){
@@ -35,9 +36,10 @@ export async function GET(req:NextRequest){
  const secret=process.env.SOCIAL_META_OAUTH_STATE_SECRET||"";
  const parsed=verifyMetaConsent(state,secret,Date.now());
  if(!parsed||!cookie||!sameNonce(cookie,parsed.nonce))return toSocial(req,"failed");
- if(!metaConfigured(process.env,parsed.provider))return toSocial(req,"failed");
- const settings=oauthSettings(process.env,parsed.provider);
- const setup=metaSetupStatus(process.env,parsed.provider,req.nextUrl.origin);
+ const metaEnv=await resolvedMetaEnv(parsed.provider);
+ if(!metaConfigured(metaEnv,parsed.provider))return toSocial(req,"failed");
+ const settings=oauthSettings(metaEnv,parsed.provider);
+ const setup=metaSetupStatus(metaEnv,parsed.provider,req.nextUrl.origin);
  if(!setup.isCanonicalHost||!setup.branchMatches)return toSocial(req,"failed");
  try{
   if(!await consumeMetaFlow(parsed.workspaceId,parsed.provider,parsed.nonce))return toSocial(req,"failed");
