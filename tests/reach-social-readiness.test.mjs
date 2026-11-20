@@ -32,10 +32,13 @@ test("identical valid Meta app IDs are a safe, actionable Instagram blocker",asy
   assert.equal(duplicateMetaAppId(a,b),false);
  }
  const hub=read("app/api/reach/connection-hub/route.ts");
+ const start=read("app/api/platform/social/meta/start/route.ts");
  const page=read("app/connections/page.tsx");
  assert.match(hub,/duplicateMetaAppId\(/);
  assert.match(hub,/provider==="instagram_professional"&&duplicatedInstagramId/);
  assert.match(page,/setup\?\.duplicateAppId/);
  assert.match(page,/meta\.duplicateAppId/);
+ assert.match(start,/duplicateMetaAppId\(/);
+ assert.match(start,/Replace Instagram-specific credentials/);
  assert.doesNotMatch(hub,/clientSecret:|sealed_client_secret:|encrypted_access_token:/);
 });
