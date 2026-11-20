@@ -5,7 +5,7 @@ type Provider="facebook_pages"|"instagram_professional";
 type Meta={
  provider:Provider;
  appConfigured:boolean;missingSettings:string[];permissions:string[];
- callbackUrl:string|null;launchEnabled:boolean;readOnly:true;publishingEnabled:false
+ callbackUrl:string|null;launchEnabled:boolean;duplicateAppId:boolean;readOnly:true;publishingEnabled:false
 };
 type AppStatus={provider:Provider;configured:boolean;clientIdMasked:string|null;updatedAt:string|null};
 const safeAppUrl="https://developers.facebook.com/apps/";
