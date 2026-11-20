@@ -95,7 +95,7 @@ export default function SocialReadiness({meta,storageApproved,onConfigured}:{
      <strong>{facebook?"Facebook Pages":"Instagram Professional"}</strong>
      <span>{item.launchEnabled?"Connect available":saved?.configured?"App saved · enable consent":"Not authorized"}</span>
      <p>Read-only permissions: {item.permissions.join(", ")||"Provider setup required"}</p>
-     {!item.launchEnabled&&<p className="reach-social-suggestion">{saved?.configured?"Developer app saved. Check the callback and provider readiness before authorizing.":"Start here: enter your developer App ID and Secret below, save encrypted, then select Connect on the provider card."}</p>
+     {!item.launchEnabled&&<p className="reach-social-suggestion">{saved?.configured?"Developer app saved. Check the callback and provider readiness before authorizing.":"Start here: enter your developer App ID and Secret below, save encrypted, then select Connect on the provider card."}</p>}
      <p>{facebook?"Meta app → Facebook Login for Business → Settings":"Meta app → Instagram → API setup with Instagram login → Business login settings"}</p>
      {saved?.configured&&<p className="reach-social-saved">Saved app ID: {saved.clientIdMasked} · Secret encrypted</p>}
      {available&&storageApproved?<form className="reach-meta-app-form" onSubmit={e=>void saveApp(e,item.provider)} autoComplete="off">
