@@ -2,6 +2,7 @@
 import {useEffect,useState} from "react";
 import Link from "next/link";
 import "./connections.css";
+import NeonCustomerCard from "./neon-customer-card";
 
 type Workspace={id:string;name:string;slug:string};
 type MetaSetup={provider:"facebook_pages"|"instagram_professional";appConfigured:boolean;missingSettings:string[];permissions:string[];callbackUrl:string|null;launchEnabled:boolean;readOnly:true;publishingEnabled:false};
@@ -124,6 +125,7 @@ export default function Connections(){
    {error&&<section className="reach-conn-error" role="alert"><strong>Action needed</strong><p>{error}</p><button onClick={()=>setCheck(v=>v+1)}>Retry status</button></section>}
    {info&&<p className="reach-conn-info" role="status">{info}</p>}
    {hub&&<>
+    <NeonCustomerCard/>
     <section className="reach-conn-overview">
      <div><strong>Owner session</strong><span>Authenticated</span></div>
      <div><strong>Connection storage</strong><span>{hub.storageApproved?"Approved workspace data":"Setup required"}</span></div>

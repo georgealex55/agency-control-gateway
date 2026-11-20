@@ -5,6 +5,7 @@ on:
       - release/reach23-owner-login-connections-20261117
       - test/reach-owner-session-http-20261119
       - main
+      - feature/reach-23-neon-customer-preview-20261119
       - fix/reach-owner-login-config-diagnostics-20261119
       - fix/reach-owner-login-origin-diagnostics-20261119
     paths:
@@ -34,7 +35,7 @@ jobs:
         working-directory: ghl-gpt-gateway
         run: npm install --ignore-scripts --no-audit --no-fund
       - name: Test owner login and production connection security
-        run: node --test tests/reach-owner-connections.test.mjs tests/reach-23-ui-contract.test.mjs tests/reach-command-center.test.mjs tests/reach-command-runtime.test.mjs tests/reach-owner-origin.test.mjs tests/reach-owner-config.test.mjs
+        run: node --test tests/reach-owner-connections.test.mjs tests/reach-23-ui-contract.test.mjs tests/reach-command-center.test.mjs tests/reach-command-runtime.test.mjs tests/reach-owner-origin.test.mjs tests/reach-owner-config.test.mjs tests/reach-neon-customer-config.test.mjs
       - name: Typecheck Next.js REACH app
         working-directory: ghl-gpt-gateway
         run: npx tsc --noEmit
