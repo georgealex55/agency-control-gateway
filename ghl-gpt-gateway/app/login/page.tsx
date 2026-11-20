@@ -28,7 +28,16 @@ export default function OwnerLogin(){
    const response=await fetch("/api/portal/session",{method:"POST",credentials:"same-origin",cache:"no-store",
     headers:{"Content-Type":"application/json"},body:JSON.stringify({password})});
    const value=await response.json();
-   if(!response.ok||value.authenticated!==true)throw Error("Sign-in failed. Check the owner password and environment setup.");
+   if(!response.ok||value.authenticated!==true){
+    if(response.status===401)throw Error("Password mismatch (401). Enter the original password that generated your CURRENT production SHA-256 hash, not the hash itself or the previous temporary password.");
+    if(response.status===403)throw Error("Origin check blocked sign-in (403). Open the official REACH login address and try again.");
+    if(response.status===503)throw Error("Production owner credentials are not configured (503). Check the two private Vercel environment variables and redeploy.");
+    throw Error("Sign-in request failed (HTTP "+response.status+"). Check the current deployment and retry.");
+   }
+   // Verify the newly set HttpOnly cookie before leaving this page.
+   const verified=await fetch("/api/portal/session",{credentials:"same-origin",cache:"no-store"});
+   const verifiedSession=verified.ok?await verified.json():null;
+   if(verifiedSession?.authenticated!==true)throw Error("Password accepted, but the browser did not retain the owner session cookie. Check browser cookie settings and retry.");
    setPassword("");
    window.location.assign(next);
   }catch(e){setError(e instanceof Error?e.message:"Sign-in failed");}
@@ -40,6 +49,7 @@ export default function OwnerLogin(){
    <p className="reach-auth-eyebrow">REACH BUSINESS OPERATING SYSTEM</p>
    <h1>Welcome back.</h1>
    <p className="reach-auth-muted">Sign in to manage your workspace, Connections, and approved account integrations.</p>
+   <p className="reach-auth-muted">If you recently changed the SHA-256 value in Vercel, use the password that created the new hash. Never paste the hash into this password field.</p>
    {!verified?<p role="status">Checking owner session…</p>:null}
    {verified&&!session?.configured?<section className="reach-auth-status" role="status">
     <strong>Owner login setup required</strong>
