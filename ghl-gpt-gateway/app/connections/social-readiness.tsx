@@ -5,7 +5,7 @@ type Provider="facebook_pages"|"instagram_professional";
 type Meta={
  provider:Provider;
  appConfigured:boolean;missingSettings:string[];permissions:string[];
- callbackUrl:string|null;launchEnabled:boolean;readOnly:true;publishingEnabled:false
+ callbackUrl:string|null;launchEnabled:boolean;duplicateAppId:boolean;readOnly:true;publishingEnabled:false
 };
 type AppStatus={provider:Provider;configured:boolean;clientIdMasked:string|null;updatedAt:string|null};
 const safeAppUrl="https://developers.facebook.com/apps/";
@@ -95,6 +95,7 @@ export default function SocialReadiness({meta,storageApproved,onConfigured}:{
      <strong>{facebook?"Facebook Pages":"Instagram Professional"}</strong>
      <span>{item.launchEnabled?"Connect available":saved?.configured?"App saved · enable consent":"Not authorized"}</span>
      <p>Read-only permissions: {item.permissions.join(", ")||"Provider setup required"}</p>
+     {!facebook&&item.duplicateAppId&&<p className="reach-social-error" role="alert">Instagram and Facebook are saved with the same developer App ID. The Instagram Login product needs its Instagram App ID and matching Instagram App Secret from Meta Developer Apps → Instagram → API setup with Instagram login. Replace only the Instagram credentials below. Facebook authorization is unaffected.</p>}
      {!item.launchEnabled&&<p className="reach-social-suggestion">{saved?.configured?"Developer app saved. Check the callback and provider readiness before authorizing.":"Start here: enter your developer App ID and Secret below, save encrypted, then select Connect on the provider card."}</p>}
      <p>{facebook?"Meta app → Facebook Login for Business → Settings":"Meta app → Instagram → API setup with Instagram login → Business login settings"}</p>
      {saved?.configured&&<p className="reach-social-saved">Saved app ID: {saved.clientIdMasked} · Secret encrypted</p>}

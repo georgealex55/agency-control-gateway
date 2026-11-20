@@ -3,7 +3,7 @@ import {NextRequest} from "next/server";
 import {connectionGate,reply} from "@/lib/social-api";
 import {validId} from "@/lib/social-contract";
 import {connectionRuntimeEnabled} from "@/lib/reach-connection-runtime";
-import {isMetaProvider,metaConfigured,metaSetupStatus,buildMetaAuthorizeURL} from "@/lib/social-meta-contract";
+import {isMetaProvider,metaConfigured,metaSetupStatus,buildMetaAuthorizeURL,duplicateMetaAppId} from "@/lib/social-meta-contract";
 import {signMetaConsent} from "@/lib/social-meta-crypto";
 import {createMetaFlow} from "@/lib/social-meta-connection-store";
 import {oauthSettings} from "@/lib/social-meta-oauth-server";
@@ -17,6 +17,11 @@ export async function POST(req:NextRequest){
  if(!input||!validId(input.workspaceId)||!isMetaProvider(input.provider))return reply({error:"Valid workspace and Meta provider required"},400);
  const metaEnv=await resolvedMetaEnv(input.provider);
  if(!metaConfigured(metaEnv,input.provider))return reply({error:"Meta Developer app credentials are not configured for this provider"},503);
+ if(input.provider==="instagram_professional"){
+  const facebookEnv=await resolvedMetaEnv("facebook_pages");
+  if(duplicateMetaAppId(facebookEnv.SOCIAL_META_FACEBOOK_CLIENT_ID,metaEnv.SOCIAL_META_INSTAGRAM_CLIENT_ID))
+   return reply({error:"Instagram App ID matches the Facebook App ID. Replace Instagram-specific credentials in REACH before authorizing."},409);
+ }
  const settings=oauthSettings(metaEnv,input.provider);
  const setup=metaSetupStatus(metaEnv,input.provider,req.nextUrl.origin);
  if(!setup.isCanonicalHost||!setup.branchMatches)return reply({
