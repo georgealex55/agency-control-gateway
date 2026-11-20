@@ -19,7 +19,7 @@ export async function GET(req:NextRequest){
   return {provider,appConfigured:status.appConfigured,missingSettings:status.missingSettings,
    permissions:status.permissions,callbackUrl:status.callbackUrl,
    duplicateAppId:provider==="instagram_professional"&&duplicatedInstagramId,
-   launchEnabled:enabled&&status.launchEnabled,readOnly:true,publishingEnabled:false};
+   launchEnabled:enabled&&status.launchEnabled&&!(provider==="instagram_professional"&&duplicatedInstagramId),readOnly:true,publishingEnabled:false};
  });
  const providers=SOCIAL_PROVIDER_CATALOG.map(p=>({
   id:p.id,name:p.name,accounts:p.accounts,scopes:[...p.scopes],appSetup:p.appSetup,
