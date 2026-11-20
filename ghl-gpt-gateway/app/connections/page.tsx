@@ -127,7 +127,7 @@ export default function Connections(){
    {info&&<p className="reach-conn-info" role="status">{info}</p>}
    {hub&&<>
     <NeonCustomerCard/>
-    <SocialReadiness meta={hub.meta} storageApproved={hub.storageApproved}/>
+    <SocialReadiness meta={hub.meta} storageApproved={hub.storageApproved} onConfigured={()=>setCheck(v=>v+1)}/>
     <section className="reach-conn-overview">
      <div><strong>Owner session</strong><span>Authenticated</span></div>
      <div><strong>Connection storage</strong><span>{hub.storageApproved?"Approved workspace data":"Setup required"}</span></div>

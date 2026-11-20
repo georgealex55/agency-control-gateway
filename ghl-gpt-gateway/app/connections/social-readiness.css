@@ -20,3 +20,14 @@
 .reach-social-readiness>a{font-size:12px;color:#c9bcff}
 @media(max-width:800px){.reach-social-status{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.reach-social-status,.reach-social-providers{grid-template-columns:1fr}.reach-social-readiness{padding:17px}}
+
+.reach-meta-app-form{display:grid;gap:8px;margin-top:12px;border-top:1px solid #4c5875;padding-top:12px}
+.reach-meta-app-form label{font-size:12px;font-weight:700;color:#d6e0f4}
+.reach-meta-app-form input{width:100%;box-sizing:border-box;padding:11px 12px;color:#f4f6ff;background:#101a32;border:1px solid #526482;border-radius:9px;font-size:13px}
+.reach-meta-app-form input:focus-visible{outline:2px solid #b6a6ff;outline-offset:2px}
+.reach-meta-app-form button{margin-top:4px}
+.reach-meta-app-form small{font-size:11px;color:#adb9d0;line-height:1.6}
+.reach-social-saved{color:#b6e3d3!important}
+.reach-social-success,.reach-social-error{padding:12px;border-radius:10px;font-size:12px}
+.reach-social-success{background:#183e36;color:#c6f2df}
+.reach-social-error{background:#4a2733;color:#ffd7dd}

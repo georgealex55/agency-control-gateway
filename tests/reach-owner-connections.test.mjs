@@ -67,7 +67,8 @@ test("only Meta account administration can be enabled on production, not studio 
  for(const source of [socialMetaStart,metaReadiness,metaConnections,metaVerify])assert.match(source,/connectionGate\(req/);
  assert.match(socialMetaCallback,/if\(!connectionRuntimeEnabled\(\)/);
  assert.match(socialMetaStart,/SOCIAL_META_CONNECTIONS_ENABLED/);
- assert.match(socialMetaStart,/metaConfigured\(process\.env,input\.provider\)/);
+ assert.match(socialMetaStart,/metaConfigured\(metaEnv,input\.provider\)/);
+ assert.match(socialMetaStart,/resolvedMetaEnv\(input\.provider\)/);
  assert.match(socialMetaStart,/!setup\.isCanonicalHost\|\|!setup\.branchMatches/);
  assert.match(contracts,/requestOrigin===callbackOrigin/);
  assert.match(socialMetaCallback,/verifyMetaConsent/);

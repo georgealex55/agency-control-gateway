@@ -7,6 +7,7 @@ import {isMetaProvider,metaConfigured,metaSetupStatus,buildMetaAuthorizeURL} fro
 import {signMetaConsent} from "@/lib/social-meta-crypto";
 import {createMetaFlow} from "@/lib/social-meta-connection-store";
 import {oauthSettings} from "@/lib/social-meta-oauth-server";
+import {resolvedMetaEnv} from "@/lib/reach-meta-app-vault";
 export const runtime="nodejs";export const dynamic="force-dynamic";
 export async function POST(req:NextRequest){
  const denied=connectionGate(req,true);if(denied)return denied;
@@ -14,9 +15,10 @@ export async function POST(req:NextRequest){
  let raw:unknown;try{raw=await req.json();}catch{return reply({error:"Invalid JSON"},400);}
  const input=raw&&typeof raw==="object"&&!Array.isArray(raw)?raw as Record<string,unknown>:null;
  if(!input||!validId(input.workspaceId)||!isMetaProvider(input.provider))return reply({error:"Valid workspace and Meta provider required"},400);
- if(!metaConfigured(process.env,input.provider))return reply({error:"Meta Developer app credentials are not configured for this provider"},503);
- const settings=oauthSettings(process.env,input.provider);
- const setup=metaSetupStatus(process.env,input.provider,req.nextUrl.origin);
+ const metaEnv=await resolvedMetaEnv(input.provider);
+ if(!metaConfigured(metaEnv,input.provider))return reply({error:"Meta Developer app credentials are not configured for this provider"},503);
+ const settings=oauthSettings(metaEnv,input.provider);
+ const setup=metaSetupStatus(metaEnv,input.provider,req.nextUrl.origin);
  if(!setup.isCanonicalHost||!setup.branchMatches)return reply({
   error:"OAuth must start from the configured canonical callback hostname",
   canonicalStagingUrl:setup.callbackUrl?new URL(setup.callbackUrl).origin:null

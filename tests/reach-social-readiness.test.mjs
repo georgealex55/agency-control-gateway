@@ -4,7 +4,7 @@ import {readFileSync} from "node:fs";
 const read=p=>readFileSync(new URL("../ghl-gpt-gateway/"+p,import.meta.url),"utf8");
 test("Meta social readiness connects to exact hub status, never treats setup as connected",()=>{
  const page=read("app/connections/page.tsx"),ui=read("app/connections/social-readiness.tsx");
- assert.match(page,/SocialReadiness meta=\{hub.meta\} storageApproved=\{hub.storageApproved\}/);
+ assert.match(page,/SocialReadiness meta=\{hub.meta\} storageApproved=\{hub.storageApproved\} onConfigured=/);
  assert.match(ui,/item\.launchEnabled/);
  assert.match(ui,/storageApproved/);
  assert.match(ui,/Missing developer configuration/);

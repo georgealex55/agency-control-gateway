@@ -145,6 +145,35 @@ try{
   headers:{Origin:origin,Cookie:cookie},redirect:"manual"});
  assert.equal(deleteWithoutVault.status,503,"Cannot delete an unconfigured vault");
 
+ // Encrypted Meta app setup API; negative HTTP paths never touch a real provider or vault.
+ const metaAppsUrl=origin+"/api/reach/connections/meta-apps";
+ const metaNoAuth=await fetch(metaAppsUrl,{redirect:"manual"});
+ assert.equal(metaNoAuth.status,401,"Meta application settings require owner authentication");
+ const metaUnset=await fetch(metaAppsUrl,{headers:{Cookie:cookie},redirect:"manual"});
+ assert.equal(metaUnset.status,200,"Owner can inspect Meta app vault setup");
+ assert.deepEqual(await metaUnset.json(),{enabled:false,apps:[]});
+ assert.match(metaUnset.headers.get("cache-control")||"",/no-store/,"Meta app settings must not be cached");
+ const fictionalApp={provider:"facebook_pages",clientId:"123456789012345",clientSecret:"Fictional-Meta-App-Secret"};
+ const metaAnonymous=await fetch(metaAppsUrl,{method:"POST",headers:{Origin:origin,"Content-Type":"application/json"},
+  body:JSON.stringify(fictionalApp),redirect:"manual"});
+ assert.equal(metaAnonymous.status,401,"Saving a Meta app requires a signed-in owner");
+ const metaCrossOrigin=await fetch(metaAppsUrl,{method:"POST",
+  headers:{Origin:"https://untrusted.example",Cookie:cookie,"Content-Type":"application/json"},
+  body:JSON.stringify(fictionalApp),redirect:"manual"});
+ assert.equal(metaCrossOrigin.status,403,"Meta app setup rejects cross-site requests");
+ const metaDisabled=await fetch(metaAppsUrl,{method:"POST",
+  headers:{Origin:origin,Cookie:cookie,"Content-Type":"application/json"},
+  body:JSON.stringify(fictionalApp),redirect:"manual"});
+ assert.equal(metaDisabled.status,423,"Unconfigured vault cannot persist Meta app credentials");
+ const metaCrossDelete=await fetch(metaAppsUrl,{method:"DELETE",
+  headers:{Origin:"https://untrusted.example",Cookie:cookie,"Content-Type":"application/json"},
+  body:JSON.stringify({provider:"facebook_pages"}),redirect:"manual"});
+ assert.equal(metaCrossDelete.status,403,"Meta app deletion requires same origin");
+ const metaDisabledDelete=await fetch(metaAppsUrl,{method:"DELETE",
+  headers:{Origin:origin,Cookie:cookie,"Content-Type":"application/json"},
+  body:JSON.stringify({provider:"facebook_pages"}),redirect:"manual"});
+ assert.equal(metaDisabledDelete.status,423,"Disabled vault cannot delete Meta app credentials");
+
  const deniedLogout=await logout({Origin:"https://untrusted.example",Cookie:cookie});
  assert.equal(deniedLogout.status,403,"cross-site logout must be refused");
  const signedOut=await logout({Origin:origin,Cookie:cookie});
@@ -154,7 +183,7 @@ try{
  assert.match(clear,/agency_portal_session=/);
  assert.match(clear,/max-age=0|expires=/i,"logout must clear browser cookie");
  assert.equal((await session("agency_portal_session=")).authenticated,false,"cleared cookie must be signed out");
- process.stdout.write("REACH owner and Neon verification HTTP acceptance: 35 checks passed with synthetic secrets; no external requests.\n");
+ process.stdout.write("REACH owner and Neon verification HTTP acceptance: 43 checks passed with synthetic secrets; no external requests.\n");
 }finally{
  if(server.exitCode===null){
   server.kill("SIGTERM");
