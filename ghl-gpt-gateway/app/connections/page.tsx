@@ -6,7 +6,7 @@ import NeonCustomerCard from "./neon-customer-card";
 import SocialReadiness from "./social-readiness";
 
 type Workspace={id:string;name:string;slug:string};
-type MetaSetup={provider:"facebook_pages"|"instagram_professional";appConfigured:boolean;missingSettings:string[];permissions:string[];callbackUrl:string|null;launchEnabled:boolean;readOnly:true;publishingEnabled:false};
+type MetaSetup={provider:"facebook_pages"|"instagram_professional";appConfigured:boolean;missingSettings:string[];permissions:string[];callbackUrl:string|null;launchEnabled:boolean;duplicateAppId:boolean;readOnly:true;publishingEnabled:false};
 type Provider={id:string;name:string;accounts:string;scopes:string[];appSetup:string;mode:"read_only"|"setup_required";launchEnabled:boolean;publishingEnabled:false;connectionStatus:"not_verified"};
 type Hub={authenticated:true;environment:string;storageApproved:boolean;workspaces:Workspace[];providers:Provider[];meta:MetaSetup[];publishingEnabled:false;externalMessagingEnabled:false;requiredSetup:string[]};
 type MetaCandidate={id:string;name:string;accountType?:string};
