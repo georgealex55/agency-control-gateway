@@ -4,6 +4,7 @@ import {SOCIAL_PROVIDER_CATALOG} from "@/lib/social-provider-catalog";
 import {META_PROVIDERS,metaSetupStatus} from "@/lib/social-meta-contract";
 import {connectionRuntimeEnabled,connectionRuntimeStatus} from "@/lib/reach-connection-runtime";
 import {listPlatformWorkspaces} from "@/lib/platform-store";
+import {ownerSocialStorageConfigured,ownerSocialWorkspace} from "@/lib/reach-social-owner-db";
 export const runtime="nodejs";export const dynamic="force-dynamic";
 const reply=(data:unknown,status=200)=>NextResponse.json(data,{status,headers:{"Cache-Control":"private, no-store"}});
 /** Returns no secrets, raw tokens or unverifiable 'connected' indicators. */
@@ -30,7 +31,7 @@ export async function GET(req:NextRequest){
    "AGENCY_PLATFORM_DATABASE_URL","SOCIAL_META_CONNECTIONS_ENABLED"]
  });
  try{
-  const workspaces=await listPlatformWorkspaces();
+  const workspaces=ownerSocialStorageConfigured()?await ownerSocialWorkspace():await listPlatformWorkspaces();
   return reply({authenticated:true,environment,storageApproved:true,
    workspaces:workspaces.map(w=>({id:w.id,name:w.name,slug:w.slug})),
    providers,meta,publishingEnabled:false,externalMessagingEnabled:false,requiredSetup:[]});

@@ -1,6 +1,7 @@
 import {productionDatabaseApproved} from "@/lib/reach-connection-approval";
 import {stageEnabled} from "@/lib/social-contract";
 import {commandApprovedStorageConfigured} from "@/lib/reach-command-layout-store";
+import {ownerSocialStorageConfigured} from "@/lib/reach-social-owner-db";
 
 /**
  * Connection APIs are isolated from Social Studio's publishing and internal
@@ -12,7 +13,7 @@ export function productionConnectionApproved(env:NodeJS.ProcessEnv=process.env):
 }
 export function connectionRuntimeEnabled(env:NodeJS.ProcessEnv=process.env):boolean{
  if(stageEnabled(env))return commandApprovedStorageConfigured();
- return productionConnectionApproved(env);
+ return ownerSocialStorageConfigured(env)||productionConnectionApproved(env);
 }
 export function connectionRuntimeStatus(env:NodeJS.ProcessEnv=process.env):"ready"|"approval_required"|"unsupported_environment"{
  if(env.VERCEL_ENV==="production"||stageEnabled(env))

@@ -1,5 +1,5 @@
 import {createHash,randomUUID} from "node:crypto";
-import {readySql} from "@/lib/platform-store";
+import {socialMetaWorkspaceDb} from "@/lib/reach-social-owner-db";
 import {encryptMetaToken,decryptMetaToken} from "@/lib/social-meta-crypto";
 import type {MetaProvider} from "@/lib/social-meta-contract";
 type Row=Record<string,unknown>;
@@ -9,7 +9,7 @@ export type MetaConnection={id:string;provider:MetaProvider;accountId:string;nam
 export type MetaPending={id:string;provider:MetaProvider;candidates:MetaCandidate[];expiresAt:string};
 const digest=(value:string)=>createHash("sha256").update(value).digest("hex");
 export async function createMetaFlow(workspaceId:string,provider:MetaProvider,nonce:string,expires:number):Promise<boolean>{
- const db=await readySql();
+ const db=await socialMetaWorkspaceDb(workspaceId);
  await db.query("DELETE FROM agency_social_meta_oauth_flows WHERE workspace_id=$1::uuid AND expires_at<now()-interval '1 day'",[workspaceId]);
  const inserted=rows<{id:string}>(await db.query(
   "INSERT INTO agency_social_meta_oauth_flows(id,workspace_id,provider,nonce_hash,expires_at) "+
@@ -20,7 +20,7 @@ export async function createMetaFlow(workspaceId:string,provider:MetaProvider,no
  return inserted.length===1;
 }
 export async function consumeMetaFlow(workspaceId:string,provider:MetaProvider,nonce:string):Promise<boolean>{
- const db=await readySql();
+ const db=await socialMetaWorkspaceDb(workspaceId);
  const done=rows<{id:string}>(await db.query(
   "UPDATE agency_social_meta_oauth_flows SET consumed_at=now() WHERE workspace_id=$1::uuid AND provider=$2 "+
   "AND nonce_hash=$3 AND consumed_at IS NULL AND expires_at>now() RETURNING id",[workspaceId,provider,digest(nonce)]
@@ -32,7 +32,7 @@ export async function stageMetaCandidates(workspaceId:string,provider:MetaProvid
  // Never stage consent already expired; no pending account may outlive its provider credential.
  if(tokenExpiresAt!==null&&(!Number.isFinite(Date.parse(tokenExpiresAt))||Date.parse(tokenExpiresAt)<=Date.now()))throw Error("Meta authorization expired; reconnect needed");
  const pendingId=randomUUID(),encrypted=encryptMetaToken(token,key,workspaceId,provider,pendingId);
- const db=await readySql();
+ const db=await socialMetaWorkspaceDb(workspaceId);
  await db.query("INSERT INTO agency_social_meta_pending(id,workspace_id,provider,encrypted_token,candidates,token_expires_at,expires_at) "+
   "VALUES($1::uuid,$2::uuid,$3,$4,$5::jsonb,$6::timestamptz,now()+interval '10 minutes')",
   [pendingId,workspaceId,provider,encrypted,JSON.stringify(candidates),tokenExpiresAt]);
@@ -40,7 +40,7 @@ export async function stageMetaCandidates(workspaceId:string,provider:MetaProvid
   [workspaceId,provider,candidates.length]);
 }
 export async function getMetaInventory(workspaceId:string):Promise<{connections:MetaConnection[];pending:MetaPending[]}>{
- const db=await readySql();
+ const db=await socialMetaWorkspaceDb(workspaceId);
  // Remove expired encrypted pending consent data during authorized inventory reads.
  await db.query("DELETE FROM agency_social_meta_pending WHERE workspace_id=$1::uuid AND expires_at<=now()",[workspaceId]);
  const [linked,waiting]=await Promise.all([
@@ -52,7 +52,7 @@ export async function getMetaInventory(workspaceId:string):Promise<{connections:
  pending:rows<Row>(waiting).map(v=>({id:String(v.id),provider:v.provider as MetaProvider,candidates:(Array.isArray(v.candidates)?v.candidates:[]) as MetaCandidate[],expiresAt:new Date(String(v.expires_at)).toISOString()}))};
 }
 export async function selectMetaCandidate(workspaceId:string,pendingId:string,accountId:string,key:string):Promise<MetaConnection|null>{
- const db=await readySql();
+ const db=await socialMetaWorkspaceDb(workspaceId);
  const staged=rows<Row>(await db.query(
   "SELECT id,workspace_id,provider,candidates,encrypted_token,token_expires_at FROM agency_social_meta_pending "+
   "WHERE id=$1::uuid AND workspace_id=$2::uuid AND expires_at>now()",[pendingId,workspaceId]
@@ -83,7 +83,7 @@ export async function selectMetaCandidate(workspaceId:string,pendingId:string,ac
  const p=result[0];return {id:String(p.id),provider,accountId,name:selected.name,connectedAt:new Date(String(p.connected_at)).toISOString(),expiresAt:p.expires_at?new Date(String(p.expires_at)).toISOString():null,lastVerifiedAt:new Date().toISOString(),expired:false};
 }
 export async function disconnectMeta(workspaceId:string,connectionId:string):Promise<boolean>{
- const db=await readySql();
+ const db=await socialMetaWorkspaceDb(workspaceId);
  const deleted=rows<{id:string}>(await db.query(
   "WITH gone AS (DELETE FROM agency_social_meta_connections WHERE workspace_id=$1::uuid AND id=$2::uuid RETURNING id,provider), "+
   "audited AS (INSERT INTO agency_platform_audit_events(workspace_id,action,detail) SELECT $1::uuid,'social.meta.disconnected',jsonb_build_object('connection_id',id,'provider',provider) FROM gone RETURNING id) "+
@@ -95,7 +95,7 @@ export async function disconnectMeta(workspaceId:string,connectionId:string):Pro
 export async function metaConnectionCredential(workspaceId:string,connectionId:string,key:string):Promise<{
  provider:MetaProvider;accountId:string;token:string
 }|null>{
- const db=await readySql();
+ const db=await socialMetaWorkspaceDb(workspaceId);
  const matched=rows<Row>(await db.query(
   "SELECT provider,provider_account_id,encrypted_access_token,expires_at FROM agency_social_meta_connections "+
   "WHERE workspace_id=$1::uuid AND id=$2::uuid",[workspaceId,connectionId]
@@ -107,7 +107,7 @@ export async function metaConnectionCredential(workspaceId:string,connectionId:s
  return {provider,accountId,token};
 }
 export async function markMetaVerified(workspaceId:string,connectionId:string):Promise<boolean>{
- const db=await readySql();
+ const db=await socialMetaWorkspaceDb(workspaceId);
  const done=rows<{id:string}>(await db.query(
   "WITH checked AS (UPDATE agency_social_meta_connections SET last_verified_at=now() WHERE workspace_id=$1::uuid AND id=$2::uuid RETURNING id,provider), "+
   "audited AS (INSERT INTO agency_platform_audit_events(workspace_id,action,detail) SELECT $1::uuid,'social.meta.verified',jsonb_build_object('connection_id',id,'provider',provider) FROM checked RETURNING id) "+
