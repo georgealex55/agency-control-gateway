@@ -120,6 +120,31 @@ try{
  assert.equal(liveDisconnect.status,200,"Signed-in owner can disconnect temporary link");
  assert.match(liveDisconnect.headers.get("set-cookie")||"",/max-age=0/i,"Disconnect clears ephemeral credential cookie");
 
+ // Persistent owner-vault HTTP gate checks: no database env or external network.
+ const savedUrl=origin+"/api/reach/connections/neon/saved";
+ const savedNoAuth=await fetch(savedUrl,{redirect:"manual"});
+ assert.equal(savedNoAuth.status,401,"Saved Neon inventory requires owner login");
+ const savedWithoutVault=await fetch(savedUrl,{headers:{Cookie:cookie},redirect:"manual"});
+ assert.equal(savedWithoutVault.status,200,"Saved Neon registry can report setup status without connecting");
+ assert.deepEqual(await savedWithoutVault.json(),{configured:false,saved:false,storageActivated:false,readOnly:true});
+ const saveAnonymous=await fetch(savedUrl,{method:"POST",headers:{Origin:origin,"Content-Type":"application/json"},
+  body:JSON.stringify({useLiveSession:true}),redirect:"manual"});
+ assert.equal(saveAnonymous.status,401,"Saving credentials requires REACH owner login");
+ const saveForeignOrigin=await fetch(savedUrl,{method:"POST",
+  headers:{Origin:"https://untrusted.example",Cookie:cookie,"Content-Type":"application/json"},
+  body:JSON.stringify({useLiveSession:true}),redirect:"manual"});
+ assert.equal(saveForeignOrigin.status,403,"Saving must reject cross-origin requests");
+ const saveWithoutVault=await fetch(savedUrl,{method:"POST",
+  headers:{Origin:origin,Cookie:cookie,"Content-Type":"application/json"},
+  body:JSON.stringify({useLiveSession:true}),redirect:"manual"});
+ assert.equal(saveWithoutVault.status,503,"Saving stays disabled until dedicated vault and key exist");
+ const deleteForeignOrigin=await fetch(savedUrl,{method:"DELETE",
+  headers:{Origin:"https://untrusted.example",Cookie:cookie},redirect:"manual"});
+ assert.equal(deleteForeignOrigin.status,403,"Saved credential deletion requires same origin");
+ const deleteWithoutVault=await fetch(savedUrl,{method:"DELETE",
+  headers:{Origin:origin,Cookie:cookie},redirect:"manual"});
+ assert.equal(deleteWithoutVault.status,503,"Cannot delete an unconfigured vault");
+
  const deniedLogout=await logout({Origin:"https://untrusted.example",Cookie:cookie});
  assert.equal(deniedLogout.status,403,"cross-site logout must be refused");
  const signedOut=await logout({Origin:origin,Cookie:cookie});
@@ -129,7 +154,7 @@ try{
  assert.match(clear,/agency_portal_session=/);
  assert.match(clear,/max-age=0|expires=/i,"logout must clear browser cookie");
  assert.equal((await session("agency_portal_session=")).authenticated,false,"cleared cookie must be signed out");
- process.stdout.write("REACH owner and Neon verification HTTP acceptance: 28 checks passed with synthetic secrets; no external requests.\n");
+ process.stdout.write("REACH owner and Neon verification HTTP acceptance: 35 checks passed with synthetic secrets; no external requests.\n");
 }finally{
  if(server.exitCode===null){
   server.kill("SIGTERM");
