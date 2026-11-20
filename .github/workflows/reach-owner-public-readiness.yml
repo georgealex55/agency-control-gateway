@@ -1,0 +1,36 @@
+name: REACH public owner-login readiness diagnostic
+on:
+  push:
+    branches:
+      - diagnostic/reach-owner-live-session-20261119
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Query public read-only owner session readiness without secrets
+        env:
+          URL: https://agency-control-gateway.vercel.app/api/portal/session
+        run: |
+          node <<'NODE'
+          const url=process.env.URL+"?check="+Date.now();
+          const response=await fetch(url,{headers:{"Accept":"application/json","Cache-Control":"no-cache"},signal:AbortSignal.timeout(15000),redirect:"manual"});
+          console.log("httpStatus",response.status,"redirectedTo",response.headers.get("location")?"present":"none");
+          console.log("cacheControl",response.headers.get("cache-control"));
+          console.log("vercelIdPresent",!!response.headers.get("x-vercel-id"));
+          const body=await response.text();
+          let parsed;try{parsed=JSON.parse(body)}catch{}
+          if(parsed&&typeof parsed==="object"){
+            console.log("configured",parsed.configured===true);
+            console.log("authenticated",parsed.authenticated===true);
+            console.log("setupIssue",["password_hash_invalid","session_secret_invalid","both_invalid",null].includes(parsed.setupIssue)?parsed.setupIssue:"unknown-or-absent");
+            console.log("keys",Object.keys(parsed).filter(x=>["configured","authenticated","setupIssue"].includes(x)).join(","));
+          }else{
+            console.log("jsonResponse",false);
+            console.log("contentType",response.headers.get("content-type"));
+          }
+          if(response.status!==200||!parsed||typeof parsed.configured!=="boolean")process.exitCode=1;
+          NODE
