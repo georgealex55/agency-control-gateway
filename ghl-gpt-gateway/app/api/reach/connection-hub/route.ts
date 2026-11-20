@@ -12,12 +12,15 @@ const reply=(data:unknown,status=200)=>NextResponse.json(data,{status,headers:{"
 export async function GET(req:NextRequest){
  if(!adminAuthenticated(req))return reply({error:"Owner sign-in required"},401);
  const enabled=connectionRuntimeEnabled(),environment=connectionRuntimeStatus();
- const meta=await Promise.all(META_PROVIDERS.map(async provider=>{
-  const status=metaSetupStatus(await resolvedMetaEnv(provider),provider,req.nextUrl.origin);
+ const metaEnvs=await Promise.all(META_PROVIDERS.map(provider=>resolvedMetaEnv(provider)));
+ const duplicatedInstagramId=duplicateMetaAppId(metaEnvs[0].SOCIAL_META_FACEBOOK_CLIENT_ID,metaEnvs[1].SOCIAL_META_INSTAGRAM_CLIENT_ID);
+ const meta=META_PROVIDERS.map((provider,index)=>{
+  const status=metaSetupStatus(metaEnvs[index],provider,req.nextUrl.origin);
   return {provider,appConfigured:status.appConfigured,missingSettings:status.missingSettings,
    permissions:status.permissions,callbackUrl:status.callbackUrl,
+   duplicateAppId:provider==="instagram_professional"&&duplicatedInstagramId,
    launchEnabled:enabled&&status.launchEnabled,readOnly:true,publishingEnabled:false};
- }));
+ });
  const providers=SOCIAL_PROVIDER_CATALOG.map(p=>({
   id:p.id,name:p.name,accounts:p.accounts,scopes:[...p.scopes],appSetup:p.appSetup,
   mode:p.id==="facebook"||p.id==="instagram"?"read_only" as const:"setup_required" as const,
