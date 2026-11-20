@@ -41,9 +41,9 @@ test("rejects unsupported URL, fragments, and malformed database paths",()=>{
   url().replace("/reach_platform?","/bad/other?"),"invalid",null,""])
   assert.throws(()=>validateCustomerNeonUrl(s));
 });
-test("verification route is preview-only, owner authenticated and same-origin with no writes",()=>{
+test("verification route supports production but requires owner, same-origin and read-only SQL",()=>{
  const route=read("app/api/reach/connections/neon/verify/route.ts");
- assert.match(route,/process\.env\.VERCEL_ENV==="production"/);
+ assert.doesNotMatch(route,/process\.env\.VERCEL_ENV==="production"/);
  assert.match(route,/if\(!adminAuthenticated\(req\)\)/);
  assert.match(route,/if\(!sameOrigin\(req\)\)/);
  assert.match(route,/SELECT current_database\(\)/);

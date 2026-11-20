@@ -5,7 +5,7 @@ import "./neon-customer-card.css";
 type Mode="url"|"fields";
 type Verification={verified:true;connectionSaved:false;storageActivated:false;database:string;role:string;check:"read_only_select";note:string};
 
-/** Preview-only onboarding test; no browser or server credential persistence. */
+/** Owner-only onboarding test; no browser or server credential persistence. */
 export default function NeonCustomerCard(){
  const [mode,setMode]=useState<Mode>("url");
  const [dsn,setDsn]=useState("");
@@ -50,7 +50,7 @@ export default function NeonCustomerCard(){
  }
  return <section className="reach-neon-card" aria-labelledby="reach-neon-heading">
   <div className="reach-neon-heading">
-   <div><span className="reach-neon-eyebrow">CUSTOMER CONNECTIONS · PREVIEW ONLY</span>
+   <div><span className="reach-neon-eyebrow">CUSTOMER CONNECTIONS · READ-ONLY VERIFICATION</span>
     <h2 id="reach-neon-heading">Neon database</h2>
     <p>Enter your own Neon PostgreSQL credentials and run a read-only connection test.</p></div>
    <span className="reach-neon-status">Not saved</span>

@@ -7,12 +7,11 @@ export const dynamic="force-dynamic";
 const headers={"Cache-Control":"private, no-store, max-age=0","Referrer-Policy":"no-referrer","X-Content-Type-Options":"nosniff"};
 const reply=(body:unknown,status=200)=>NextResponse.json(body,{status,headers});
 /**
- * Preview-only, owner-authorized, one-shot read-only Neon connectivity check.
+ * Owner-authorized, one-shot read-only Neon connectivity check.
  * No DSN/password is stored, returned, logged, put in a cookie, or persisted.
  * No DDL, DML, project provisioning, environment changes or account activation.
  */
 export async function POST(req:NextRequest){
- if(process.env.VERCEL_ENV==="production")return reply({error:"Neon verification is available in Preview only."},403);
  if(!adminAuthenticated(req))return reply({error:"Owner sign-in required."},401);
  if(!sameOrigin(req))return reply({error:"Invalid request origin."},403);
  const declared=Number(req.headers.get("content-length")||0);
