@@ -20,8 +20,8 @@ const port=await new Promise((accept,reject)=>{
  server.once("error",reject);
  server.listen(0,"127.0.0.1",()=>{const address=server.address();const port=address.port;server.close(()=>accept(port));});
 });
-const origin="http://127.0.0.1:"+port;
-const server=spawn(process.execPath,["node_modules/next/dist/bin/next","start","-p",String(port),"-H","127.0.0.1"],{
+const origin="http://localhost:"+port;
+const server=spawn(process.execPath,["node_modules/next/dist/bin/next","start","-p",String(port),"-H","localhost"],{
  cwd:root,env:{...process.env,AGENCY_PORTAL_PASSWORD_SHA256:passwordHash,AGENCY_PORTAL_SESSION_SECRET:sessionSecret},
  stdio:["ignore","pipe","pipe"]
 });
