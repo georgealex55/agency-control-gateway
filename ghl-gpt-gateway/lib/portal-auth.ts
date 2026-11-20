@@ -1,5 +1,6 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "crypto";
 import type { NextRequest } from "next/server";
+import {ownerSameOrigin} from "@/lib/reach-owner-origin";
 const COOKIE = "agency_portal_session";
 const MAX_AGE_SECONDS = 8 * 60 * 60;
 function config() {
@@ -38,9 +39,16 @@ export function adminAuthenticated(req: NextRequest): boolean {
   return validSession(req.cookies.get(COOKIE)?.value);
 }
 export function sameOrigin(req: NextRequest): boolean {
-  const origin = req.headers.get("origin");
-  if (!origin) return false;
-  try { return new URL(origin).origin === req.nextUrl.origin; } catch { return false; }
+  return ownerSameOrigin({
+    originHeader:req.headers.get("origin"),
+    requestUrlOrigin:req.nextUrl.origin,
+    hostHeader:req.headers.get("host"),
+    forwardedHostHeader:req.headers.get("x-forwarded-host"),
+    forwardedProtoHeader:req.headers.get("x-forwarded-proto"),
+    vercelEnvironment:process.env.VERCEL_ENV,
+    vercelDeploymentUrl:process.env.VERCEL_URL,
+    configuredCanonicalOrigin:process.env.REACH_OWNER_CANONICAL_ORIGIN
+  });
 }
 export function cookieName(): string { return COOKIE; }
 export function cookieMaxAge(): number { return MAX_AGE_SECONDS; }
