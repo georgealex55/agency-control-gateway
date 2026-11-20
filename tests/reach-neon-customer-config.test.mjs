@@ -53,7 +53,7 @@ test("verification route supports production but requires owner, same-origin and
 });
 test("customer entry never transmits project/branch IDs or stores secrets in browser",()=>{
  const card=read("app/connections/neon-customer-card.tsx");
- assert.match(card,/Test connection \(read-only\)/);assert.match(card,/No credentials are saved/);
+ assert.match(card,/Test connection \(read-only\)/);assert.match(card,/Save Neon \(encrypted\)/);
  assert.match(card,/body:JSON\.stringify\(\{connectionString\}\)/);
  assert.match(card,/setPassword\(""\)/);assert.match(card,/setDsn\(""\)/);
  assert.doesNotMatch(card,/localStorage|sessionStorage|document\.cookie/);
