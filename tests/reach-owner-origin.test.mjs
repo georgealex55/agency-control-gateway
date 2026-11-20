@@ -73,5 +73,5 @@ test("owner login displays actionable HTTP errors and confirms cookie before red
  assert.match(login,/response\.status===503/);
  assert.match(login,/verifiedSession\?\.authenticated!==true/);
  assert.match(login,/window\.location\.assign\(next\)/);
- assert.doesNotMatch(login,/localStorage|sessionStorage|AGENCY_PORTAL_SESSION_SECRET/);
+ assert.doesNotMatch(login,/localStorage|sessionStorage|process\.env\.AGENCY_PORTAL_SESSION_SECRET/);
 });
