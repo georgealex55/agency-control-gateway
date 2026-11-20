@@ -183,7 +183,7 @@ export default function Connections(){
         onClick={()=>canConnect?void start(p.id as "facebook"|"instagram"):guideMetaSetup(p.id as "facebook"|"instagram")}>
         {busy===p.id?"Starting…":canConnect?(linked.length?"Reconnect account":"Connect "+p.name):"Set up "+p.name}
        </button>
-        {requiresSetup&&<p className="reach-conn-small">{!hub.storageApproved?"Workspace database setup is required before connecting.":!meta.appConfigured?"Save your developer app ID and secret in Facebook & Instagram setup above. Select Set up to go directly to the form.":"Review the OAuth callback/hostname requirements above before connecting."}</p>}
+        {requiresSetup&&<p className="reach-conn-small">{!hub.storageApproved?"Workspace database setup is required before connecting.":meta.duplicateAppId?"Replace Instagram-specific app credentials in the setup form above. Facebook and Instagram must not share this App ID.":!meta.appConfigured?"Save your developer app ID and secret in Facebook & Instagram setup above. Select Set up to go directly to the form.":"Review the OAuth callback/hostname requirements above before connecting."}</p>}
         {!requiresSetup&&!workspace&&<p className="reach-conn-small">Choose your business workspace before connecting.</p>}
         {meta.missingSettings.length>0&&<details><summary>Developer settings needed ({meta.missingSettings.length})</summary>
          <div className="reach-conn-keylist">{meta.missingSettings.map(k=><code key={k}>{k}</code>)}</div>
