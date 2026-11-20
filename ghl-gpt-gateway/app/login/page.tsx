@@ -3,7 +3,7 @@ import {useEffect,useState,type FormEvent} from "react";
 import Link from "next/link";
 import "./login.css";
 
-type Session={configured:boolean;authenticated:boolean};
+type Session={configured:boolean;authenticated:boolean;setupIssue?:"password_hash_invalid"|"session_secret_invalid"|"both_invalid"|null};
 const destination=(value:string|null)=>value==="/connections"||value==="/"?value:"/";
 export default function OwnerLogin(){
  const [session,setSession]=useState<Session|null>(null);
@@ -17,7 +17,7 @@ export default function OwnerLogin(){
   const controller=new AbortController();
   fetch("/api/portal/session",{credentials:"same-origin",cache:"no-store",signal:controller.signal})
    .then(async response=>{if(!response.ok)throw Error("Could not verify owner sign-in");return response.json();})
-   .then(data=>{if(!controller.signal.aborted)setSession({configured:data.configured===true,authenticated:data.authenticated===true});})
+   .then(data=>{if(!controller.signal.aborted)setSession({configured:data.configured===true,authenticated:data.authenticated===true,setupIssue:data.setupIssue});})
    .catch(()=>{if(!controller.signal.aborted)setError("Sign-in status is temporarily unavailable. Retry from this page.");})
    .finally(()=>{if(!controller.signal.aborted)setVerified(true);});
   return()=>controller.abort();
@@ -53,6 +53,7 @@ export default function OwnerLogin(){
    {!verified?<p role="status">Checking owner session…</p>:null}
    {verified&&!session?.configured?<section className="reach-auth-status" role="status">
     <strong>Owner login setup required</strong>
+    <p role="status">{session?.setupIssue==="password_hash_invalid"?"The production password hash is missing or is not exactly 64 hexadecimal characters.":session?.setupIssue==="session_secret_invalid"?"The production session-signing secret is missing or shorter than 32 characters.":session?.setupIssue==="both_invalid"?"Both the production password hash and the session-signing secret need to be checked.":"The production server does not have a valid owner-login configuration."}</p>
     <p>The owner login uses a private password hash and server-side session secret. Configure these in Vercel production environment settings; do not add passwords or secrets to source code.</p>
     <code>AGENCY_PORTAL_PASSWORD_SHA256</code>
     <code>AGENCY_PORTAL_SESSION_SECRET</code>
