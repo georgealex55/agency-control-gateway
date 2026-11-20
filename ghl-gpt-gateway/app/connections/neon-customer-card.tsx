@@ -5,6 +5,7 @@ import "./neon-customer-card.css";
 type Mode="url"|"fields";
 type Verification={verified:true;connectionSaved:false;storageActivated:false;database:string;role:string;check:"read_only_select";note:string};
 type LiveNeon={connected:true;scope:"owner_session";persisted:false;storageActivated:false;readOnly:true;database:string;role:string;hostname:string;expiresAt:string;verifiedAt:string};
+type SavedNeon={configured:true;saved:true;persisted:true;storageActivated:false;readOnly:true;scope:"single_owner";database:string;role:string;hostname:string;verifiedAt:string;updatedAt:string};
 
 /** Owner-only Neon connection verification and encrypted temporary session. No durable credential vault. */
 export default function NeonCustomerCard(){
@@ -19,6 +20,8 @@ export default function NeonCustomerCard(){
  const [busy,setBusy]=useState(false);
  const [result,setResult]=useState<Verification|null>(null);
  const [live,setLive]=useState<LiveNeon|null>(null);
+ const [saved,setSaved]=useState<SavedNeon|null>(null);
+ const [vaultConfigured,setVaultConfigured]=useState(false);
  const [error,setError]=useState("");
  const clearSecret=()=>{setDsn("");setPassword("");};
  useEffect(()=>{
@@ -27,6 +30,10 @@ export default function NeonCustomerCard(){
    .then(async response=>{if(!response.ok)throw Error("Live Neon status unavailable");return response.json() as Promise<LiveNeon|{connected:false}>;})
    .then(value=>{if(active)setLive(value.connected===true?value as LiveNeon:null);})
    .catch(()=>{if(active)setLive(null);});
+  fetch("/api/reach/connections/neon/saved",{credentials:"same-origin",cache:"no-store"})
+   .then(async response=>{if(!response.ok)throw Error("Saved connection registry unavailable");return response.json() as Promise<SavedNeon|{configured:boolean;saved:false}>;})
+   .then(value=>{if(active){setVaultConfigured(value.configured===true);setSaved(value.saved===true?value as SavedNeon:null);}})
+   .catch(()=>{if(active){setVaultConfigured(false);setSaved(null);}});
   return()=>{active=false;};
  },[]);
  async function disconnect(){
@@ -43,17 +50,45 @@ export default function NeonCustomerCard(){
   }catch(cause){setError(cause instanceof Error?cause.message:"Disconnect failed.");}
   finally{setBusy(false);}
  }
+ async function removeSaved(){
+  if(busy||!window.confirm("Remove the saved Neon credentials from REACH? This does not delete the Neon database."))return;
+  setBusy(true);setError("");setInfo("");
+  try{
+   const response=await fetch("/api/reach/connections/neon/saved",{method:"DELETE",credentials:"same-origin",
+    cache:"no-store",redirect:"error",referrerPolicy:"no-referrer"});
+   if(!response.ok)throw Error("Could not remove saved Neon connection.");
+   setSaved(null);setLive(null);setResult(null);clearSecret();
+   setInfo("Saved connection removed. The Neon database was not changed.");
+  }catch(cause){setError(cause instanceof Error?cause.message:"Remove failed.");}
+  finally{setBusy(false);}
+ }
+ async function saveLive(){
+  if(!live||busy||!vaultConfigured)return;
+  setBusy(true);setError("");setInfo("");
+  try{
+   const response=await fetch("/api/reach/connections/neon/saved",{method:"POST",
+    credentials:"same-origin",cache:"no-store",redirect:"error",referrerPolicy:"no-referrer",
+    headers:{"Content-Type":"application/json"},body:JSON.stringify({useLiveSession:true})});
+   const value:unknown=await response.json();
+   if(!response.ok||!value||typeof value!=="object"||!("saved" in value)||value.saved!==true)
+    throw Error(value&&typeof value==="object"&&"error" in value&&typeof value.error==="string"?value.error:"Unable to save session.");
+   setSaved(value as SavedNeon);
+   setInfo("Your currently connected Neon database is now saved in the encrypted owner vault.");
+  }catch(cause){setError(cause instanceof Error?cause.message:"Unable to save session.");}
+  finally{setBusy(false);}
+ }
  const [info,setInfo]=useState("");
  async function verify(event:FormEvent<HTMLFormElement>){
   event.preventDefault();if(busy)return;
   const submitter=(event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement|null;
   const connect=submitter?.value==="connect";
+  const save=submitter?.value==="save";
   setBusy(true);setError("");setResult(null);setInfo("");
   let connectionString="";
   try{
    if(mode==="url")connectionString=dsn.trim();
    else connectionString="postgresql://"+encodeURIComponent(role)+":"+encodeURIComponent(password)+"@"+host.trim().toLowerCase()+"/"+encodeURIComponent(database.trim())+"?sslmode=require";
-   const response=await fetch(connect?"/api/reach/connections/neon/live":"/api/reach/connections/neon/verify",{
+   const response=await fetch(save?"/api/reach/connections/neon/saved":connect?"/api/reach/connections/neon/live":"/api/reach/connections/neon/verify",{
     method:"POST",credentials:"same-origin",cache:"no-store",redirect:"error",
     referrerPolicy:"no-referrer",
     headers:{"Content-Type":"application/json"},body:JSON.stringify({connectionString})
@@ -64,7 +99,13 @@ export default function NeonCustomerCard(){
       value.error:"Connection verification failed.";
     throw Error(msg);
    }
-   if(connect){
+   if(save){
+    if(!value||typeof value!=="object"||!("saved" in value)||value.saved!==true||
+       !("persisted" in value)||value.persisted!==true)
+      throw Error("The server did not confirm permanent encrypted storage.");
+    setSaved(value as SavedNeon);
+    setInfo("Neon connection saved in the encrypted owner vault; you can disconnect or replace it.");
+   }else if(connect){
     if(!value||typeof value!=="object"||!("connected" in value)||value.connected!==true||
       !("persisted" in value)||value.persisted!==false||
       !("storageActivated" in value)||value.storageActivated!==false)
@@ -89,9 +130,9 @@ export default function NeonCustomerCard(){
    <div><span className="reach-neon-eyebrow">CUSTOMER CONNECTIONS · READ-ONLY VERIFICATION</span>
     <h2 id="reach-neon-heading">Neon database</h2>
     <p>Enter your own Neon PostgreSQL credentials and run a read-only connection test.</p></div>
-   <span className="reach-neon-status">{live?"Connected · session only":"Not connected"}</span>
+   <span className="reach-neon-status">{saved?"Saved · encrypted":live?"Connected · session only":"Not connected"}</span>
   </div>
-  <p className="reach-neon-warning"><strong>Live session connection:</strong> REACH can verify and keep a Neon connection active in your signed-in browser for up to four hours using an encrypted, HttpOnly session cookie. This does not provide permanent credential storage, activate REACH workspace data, create tables, or change permissions. A limited database role is recommended.</p>
+  <p className="reach-neon-warning"><strong>Secure connection storage:</strong> Save your verified Neon database connection in the encrypted owner vault to retain it across logins. The four-hour session connection remains available. Neither option activates REACH workspace data writes or changes Neon tables or permissions. Use a limited database role.</p>
   <form onSubmit={event=>void verify(event)} autoComplete="off">
    <fieldset className="reach-neon-mode">
     <legend>How would you like to enter the connection?</legend>
@@ -133,13 +174,21 @@ export default function NeonCustomerCard(){
    <div className="reach-neon-actions">
     <button type="submit" value="verify" disabled={busy}>{busy?"Checking Neon…":"Test connection (read-only)"}</button>
     <button type="submit" value="connect" disabled={busy}>{busy?"Connecting…":live?"Replace live session":"Connect Neon (4-hour session)"}</button>
-    <span>No credentials are saved permanently</span>
+    <button type="submit" value="save" disabled={busy||!vaultConfigured}>{busy?"Saving…":"Save Neon (encrypted)"}</button>
+    <span>{vaultConfigured?"Encrypted owner vault available":"Persistent vault setup pending"}</span>
    </div>
   </form>
+  {saved&&<div className="reach-neon-verified" role="status">
+    <strong>Saved Neon database connection</strong>
+    <p>Database: <code>{saved.database}</code> · Role: <code>{saved.role}</code> · Host: <code>{saved.hostname}</code></p>
+    <p>Saved across owner logins. This is the owner-only connection registry; workspace data storage and social authorization remain separate.</p>
+    <button type="button" disabled={busy} onClick={()=>void removeSaved()}>Remove saved connection</button>
+   </div>}
   {live&&<div className="reach-neon-verified" role="status">
    <strong>Neon connected for this session</strong>
    <p>Database: <code>{live.database}</code> · Role: <code>{live.role}</code></p>
    <p>Live link expires: {new Date(live.expiresAt).toLocaleString()}. This connection is not persistent across logins or devices; REACH customer data storage is still gated.</p>
+   {vaultConfigured&&!saved&&<button type="button" disabled={busy} onClick={()=>void saveLive()}>Save this live connection</button>}
    <button type="button" disabled={busy} onClick={()=>void disconnect()}>Disconnect Neon</button>
   </div>}
   {info&&<div className="reach-neon-verified" role="status">{info}</div>}

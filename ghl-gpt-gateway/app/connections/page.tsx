@@ -3,6 +3,7 @@ import {useEffect,useState} from "react";
 import Link from "next/link";
 import "./connections.css";
 import NeonCustomerCard from "./neon-customer-card";
+import SocialReadiness from "./social-readiness";
 
 type Workspace={id:string;name:string;slug:string};
 type MetaSetup={provider:"facebook_pages"|"instagram_professional";appConfigured:boolean;missingSettings:string[];permissions:string[];callbackUrl:string|null;launchEnabled:boolean;readOnly:true;publishingEnabled:false};
@@ -126,6 +127,7 @@ export default function Connections(){
    {info&&<p className="reach-conn-info" role="status">{info}</p>}
    {hub&&<>
     <NeonCustomerCard/>
+    <SocialReadiness meta={hub.meta} storageApproved={hub.storageApproved}/>
     <section className="reach-conn-overview">
      <div><strong>Owner session</strong><span>Authenticated</span></div>
      <div><strong>Connection storage</strong><span>{hub.storageApproved?"Approved workspace data":"Setup required"}</span></div>
