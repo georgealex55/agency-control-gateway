@@ -1,8 +1,22 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { registerHooks } from "node:module";
 import { MODULES, SAMPLE_TENANTS, entitled, canApprove } from "../ghl-gpt-gateway/lib/agency-platform.ts";
-import { portalConfigured, passwordValid, newSession, validSession, sameOrigin } from "../ghl-gpt-gateway/lib/portal-auth.ts";
+// Node's standalone test runner does not honor Next.js/TypeScript @/lib aliases.
+// Resolve only the app's local lib imports for this test process; no app code changes.
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier.startsWith("@/lib/")) {
+      const path = specifier.slice("@/lib/".length);
+      if (!/^[a-zA-Z0-9-]+$/.test(path)) throw new Error("Unexpected REACH test import");
+      return nextResolve(new URL("../ghl-gpt-gateway/lib/" + path + ".ts", import.meta.url).href, context);
+    }
+    return nextResolve(specifier, context);
+  }
+});
+const { portalConfigured, passwordValid, newSession, validSession, sameOrigin } =
+  await import("../ghl-gpt-gateway/lib/portal-auth.ts");
 
 test("unique modules and three synthetic profiles",()=>{
   assert.equal(new Set(MODULES.map(m=>m.key)).size,MODULES.length);
