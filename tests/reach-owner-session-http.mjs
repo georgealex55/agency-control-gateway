@@ -96,6 +96,30 @@ try{
  assert.equal(badPayload.status,400,"Malformed JSON denied without contacting Neon");
  assert.match(badPayload.headers.get("cache-control")||"",/no-store/,"verification responses must never be cached");
 
+ // Live Neon session HTTP safeguards: no real Neon access or customer credentials.
+ const liveUrl=origin+"/api/reach/connections/neon/live";
+ const liveNoAuth=await fetch(liveUrl,{redirect:"manual"});
+ assert.equal(liveNoAuth.status,401,"Live status requires owner authentication");
+ const liveNotConnected=await fetch(liveUrl,{headers:{Cookie:cookie},redirect:"manual"});
+ assert.equal(liveNotConnected.status,200,"Authenticated live status should be readable");
+ assert.equal((await liveNotConnected.json()).connected,false,"No live session exists until owner explicitly connects");
+ const liveNoAuthPost=await fetch(liveUrl,{method:"POST",headers:{Origin:origin,"Content-Type":"application/json"},
+  body:JSON.stringify({connectionString:"invalid"}),redirect:"manual"});
+ assert.equal(liveNoAuthPost.status,401,"Live connect requires owner session");
+ const liveCross=await fetch(liveUrl,{method:"POST",
+  headers:{Origin:"https://untrusted.example",Cookie:cookie,"Content-Type":"application/json"},
+  body:JSON.stringify({connectionString:"invalid"}),redirect:"manual"});
+ assert.equal(liveCross.status,403,"Live connect rejects foreign origin");
+ const liveInvalid=await fetch(liveUrl,{method:"POST",
+  headers:{Origin:origin,Cookie:cookie,"Content-Type":"application/json"},
+  body:JSON.stringify({connectionString:"invalid"}),redirect:"manual"});
+ assert.equal(liveInvalid.status,422,"Malformed connection rejected before any network access");
+ const liveCrossDelete=await fetch(liveUrl,{method:"DELETE",headers:{Origin:"https://untrusted.example",Cookie:cookie},redirect:"manual"});
+ assert.equal(liveCrossDelete.status,403,"Disconnect rejects foreign origins");
+ const liveDisconnect=await fetch(liveUrl,{method:"DELETE",headers:{Origin:origin,Cookie:cookie},redirect:"manual"});
+ assert.equal(liveDisconnect.status,200,"Signed-in owner can disconnect temporary link");
+ assert.match(liveDisconnect.headers.get("set-cookie")||"",/max-age=0/i,"Disconnect clears ephemeral credential cookie");
+
  const deniedLogout=await logout({Origin:"https://untrusted.example",Cookie:cookie});
  assert.equal(deniedLogout.status,403,"cross-site logout must be refused");
  const signedOut=await logout({Origin:origin,Cookie:cookie});
@@ -105,7 +129,7 @@ try{
  assert.match(clear,/agency_portal_session=/);
  assert.match(clear,/max-age=0|expires=/i,"logout must clear browser cookie");
  assert.equal((await session("agency_portal_session=")).authenticated,false,"cleared cookie must be signed out");
- process.stdout.write("REACH owner and Neon verification HTTP acceptance: 20 checks passed with synthetic secrets; no external requests.\n");
+ process.stdout.write("REACH owner and Neon verification HTTP acceptance: 28 checks passed with synthetic secrets; no external requests.\n");
 }finally{
  if(server.exitCode===null){
   server.kill("SIGTERM");
