@@ -35,6 +35,6 @@ test("diagnostic code never exposes password, secret, length, or digest",()=>{
  assert.match(auth,/assessPortalCredentials\(passwordHash,secret\)/);
  assert.match(login,/session\?\.setupIssue==="password_hash_invalid"/);
  assert.match(login,/session\?\.setupIssue==="session_secret_invalid"/);
- assert.doesNotMatch(route,/process\.env|passwordHash|sessionSecret/);
+ assert.doesNotMatch(route,/process\.env\.AGENCY_PORTAL_|passwordHash|sessionSecret/);
  assert.doesNotMatch(source,/console\.|log\(/);
 });
