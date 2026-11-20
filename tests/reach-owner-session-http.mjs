@@ -47,7 +47,7 @@ try{
  }
  assert.equal(initialized,true,"Built Next.js owner login must start: "+diagnostics);
  const first=await session();
- assert.deepEqual(first,{configured:true,authenticated:false},"unverified request must be signed out");
+ assert.deepEqual(first,{configured:true,authenticated:false,setupIssue:null},"unverified request must be signed out");
  const missingOrigin=await post(password);
  assert.equal(missingOrigin.status,403,"POST without same-origin header must be refused");
  const wrongOrigin=await post(password,{Origin:"https://untrusted.example"});

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuthenticated, cookieMaxAge, cookieName, newSession, passwordValid, portalConfigured, sameOrigin } from "@/lib/portal-auth";
+import { adminAuthenticated, cookieMaxAge, cookieName, newSession, passwordValid, portalConfigured, portalSetupIssue, sameOrigin } from "@/lib/portal-auth";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 function result(body: unknown, status = 200) {
   return NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
 }
 export async function GET(req: NextRequest) {
-  return result({ configured: portalConfigured(), authenticated: adminAuthenticated(req) });
+  return result({ configured: portalConfigured(), authenticated: adminAuthenticated(req), setupIssue: portalSetupIssue() });
 }
 export async function POST(req: NextRequest) {
   if (!sameOrigin(req)) return result({error:"Invalid request origin"},403);

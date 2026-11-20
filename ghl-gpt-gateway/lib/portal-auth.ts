@@ -1,14 +1,17 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "crypto";
 import type { NextRequest } from "next/server";
 import {ownerSameOrigin} from "@/lib/reach-owner-origin";
+import {assessPortalCredentials,type PortalSetupIssue} from "@/lib/reach-portal-setup";
 const COOKIE = "agency_portal_session";
 const MAX_AGE_SECONDS = 8 * 60 * 60;
 function config() {
   const passwordHash = (process.env.AGENCY_PORTAL_PASSWORD_SHA256 || "").trim().toLowerCase();
   const secret = process.env.AGENCY_PORTAL_SESSION_SECRET || "";
-  return { passwordHash, secret, ready: /^[a-f0-9]{64}$/.test(passwordHash) && secret.length >= 32 };
+  const readiness=assessPortalCredentials(passwordHash,secret);
+  return {passwordHash,secret,ready:readiness.configured,setupIssue:readiness.setupIssue};
 }
 export function portalConfigured(): boolean { return config().ready; }
+export function portalSetupIssue(): PortalSetupIssue { return config().setupIssue; }
 export function passwordValid(password: string): boolean {
   const c = config();
   if (!c.ready || password.length < 12 || password.length > 512) return false;
