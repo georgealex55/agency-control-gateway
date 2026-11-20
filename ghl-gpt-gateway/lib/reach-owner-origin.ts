@@ -39,8 +39,9 @@ export function ownerSameOrigin(context:OwnerOriginContext):boolean{
  const browser=parsedOrigin(context.originHeader);
  if(!browser)return false;
  // Direct local / standard Next.js requests retain the original matching origin.
- if(browser.origin===context.requestUrlOrigin)return true;
- // Deployment alias fallback is strictly limited to production and known hosts.
+ if(browser.origin===context.requestUrlOrigin&&context.vercelEnvironment!=="production")return true;
+ // Production requires a routed, explicitly trusted hostname even when nextUrl
+ // happens to match the Origin. An attacker-controlled Host cannot authorize it.
  if(context.vercelEnvironment!=="production"||context.forwardedProtoHeader!=="https")return false;
  const forwarded=parseTrustedHost(context.forwardedHostHeader,"https");
  const host=parseTrustedHost(context.hostHeader,"https");
