@@ -67,6 +67,35 @@ try{
  const [key,value]=cookie.split("=");
  const mutated=value.slice(0,-2)+"AA";
  assert.equal((await session(key+"="+mutated)).authenticated,false,"tampered signed cookie must fail");
+
+ // Preview Neon customer onboarding: negative-path real HTTP coverage only.
+ // None of these cases makes a database connection or passes a real password.
+ const verifyUrl=origin+"/api/reach/connections/neon/verify";
+ const syntheticDsn="postgresql://fictional:synthetic@ep-simulated.c-2.us-east-2.aws.neon.tech/synthetic_db?sslmode=require";
+ const verify=async(payload,headers={})=>fetch(verifyUrl,{
+  method:"POST",headers:{"Content-Type":"application/json",Origin:origin,Cookie:cookie,...headers},
+  body:JSON.stringify(payload),redirect:"manual"
+ });
+ const noAuth=await verify({connectionString:syntheticDsn},{Cookie:""});
+ assert.equal(noAuth.status,401,"Neon verification must require owner session");
+ const crossOrigin=await verify({connectionString:syntheticDsn},{Origin:"https://malicious.example"});
+ assert.equal(crossOrigin.status,403,"Neon verification must refuse cross-origin requests");
+ const malformed=await verify({connectionString:"not-a-postgres-url"});
+ assert.equal(malformed.status,422,"Invalid DSN rejected before any remote request");
+ const unsafeHost=await verify({connectionString:"postgresql://u:p@127.0.0.1/synthetic_db?sslmode=require"});
+ assert.equal(unsafeHost.status,422,"Private IP must be rejected before network");
+ const missingTls=await verify({connectionString:syntheticDsn.replace("?sslmode=require","")});
+ assert.equal(missingTls.status,422,"TLS must be enforced before network");
+ const excessFields=await verify({connectionString:syntheticDsn,store:true});
+ assert.equal(excessFields.status,400,"No persistence or extra fields accepted");
+ const getVerify=await fetch(verifyUrl,{redirect:"manual"});
+ assert.equal(getVerify.status,405,"Verification route must reject GET requests");
+ const badPayload=await fetch(verifyUrl,{method:"POST",
+  headers:{"Content-Type":"application/json",Origin:origin,Cookie:cookie},
+  body:"{broken json",redirect:"manual"});
+ assert.equal(badPayload.status,400,"Malformed JSON denied without contacting Neon");
+ assert.match(badPayload.headers.get("cache-control")||"",/no-store/,"verification responses must never be cached");
+
  const deniedLogout=await logout({Origin:"https://untrusted.example",Cookie:cookie});
  assert.equal(deniedLogout.status,403,"cross-site logout must be refused");
  const signedOut=await logout({Origin:origin,Cookie:cookie});
@@ -76,7 +105,7 @@ try{
  assert.match(clear,/agency_portal_session=/);
  assert.match(clear,/max-age=0|expires=/i,"logout must clear browser cookie");
  assert.equal((await session("agency_portal_session=")).authenticated,false,"cleared cookie must be signed out");
- process.stdout.write("REACH owner login HTTP acceptance: 12 checks passed with synthetic secrets; no external requests.\n");
+ process.stdout.write("REACH owner and Neon verification HTTP acceptance: 20 checks passed with synthetic secrets; no external requests.\n");
 }finally{
  if(server.exitCode===null){
   server.kill("SIGTERM");
