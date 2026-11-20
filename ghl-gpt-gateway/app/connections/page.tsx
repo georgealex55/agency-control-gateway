@@ -79,6 +79,8 @@ export default function Connections(){
   const setup=hub?.meta.find(m=>m.provider===id);
   if(!hub?.storageApproved){
    setError("REACH workspace storage is not ready. Use Refresh connections after it is configured.");
+  }else if(provider==="instagram"&&setup?.duplicateAppId){
+   setInfo("Instagram and Facebook are using the same App ID. Open the Instagram API setup in Meta Developer Apps and replace only the Instagram-specific App ID and Secret above before connecting.");
   }else if(setup?.appConfigured){
    setInfo("The Meta app is saved, but OAuth is not ready on this hostname or with the current callback settings. Check the setup details and use the canonical REACH production URL.");
   }else{
