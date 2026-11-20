@@ -31,3 +31,6 @@
 .reach-social-success,.reach-social-error{padding:12px;border-radius:10px;font-size:12px}
 .reach-social-success{background:#183e36;color:#c6f2df}
 .reach-social-error{background:#4a2733;color:#ffd7dd}
+
+.reach-social-suggestion{padding:10px;border-left:3px solid #b7a2ff;background:#131d35;color:#e3ddff!important;border-radius:7px}
+.reach-social-providers>div:target{outline:2px solid #b8a8ff;outline-offset:2px}

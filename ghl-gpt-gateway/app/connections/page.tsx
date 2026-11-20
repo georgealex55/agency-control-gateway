@@ -42,6 +42,7 @@ export default function Connections(){
  const [info,setInfo]=useState("");
  const [loading,setLoading]=useState(true);
  const [check,setCheck]=useState(0);
+ const [expandedProvider,setExpandedProvider]=useState<string|null>(null);
  useEffect(()=>{
   const status=new URLSearchParams(window.location.search).get("meta");
   if(status==="select")setInfo("Authorization completed. Choose the exact account below to finish connecting.");
@@ -71,6 +72,24 @@ export default function Connections(){
    .catch(e=>{if(active)setError(e instanceof Error?e.message:"Account inventory unavailable");});
   return()=>{active=false;};
  },[hub,workspace]);
+ /** Non-functional Connect buttons should guide the owner into setup, not remain disabled. */
+ function guideMetaSetup(provider:"facebook"|"instagram"){
+  const id=metaId(provider);
+  if(!id)return;
+  const setup=hub?.meta.find(m=>m.provider===id);
+  if(!hub?.storageApproved){
+   setError("REACH workspace storage is not ready. Use Refresh connections after it is configured.");
+  }else if(setup?.appConfigured){
+   setInfo("The Meta app is saved, but OAuth is not ready on this hostname or with the current callback settings. Check the setup details and use the canonical REACH production URL.");
+  }else{
+   setInfo("Save the "+(provider==="facebook"?"Facebook":"Instagram")+" developer App ID and App Secret in the highlighted setup form. This must be done before Meta can request account consent.");
+  }
+  document.getElementById("reach-meta-setup-"+id)?.scrollIntoView({behavior:"smooth",block:"center"});
+  if(!setup?.appConfigured){
+   const field=document.getElementById("meta-app-id-"+id);
+   if(field instanceof HTMLInputElement&&!field.disabled)field.focus({preventScroll:true});
+  }
+ }
  async function start(provider:"facebook"|"instagram"){
   const m=metaId(provider);
   if(!m||!workspace)return;
@@ -152,13 +171,18 @@ export default function Connections(){
       const linked=inventory?.connections.filter(c=>c.provider===metaId(p.id))||[];
       const pending=inventory?.pending.filter(c=>c.provider===metaId(p.id))||[];
       const canConnect=Boolean(meta?.launchEnabled&&hub.storageApproved&&workspace&&!busy);
+      const requiresSetup=Boolean(meta&&!meta.launchEnabled);
       return <article key={p.id} className="reach-conn-card">
        <div className="reach-conn-card-head"><h2>{p.name}</h2><span>{linked.some(c=>!c.expired)?"Read-only record":linked.length?"Expired":"Not connected / unverified"}</span></div>
        <p>{p.accounts}</p>
        <p className="reach-conn-small">Access scope: {p.scopes.length?p.scopes.join(", "):"Requires approved developer access"}</p>
        <p className="reach-conn-small">{p.appSetup}</p>
-       {meta?<><button disabled={!canConnect} onClick={()=>void start(p.id as "facebook"|"instagram")}>{busy===p.id?"Starting…":linked.length?"Reconnect account":"Connect "+p.name}</button>
-        {!canConnect&&<p className="reach-conn-small">Connect is available after workspace approval, app setup, and owner consent.</p>}
+       {meta?<><button type="button" disabled={busy!==""}
+        onClick={()=>canConnect?void start(p.id as "facebook"|"instagram"):guideMetaSetup(p.id as "facebook"|"instagram")}>
+        {busy===p.id?"Starting…":canConnect?(linked.length?"Reconnect account":"Connect "+p.name):"Set up "+p.name}
+       </button>
+        {requiresSetup&&<p className="reach-conn-small">{!hub.storageApproved?"Workspace database setup is required before connecting.":!meta.appConfigured?"Save your developer app ID and secret in Facebook & Instagram setup above. Select Set up to go directly to the form.":"Review the OAuth callback/hostname requirements above before connecting."}</p>}
+        {!requiresSetup&&!workspace&&<p className="reach-conn-small">Choose your business workspace before connecting.</p>}
         {meta.missingSettings.length>0&&<details><summary>Developer settings needed ({meta.missingSettings.length})</summary>
          <div className="reach-conn-keylist">{meta.missingSettings.map(k=><code key={k}>{k}</code>)}</div>
         </details>}
@@ -170,7 +194,14 @@ export default function Connections(){
          <div><button disabled={busy!==""||c.expired} onClick={()=>void verify(c.id)}>Verify</button>
          <button className="reach-conn-disconnect" disabled={busy!==""} onClick={()=>void disconnect(c.id)}>Disconnect</button></div>
         </div>)}
-       </>:<button disabled>Developer authorization not available</button>}
+       </>:<><button type="button" onClick={()=>setExpandedProvider(value=>value===p.id?null:p.id)}>
+         {expandedProvider===p.id?"Hide setup requirements":"View setup requirements"}
+        </button>
+        {expandedProvider===p.id&&<div className="reach-conn-setup-info">
+         <strong>Developer authorization not available yet</strong>
+         <p>REACH has not implemented live OAuth for {p.name}. This card is informational, not an active account connection. Provider consent, secure token storage and integration testing must be completed before enabling Connect.</p>
+         <p>{p.appSetup}</p>
+        </div>}</>}
       </article>;
     })}
     </div>
