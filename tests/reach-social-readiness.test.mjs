@@ -13,6 +13,8 @@ test("Meta social readiness connects to exact hub status, never treats setup as 
  assert.match(ui,/Publishing & messaging/);
  assert.match(ui,/Disabled/);
  assert.match(ui,/api\/platform\/social\/meta\/callback/);
+ assert.match(ui,/item\.duplicateAppId/);
+ assert.match(ui,/Instagram App ID and matching Instagram App Secret/);
  assert.match(ui,/developers\.facebook\.com\/apps\//);
  assert.doesNotMatch(ui,/SOCIAL_META_FACEBOOK_CLIENT_SECRET=|SOCIAL_META_INSTAGRAM_CLIENT_SECRET=|console\.log|localStorage/);
 });
