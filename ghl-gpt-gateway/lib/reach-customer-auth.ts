@@ -1,4 +1,4 @@
-import {createHmac,createPublicKey,randomBytes,timingSafeEqual,verify} from "node:crypto";
+import {createHmac,createPublicKey,randomBytes,timingSafeEqual,verify,type JsonWebKey} from "node:crypto";
 import type {NextRequest} from "next/server";
 
 const COOKIE="reach_customer_session";
