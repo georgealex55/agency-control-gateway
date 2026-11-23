@@ -5,6 +5,8 @@ import {metaConnectionCredential,markMetaVerified} from "@/lib/social-meta-conne
 import {listFacebookPages} from "@/lib/social-meta-pages";
 import {readInstagramProfessionalProfile} from "@/lib/social-meta-instagram";
 import {validGraphVersion} from "@/lib/social-meta-contract";
+import {resolvedMetaEnv} from "@/lib/reach-meta-app-vault";
+import {instagramUnifiedReady,listInstagramUnifiedAccounts} from "@/lib/social-meta-instagram-unified";
 export const runtime="nodejs";export const dynamic="force-dynamic";
 export async function POST(req:NextRequest){
  const denied=connectionGate(req,true);if(denied)return denied;
@@ -17,8 +19,10 @@ export async function POST(req:NextRequest){
  try{
   const credential=await metaConnectionCredential(o.workspaceId,o.connectionId,process.env.SOCIAL_META_TOKEN_KEY||"");
   if(!credential)return reply({error:"Connection not found"},404);
+  const unified=credential.provider==="instagram_professional"&&instagramUnifiedReady(await resolvedMetaEnv("instagram_professional"));
   const verified=credential.provider==="facebook_pages"?
    (await listFacebookPages({token:credential.token,version})).some(p=>p.id===credential.accountId):
+   unified?(await listInstagramUnifiedAccounts({token:credential.token,version})).accounts.some(p=>p.id===credential.accountId):
    (await readInstagramProfessionalProfile({token:credential.token,version})).id===credential.accountId;
   if(!verified)return reply({error:"The selected account is no longer available; reconnect this provider"},409);
   await markMetaVerified(o.workspaceId,o.connectionId);
