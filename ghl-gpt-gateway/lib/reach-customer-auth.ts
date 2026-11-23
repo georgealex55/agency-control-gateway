@@ -16,7 +16,7 @@ export function customerAuthConfig(env:Record<string,string|undefined>=process.e
   const iss=new URL(issuer),jwks=new URL(jwksUrl);
   if(iss.protocol!=="https:"||jwks.protocol!=="https:"||iss.username||iss.password||iss.search||iss.hash||
    iss.pathname!=="/"||jwks.username||jwks.password||jwks.hash||jwks.search||
-   !iss.hostname.endsWith(".neon.tech")||!jwks.hostname.endsWith(".neon.tech")||
+   !iss.hostname.endsWith(".neon.tech")||!jwks.hostname.endsWith(".neon.tech")||iss.origin!==jwks.origin||
    audience.length<1||audience.length>200||!/^[-A-Za-z0-9_:.\/]+$/.test(audience)||
    sessionSecret.length<32||sessionSecret.length>1024)return null;
   return {issuer:iss.origin,audience,jwksUrl:jwks.href,sessionSecret};
@@ -33,13 +33,13 @@ export async function verifyCustomerAssertion(assertion:string,config:CustomerAu
  const parts=assertion.split(".");
  if(parts.length!==3||parts.some(p=>!/^[A-Za-z0-9_-]+$/.test(p)))throw Error("Malformed assertion");
  const header=decodePart(parts[0]),payload=decodePart(parts[1]);
- if(!isObj(header)||header.alg!=="RS256"||typeof header.kid!=="string"||
+ if(!isObj(header)||header.alg!=="EdDSA"||typeof header.kid!=="string"||
   !/^[A-Za-z0-9:_-]{1,128}$/.test(header.kid)||header.crit!==undefined||header.jku!==undefined||
   header.jwk!==undefined||header.x5u!==undefined||header.x5c!==undefined||
   !isObj(payload)||payload.iss!==config.issuer||!isSubject(payload.sub)||
   !(payload.aud===config.audience||(Array.isArray(payload.aud)&&payload.aud.includes(config.audience)))||
   typeof payload.exp!=="number"||!Number.isSafeInteger(payload.exp)||
-  payload.exp<=now||payload.exp>now+24*3600||
+  payload.exp<=now||payload.exp>now+20*60||
   (payload.nbf!==undefined&&(typeof payload.nbf!=="number"||payload.nbf>now+30))||
   (payload.iat!==undefined&&(typeof payload.iat!=="number"||payload.iat>now+30))||
   payload.email_verified===false)throw Error("Untrusted customer assertion");
@@ -50,12 +50,13 @@ export async function verifyCustomerAssertion(assertion:string,config:CustomerAu
  if(!response.ok)throw Error("Unable to validate customer identity");
  const raw:unknown=await response.json();
  if(!isObj(raw)||!Array.isArray(raw.keys)||raw.keys.length>16)throw Error("Invalid signing key set");
- const matches=raw.keys.filter(k=>isObj(k)&&k.kid===header.kid&&k.kty==="RSA"&&
-  (k.alg===undefined||k.alg==="RS256")&&(k.use===undefined||k.use==="sig")&&
-  typeof k.n==="string"&&typeof k.e==="string");
+ const matches=raw.keys.filter(k=>isObj(k)&&k.kid===header.kid&&k.kty==="OKP"&&k.crv==="Ed25519"&&
+  (k.alg===undefined||k.alg==="EdDSA")&&(k.use===undefined||k.use==="sig")&&
+  typeof k.x==="string"&&/^[A-Za-z0-9_-]{43}$/.test(k.x));
  if(matches.length!==1)throw Error("Untrusted signing key");
- const pub=createPublicKey({key:matches[0] as JsonWebKey,format:"jwk"});
- if(!verify("RSA-SHA256",Buffer.from(parts[0]+"."+parts[1],"utf8"),pub,Buffer.from(parts[2],"base64url")))
+ const k=matches[0] as Record<string,unknown>;
+ const pub=createPublicKey({key:{kty:"OKP",crv:"Ed25519",x:String(k.x)} as JsonWebKey,format:"jwk"});
+ if(!verify(null,Buffer.from(parts[0]+"."+parts[1],"utf8"),pub,Buffer.from(parts[2],"base64url")))
   throw Error("Invalid assertion signature");
  return {subject:payload.sub};
 }
