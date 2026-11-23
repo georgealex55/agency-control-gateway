@@ -19,7 +19,6 @@ const emptyNames:AccountNames={facebook_pages:[],instagram_professional:[]};
 export default function SocialReadiness({meta,storageApproved,onConfigured,connectedAccounts=emptyNames}:{
  meta:Meta[];storageApproved:boolean;onConfigured:()=>void;connectedAccounts?:AccountNames;
 }){
- const [callback,setCallback]=useState("");
  const [copied,setCopied]=useState<Provider|null>(null);
  const [available,setAvailable]=useState(false);
  const [apps,setApps]=useState<AppStatus[]>([]);
@@ -29,7 +28,6 @@ export default function SocialReadiness({meta,storageApproved,onConfigured,conne
  const [message,setMessage]=useState<Record<Provider,string>>({facebook_pages:"",instagram_professional:""});
  const [error,setError]=useState<Record<Provider,string>>({facebook_pages:"",instagram_professional:""});
  useEffect(()=>{
-  setCallback(window.location.origin+"/api/platform/social/meta/callback");
   let active=true;
   fetch("/api/reach/connections/meta-apps",{credentials:"same-origin",cache:"no-store"})
    .then(async r=>{if(!r.ok)throw Error("App configuration status is unavailable");return r.json() as Promise<{enabled:boolean;apps:AppStatus[]}>;})
@@ -38,8 +36,9 @@ export default function SocialReadiness({meta,storageApproved,onConfigured,conne
   return()=>{active=false;};
  },[]);
  async function copyCallback(provider:Provider){
-  if(!callback)return;
-  try{await navigator.clipboard.writeText(callback);setCopied(provider);}
+  const canonicalCallback=meta.find(m=>m.provider===provider)?.callbackUrl;
+  if(!canonicalCallback)return;
+  try{await navigator.clipboard.writeText(canonicalCallback);setCopied(provider);}
   catch{setCopied(null);}
  }
  async function saveApp(e:FormEvent<HTMLFormElement>,provider:Provider){
@@ -95,10 +94,10 @@ export default function SocialReadiness({meta,storageApproved,onConfigured,conne
     </div>
     <div className="reach-social-config">
      <strong>{name} OAuth callback URL</strong>
-     <div><code>{callback||"Loading callback address…"}</code>
-      <button type="button" disabled={!callback} onClick={()=>void copyCallback(item.provider)}>{copied===item.provider?"Copied":"Copy"}</button>
+     <div><code>{item.callbackUrl||"Canonical OAuth callback not configured"}</code>
+      <button type="button" disabled={!item.callbackUrl} onClick={()=>void copyCallback(item.provider)}>{copied===item.provider?"Copied":"Copy"}</button>
      </div>
-     <small>Both providers use this verified callback path; signed OAuth state keeps each provider and workspace independent. Add the exact URL to the matching login product's valid redirect URLs.</small>
+     <small>Each provider uses the configured canonical /api/platform/social/meta/callback path; signed OAuth state keeps the provider and workspace independent. Copy this server-verified address (not a temporary Preview hostname) into its matching login product.</small>
     </div>
     {message[item.provider]&&<p className="reach-social-success" role="status">{message[item.provider]}</p>}
     {error[item.provider]&&<p className="reach-social-error" role="alert">{error[item.provider]}</p>}
