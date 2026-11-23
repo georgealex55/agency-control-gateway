@@ -34,3 +34,17 @@
 
 .reach-social-suggestion{padding:10px;border-left:3px solid #b7a2ff;background:#131d35;color:#e3ddff!important;border-radius:7px}
 .reach-social-providers>div:target{outline:2px solid #b8a8ff;outline-offset:2px}
+
+/* Facebook and Instagram are distinct setup workflows, not a shared credential form. */
+.reach-social-separate{display:grid;grid-template-columns:1fr;gap:20px}
+.reach-social-separate .reach-social-readiness{margin:0}
+.reach-social-separate .reach-social-providers{grid-template-columns:1fr}
+.reach-social-separate .reach-social-status{grid-template-columns:repeat(4,minmax(0,1fr))}
+.reach-social-separate .reach-social-readiness>a{display:inline-block;margin-right:16px;margin-top:7px}
+.reach-social-separate .reach-social-method{font-size:12px;line-height:1.65;margin-top:12px}
+.reach-social-separate .reach-social-method>summary{cursor:pointer;color:#d6e0f4;font-weight:700}
+.reach-social-separate .reach-social-method p{padding-left:8px}
+.reach-social-separate .reach-social-readiness:target{outline:2px solid #b8a8ff;outline-offset:3px}
+.reach-conn-card:target{outline:2px solid #b8a8ff;outline-offset:3px}
+@media(max-width:800px){.reach-social-separate .reach-social-status{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.reach-social-separate .reach-social-status{grid-template-columns:1fr}}
