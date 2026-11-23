@@ -18,7 +18,8 @@
     "@modelcontextprotocol/server": "^2.0.0",
     "jose": "^6.1.0",
     "@vercel/queue": "0.10.0",
-    "@vercel/blob": "2.8.2"
+    "@vercel/blob": "2.8.2",
+    "@neondatabase/auth": "0.7.0-beta"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
