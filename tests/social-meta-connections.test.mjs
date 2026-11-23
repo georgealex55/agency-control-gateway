@@ -21,7 +21,15 @@ test("OAuth state requires correct signature, time and browser cookie check",()=
  assert(code.includes("sameNonce(cookie,parsed.nonce)"));
  assert(code.includes("consumeMetaFlow("));
  assert(code.includes('sameSite:"lax"'));
- assert(code.includes('return toSocial(req,"select")'));
+ assert(code.includes('return toSocial(req,"select",parsed.provider)'));
+ assert(code.includes('req.cookies.get("agency_meta_nonce_"+parsed.provider)'));
+ assert(code.includes('if(provider)response.cookies.set("agency_meta_nonce_"+provider'));
+ const start=readFileSync(new URL("../ghl-gpt-gateway/app/api/platform/social/meta/start/route.ts",import.meta.url),"utf8");
+ assert(start.includes('response.cookies.set("agency_meta_nonce_"+input.provider'));
+ assert(!start.includes('response.cookies.set("agency_meta_nonce",nonce'));
+ assert(!code.includes('req.cookies.get("agency_meta_nonce")'));
+ assert(!code.includes('response.cookies.set("agency_meta_nonce",""'));
+ assert(code.includes('consumeMetaFlow(parsed.workspaceId,parsed.provider,parsed.nonce)'));
 });
 test("Meta flow remains opt-in and account selection is explicit",()=>{
  const start=readFileSync(new URL("../ghl-gpt-gateway/app/api/platform/social/meta/start/route.ts",import.meta.url),"utf8");
