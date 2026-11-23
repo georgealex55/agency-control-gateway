@@ -6,7 +6,7 @@ import NeonCustomerCard from "./neon-customer-card";
 import SocialReadiness from "./social-readiness";
 
 type Workspace={id:string;name:string;slug:string};
-type MetaSetup={provider:"facebook_pages"|"instagram_professional";appConfigured:boolean;missingSettings:string[];permissions:string[];callbackUrl:string|null;launchEnabled:boolean;readOnly:true;publishingEnabled:false};
+type MetaSetup={provider:"facebook_pages"|"instagram_professional";appConfigured:boolean;missingSettings:string[];permissions:string[];callbackUrl:string|null;launchEnabled:boolean;duplicateAppId:boolean;readOnly:true;publishingEnabled:false};
 type Provider={id:string;name:string;accounts:string;scopes:string[];appSetup:string;mode:"read_only"|"setup_required";launchEnabled:boolean;publishingEnabled:false;connectionStatus:"not_verified"};
 type Hub={authenticated:true;environment:string;storageApproved:boolean;workspaces:Workspace[];providers:Provider[];meta:MetaSetup[];publishingEnabled:false;externalMessagingEnabled:false;requiredSetup:string[]};
 type MetaCandidate={id:string;name:string;accountType?:string};
@@ -79,6 +79,8 @@ export default function Connections(){
   const setup=hub?.meta.find(m=>m.provider===id);
   if(!hub?.storageApproved){
    setError("REACH workspace storage is not ready. Use Refresh connections after it is configured.");
+  }else if(provider==="instagram"&&setup?.duplicateAppId){
+   setInfo("Instagram Direct Login is not compatible with the saved Facebook App ID. If the Meta dashboard offers Unified Login, that method still needs its own authorization flow. Otherwise use the Instagram-specific App ID and Secret in the Instagram setup panel.");
   }else if(setup?.appConfigured){
    setInfo("The Meta app is saved, but OAuth is not ready on this hostname or with the current callback settings. Check the setup details and use the canonical REACH production URL.");
   }else{
@@ -146,7 +148,7 @@ export default function Connections(){
    {info&&<p className="reach-conn-info" role="status">{info}</p>}
    {hub&&<>
     <NeonCustomerCard/>
-    <SocialReadiness meta={hub.meta} storageApproved={hub.storageApproved} onConfigured={()=>setCheck(v=>v+1)}/>
+    <SocialReadiness meta={hub.meta} storageApproved={hub.storageApproved} onConfigured={()=>setCheck(v=>v+1)} connectedAccounts={{facebook_pages:inventory?.connections.filter(c=>c.provider==="facebook_pages"&&!c.expired).map(c=>c.name)||[],instagram_professional:inventory?.connections.filter(c=>c.provider==="instagram_professional"&&!c.expired).map(c=>c.name)||[]}}/>
     <section className="reach-conn-overview">
      <div><strong>Owner session</strong><span>Authenticated</span></div>
      <div><strong>Connection storage</strong><span>{hub.storageApproved?"Approved workspace data":"Setup required"}</span></div>
@@ -172,7 +174,7 @@ export default function Connections(){
       const pending=inventory?.pending.filter(c=>c.provider===metaId(p.id))||[];
       const canConnect=Boolean(meta?.launchEnabled&&hub.storageApproved&&workspace&&!busy);
       const requiresSetup=Boolean(meta&&!meta.launchEnabled);
-      return <article key={p.id} className="reach-conn-card">
+      return <article key={p.id} id={"reach-provider-"+p.id} className="reach-conn-card">
        <div className="reach-conn-card-head"><h2>{p.name}</h2><span>{linked.some(c=>!c.expired)?"Read-only record":linked.length?"Expired":"Not connected / unverified"}</span></div>
        <p>{p.accounts}</p>
        <p className="reach-conn-small">Access scope: {p.scopes.length?p.scopes.join(", "):"Requires approved developer access"}</p>
@@ -181,7 +183,7 @@ export default function Connections(){
         onClick={()=>canConnect?void start(p.id as "facebook"|"instagram"):guideMetaSetup(p.id as "facebook"|"instagram")}>
         {busy===p.id?"Starting…":canConnect?(linked.length?"Reconnect account":"Connect "+p.name):"Set up "+p.name}
        </button>
-        {requiresSetup&&<p className="reach-conn-small">{!hub.storageApproved?"Workspace database setup is required before connecting.":!meta.appConfigured?"Save your developer app ID and secret in Facebook & Instagram setup above. Select Set up to go directly to the form.":"Review the OAuth callback/hostname requirements above before connecting."}</p>}
+        {requiresSetup&&<p className="reach-conn-small">{!hub.storageApproved?"Workspace database setup is required before connecting.":meta.duplicateAppId?"Instagram Direct Login is blocked by this App ID. Check the Instagram-only setup panel for Instagram Login versus newer Unified Login instructions.":!meta.appConfigured?"Save the developer App ID and Secret in this provider's own setup panel above. Select Set up to jump to that form.":"Review the OAuth callback/hostname requirements above before connecting."}</p>}
         {!requiresSetup&&!workspace&&<p className="reach-conn-small">Choose your business workspace before connecting.</p>}
         {meta.missingSettings.length>0&&<details><summary>Developer settings needed ({meta.missingSettings.length})</summary>
          <div className="reach-conn-keylist">{meta.missingSettings.map(k=><code key={k}>{k}</code>)}</div>

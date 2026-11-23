@@ -26,6 +26,11 @@ export function buildMetaAuthorizeURL(input:{provider:MetaProvider;clientId:stri
  if(!facebook)u.searchParams.set("enable_fb_login","0");
  return u.href;
 }
+/** Detects a common Instagram Login misconfiguration without returning either App ID. */
+export function duplicateMetaAppId(facebookId:unknown,instagramId:unknown):boolean{
+ return typeof facebookId==="string"&&/^[0-9]{6,32}$/.test(facebookId)&&
+  typeof instagramId==="string"&&/^[0-9]{6,32}$/.test(instagramId)&&facebookId===instagramId;
+}
 export function metaConfigured(env:Record<string,string|undefined>,provider:MetaProvider):boolean{
  const id=provider==="facebook_pages"?env.SOCIAL_META_FACEBOOK_CLIENT_ID:env.SOCIAL_META_INSTAGRAM_CLIENT_ID;
  const secret=provider==="facebook_pages"?env.SOCIAL_META_FACEBOOK_CLIENT_SECRET:env.SOCIAL_META_INSTAGRAM_CLIENT_SECRET;
