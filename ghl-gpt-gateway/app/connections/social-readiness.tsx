@@ -6,6 +6,7 @@ type Provider="facebook_pages"|"instagram_professional";
 type Meta={
  provider:Provider;appConfigured:boolean;missingSettings:string[];permissions:string[];
  callbackUrl:string|null;launchEnabled:boolean;duplicateAppId:boolean;readOnly:true;publishingEnabled:false;
+ loginMethod?:"unified"|"direct";unifiedConfigured?:boolean;unifiedRequested?:boolean;
 };
 type AppStatus={provider:Provider;configured:boolean;clientIdMasked:string|null;updatedAt:string|null};
 type AccountNames=Record<Provider,string[]>;
@@ -77,7 +78,7 @@ export default function SocialReadiness({meta,storageApproved,onConfigured,conne
    const name=facebook?"Facebook Pages":"Instagram Professional";
    const saved=apps.find(a=>a.provider===item.provider);
    const accountNames=connectedAccounts?connectedAccounts[item.provider]||[]:[];
-   const invalidDirect=!facebook&&item.duplicateAppId;
+   const invalidDirect=!facebook&&item.duplicateAppId&&!item.unifiedConfigured;
    return <section key={item.provider} className="reach-social-readiness" id={"reach-meta-setup-"+item.provider}
     aria-labelledby={"reach-social-heading-"+item.provider}>
     <div className="reach-social-head"><div>
@@ -103,17 +104,18 @@ export default function SocialReadiness({meta,storageApproved,onConfigured,conne
     <div className="reach-social-providers"><div>
      <strong>{facebook?"Facebook developer credentials":"Instagram developer credentials"}</strong>
      <span>{item.launchEnabled?"Connect available":saved?.configured?"Saved · verify login method":"Not ready"}</span>
-     <p>Read-only permissions: {item.permissions.join(", ")||"Provider setup required"}</p>
+     <p>{item.unifiedConfigured?"Meta Business Login configuration manages consent permissions. REACH does not enable publishing or messaging.":"Read-only permissions: "+(item.permissions.join(", ")||"Provider setup required")}</p>
      {invalidDirect&&<p className="reach-social-error" role="alert">The saved Facebook and Instagram App IDs match. The current Instagram Direct Login endpoint cannot use a Facebook-only App ID. If Meta shows “API setup with Unified login” instead of “API setup with Instagram login”, keep your credentials: newer apps may require a different Unified Login implementation, which is not active in REACH yet. If your app provides a separate Instagram App ID and matching Instagram App Secret, enter them below. Facebook is unaffected.</p>}
      {!item.launchEnabled&&!invalidDirect&&<p className="reach-social-suggestion">{saved?.configured?"App saved. Check this provider's callback and authorization readiness before connecting.":"Start here: enter your developer App ID and Secret below, save encrypted, then select Connect on the provider card."}</p>}
      <p>{facebook?"Meta Developer Apps → Facebook Login for Business → Settings":"Meta Developer Apps → Instagram → API setup with Instagram login (older apps) or API setup with Unified login (newer apps)"}</p>
      {saved?.configured&&<p className="reach-social-saved">Saved app ID: {saved.clientIdMasked} · Secret encrypted · Stored separately</p>}
+     {!facebook&&<div className="reach-social-suggestion"><strong>Unified Login: {item.unifiedConfigured?"Configured":"Not activated"}</strong><p>{item.unifiedConfigured?"The Meta business login configuration is installed. Keep the shared Meta App ID; select Connect Instagram from customer Connections.":"If your Meta app offers API setup with Unified login, set the configuration ID and opt-in flag in private Vercel project settings as shown above. Your current matching Facebook and Instagram App IDs can be valid for Unified Login."}</p></div>}
      {!facebook&&<details className="reach-social-method"><summary>Which Instagram login method do I have?</summary>
       <p><strong>Instagram Login:</strong> The dashboard gives you a separate Instagram App ID and matching Instagram App Secret. REACH supports this read-only authorization route.</p>
-      <p><strong>Unified Login:</strong> Newer Meta apps may show only Unified Login with a Facebook Login for Business configuration ID. This is not the same authorization endpoint; it needs a separate implementation and is not yet active in REACH. Do not change the Facebook Page connection.</p>
+      <p><strong>Unified Login:</strong> Meta's Facebook Login for Business requires a configuration ID, a matching Meta App ID and Secret, and authorized Instagram assets. REACH supports this flow when activated through private developer configuration. Do not change the Facebook Page connection.</p>
      </details>}
      {available&&storageApproved?<form className="reach-meta-app-form" onSubmit={e=>void saveApp(e,item.provider)} autoComplete="off">
-      <label htmlFor={"meta-app-id-"+item.provider}>{facebook?"Facebook App ID":"Instagram Login App ID"}</label>
+      <label htmlFor={"meta-app-id-"+item.provider}>{facebook?"Facebook App ID":item.unifiedConfigured?"Meta Business App ID (Unified Login)":"Instagram Login App ID"}</label>
       <input id={"meta-app-id-"+item.provider} inputMode="numeric" pattern="[0-9]{6,32}"
        placeholder={facebook?"Facebook Login App ID":"Instagram-specific App ID (if available)"} value={appId[item.provider]}
        disabled={working[item.provider]} required autoComplete="off"
