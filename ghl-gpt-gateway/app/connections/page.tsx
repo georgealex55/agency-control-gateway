@@ -179,7 +179,7 @@ export default function Connections(){
         </button>
         {expandedProvider===p.id&&<div className="reach-conn-setup-info">
          <strong>Integration not yet available</strong>
-         <p>REACH has not implemented live OAuth for {p.name}. This card is informational, not an active account connection. Provider consent, secure token storage and integration testing must be completed before enabling Connect.</p>
+         <p>Connecting {p.name} is not available yet. REACH will provide direct account authorization when this integration is ready. No developer configuration is required from you.</p>
         </div>}</>}
       </article>;
     })}
