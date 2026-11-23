@@ -69,3 +69,17 @@ test("Facebook and Instagram have independent setup, credentials, account invent
  assert.match(ui,/One callback endpoint is safe/);
  assert.doesNotMatch(ui,/localStorage|sessionStorage|console\.log/);
 });
+
+test("parallel Facebook and Instagram OAuth use separate nonce cookies with verified provider state",()=>{
+ const start=read("app/api/platform/social/meta/start/route.ts");
+ const callback=read("app/api/platform/social/meta/callback/route.ts");
+ const crypto=read("lib/social-meta-crypto.ts");
+ assert.match(start,/response\.cookies\.set\("agency_meta_nonce_"\+input\.provider,nonce/);
+ assert.match(callback,/req\.cookies\.get\("agency_meta_nonce_"\+parsed\.provider\)/);
+ assert.match(callback,/if\(provider\)response\.cookies\.set\("agency_meta_nonce_"\+provider/);
+ assert.match(callback,/sameNonce\(cookie,parsed\.nonce\)/);
+ assert.match(callback,/consumeMetaFlow\(parsed\.workspaceId,parsed\.provider,parsed\.nonce\)/);
+ assert.match(crypto,/createHmac\("sha256",secret\)/);
+ assert.doesNotMatch(start,/response\.cookies\.set\("agency_meta_nonce",nonce/);
+ assert.doesNotMatch(callback,/req\.cookies\.get\("agency_meta_nonce"\)/);
+});
