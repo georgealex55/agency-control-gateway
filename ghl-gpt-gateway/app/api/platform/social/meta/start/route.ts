@@ -34,7 +34,7 @@ export async function POST(req:NextRequest){
   const state=signMetaConsent({workspaceId:input.workspaceId,provider:input.provider,nonce,expires},process.env.SOCIAL_META_OAUTH_STATE_SECRET!);
   const url=buildMetaAuthorizeURL({provider:input.provider,clientId:settings.clientId,redirectUri:settings.redirectUri,state,graphVersion:settings.version});
   const response=reply({authorizeUrl:url,requestedPermissions:input.provider==="facebook_pages"?["pages_show_list","pages_read_engagement"]:["instagram_business_basic"],publishingEnabled:false});
-  response.cookies.set("agency_meta_nonce",nonce,{httpOnly:true,secure:true,sameSite:"lax",path:"/api/platform/social/meta/callback",maxAge:600});
+  response.cookies.set("agency_meta_nonce_"+input.provider,nonce,{httpOnly:true,secure:true,sameSite:"lax",path:"/api/platform/social/meta/callback",maxAge:600});
   return response;
  }catch{return reply({error:"Unable to start Meta authorization"},503);}
 }
