@@ -32,7 +32,7 @@ test("developer console requires owner session and contains isolated credentials
  assert.match(admin,/SocialReadiness meta=\{status\.meta\}/);
  assert.match(admin,/\/api\/reach\/developer\/meta-status/);
  assert.match(route,/if\(!adminAuthenticated\(req\)\)/);
- assert.match(route,/missingSettings:state\.missingSettings/);
+ assert.match(route,/missingSettings:unifiedIncomplete\?/);
  assert.match(route,/callbackUrl:state\.callbackUrl/);
  assert.match(route,/duplicateAppId:/);
  assert.match(ui,/STEP 2A · FACEBOOK CONNECTION/);
