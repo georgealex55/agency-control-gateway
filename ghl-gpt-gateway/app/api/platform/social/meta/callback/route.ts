@@ -9,6 +9,7 @@ import {exchangeFacebookLongLived,exchangeInstagramLongLived} from "@/lib/social
 import {listFacebookPages} from "@/lib/social-meta-pages";
 import {readInstagramProfessionalProfile} from "@/lib/social-meta-instagram";
 import {resolvedMetaEnv} from "@/lib/reach-meta-app-vault";
+import {instagramUnifiedReady,exchangeInstagramUnifiedCode,listInstagramUnifiedAccounts} from "@/lib/social-meta-instagram-unified";
 export const runtime="nodejs";export const dynamic="force-dynamic";
 const noStore={"Cache-Control":"no-store"};
 function toSocial(req:NextRequest,status:"failed"|"canceled"|"select",provider?:MetaProvider){
@@ -46,11 +47,18 @@ export async function GET(req:NextRequest){
   if(req.nextUrl.searchParams.has("error")||req.nextUrl.searchParams.has("error_reason"))return toSocial(req,"canceled",parsed.provider);
   const code=req.nextUrl.searchParams.get("code");
   if(!code)return toSocial(req,"failed",parsed?.provider);
-  const shortLived=await exchangeMetaCode(parsed.provider,code,settings);
-  const authorized=parsed.provider==="facebook_pages"?
+  const unified=parsed.provider==="instagram_professional"&&instagramUnifiedReady(metaEnv);
+  const shortLived=unified?
+   await exchangeInstagramUnifiedCode({code,clientId:settings.clientId,clientSecret:settings.clientSecret,redirectUri:settings.redirectUri,version:settings.version}):
+   await exchangeMetaCode(parsed.provider,code,settings);
+  // Unified Login gives a Business Integration System User token. It is not an
+  // Instagram user token and must not pass through ig_exchange_token.
+  const authorized=unified?shortLived:parsed.provider==="facebook_pages"?
    await exchangeFacebookLongLived({shortLivedToken:shortLived.token,appId:settings.clientId,appSecret:settings.clientSecret,graphVersion:settings.version}):
    await exchangeInstagramLongLived({shortLivedToken:shortLived.token,appSecret:settings.clientSecret});
-  const candidates=parsed.provider==="facebook_pages"?
+  const candidates=unified?
+   (await listInstagramUnifiedAccounts({token:authorized.token,version:settings.version})).accounts:
+   parsed.provider==="facebook_pages"?
    (await listFacebookPages({token:authorized.token,version:settings.version})).map(p=>({id:p.id,name:p.name,tasks:p.tasks})):
    [await readInstagramProfessionalProfile({token:authorized.token,version:settings.version})].map(p=>({id:p.id,name:"@"+p.username,accountType:p.accountType}));
   await stageMetaCandidates(parsed.workspaceId,parsed.provider,authorized.token,authorized.expiresAt,candidates,process.env.SOCIAL_META_TOKEN_KEY||"");
