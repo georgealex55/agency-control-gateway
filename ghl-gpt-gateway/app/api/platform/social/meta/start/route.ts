@@ -20,7 +20,7 @@ export async function POST(req:NextRequest){
  if(input.provider==="instagram_professional"){
   const facebookEnv=await resolvedMetaEnv("facebook_pages");
   if(duplicateMetaAppId(facebookEnv.SOCIAL_META_FACEBOOK_CLIENT_ID,metaEnv.SOCIAL_META_INSTAGRAM_CLIENT_ID))
-   return reply({error:"Instagram App ID matches the Facebook App ID. Replace Instagram-specific credentials in REACH before authorizing."},409);
+   return reply({error:"Instagram Direct Login cannot authorize using this Facebook App ID. If Meta provides a separate Instagram Login App ID, save it under Instagram only. If Meta requires Unified Login, that different authorization flow is not yet enabled in REACH."},409);
  }
  const settings=oauthSettings(metaEnv,input.provider);
  const setup=metaSetupStatus(metaEnv,input.provider,req.nextUrl.origin);
