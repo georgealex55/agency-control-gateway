@@ -175,7 +175,7 @@ export default function Connections(){
          <button className="reach-conn-disconnect" disabled={busy!==""} onClick={()=>void disconnect(c.id)}>Disconnect</button></div>
         </div>)}
        </>:<><button type="button" onClick={()=>setExpandedProvider(value=>value===p.id?null:p.id)}>
-         {expandedProvider===p.id?"Hide setup requirements":"View setup requirements"}
+         {expandedProvider===p.id?"Hide availability details":"About this connection"}
         </button>
         {expandedProvider===p.id&&<div className="reach-conn-setup-info">
          <strong>Integration not yet available</strong>
