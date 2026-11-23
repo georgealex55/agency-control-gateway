@@ -10,13 +10,12 @@ type Meta={
 type AppStatus={provider:Provider;configured:boolean;clientIdMasked:string|null;updatedAt:string|null};
 type AccountNames=Record<Provider,string[]>;
 const safeAppUrl="https://developers.facebook.com/apps/";
-const emptyNames:AccountNames={facebook_pages:[],instagram_professional:[]};
 
 /** Each provider has its own setup, vault record, feedback and account status.
  * One callback endpoint is safe: server-signed OAuth state binds the provider,
  * workspace and one-time browser nonce, so Facebook and Instagram remain isolated.
  */
-export default function SocialReadiness({meta,storageApproved,onConfigured,connectedAccounts=emptyNames}:{
+export default function SocialReadiness({meta,storageApproved,onConfigured,connectedAccounts}:{
  meta:Meta[];storageApproved:boolean;onConfigured:()=>void;connectedAccounts?:AccountNames;
 }){
  const [copied,setCopied]=useState<Provider|null>(null);
@@ -77,7 +76,7 @@ export default function SocialReadiness({meta,storageApproved,onConfigured,conne
    const facebook=item.provider==="facebook_pages";
    const name=facebook?"Facebook Pages":"Instagram Professional";
    const saved=apps.find(a=>a.provider===item.provider);
-   const accountNames=connectedAccounts[item.provider]||[];
+   const accountNames=connectedAccounts?connectedAccounts[item.provider]||[]:[];
    const invalidDirect=!facebook&&item.duplicateAppId;
    return <section key={item.provider} className="reach-social-readiness" id={"reach-meta-setup-"+item.provider}
     aria-labelledby={"reach-social-heading-"+item.provider}>
@@ -88,7 +87,7 @@ export default function SocialReadiness({meta,storageApproved,onConfigured,conne
     </div><span className="reach-social-state">{item.launchEnabled?"Read-only authorization ready":"Developer setup required"}</span></div>
     <div className="reach-social-status">
      <div><strong>Developer app</strong><span>{saved?.configured?"Saved · encrypted":"Not configured"}</span></div>
-     <div><strong>Account connection</strong><span>{accountNames.length?accountNames.join(", "):"No account linked"}</span></div>
+     <div><strong>Account connection</strong><span>{!connectedAccounts?"Manage linked accounts in Connections":accountNames.length?accountNames.join(", "):"No account linked"}</span></div>
      <div><strong>Workspace storage</strong><span>{storageApproved?"Approved":"Setup required"}</span></div>
      <div><strong>Publishing & messaging</strong><span>Disabled</span></div>
     </div>
