@@ -178,7 +178,7 @@ export default function Connections(){
          {expandedProvider===p.id?"Hide setup requirements":"View setup requirements"}
         </button>
         {expandedProvider===p.id&&<div className="reach-conn-setup-info">
-         <strong>Developer authorization not available yet</strong>
+         <strong>Integration not yet available</strong>
          <p>REACH has not implemented live OAuth for {p.name}. This card is informational, not an active account connection. Provider consent, secure token storage and integration testing must be completed before enabling Connect.</p>
         </div>}</>}
       </article>;
