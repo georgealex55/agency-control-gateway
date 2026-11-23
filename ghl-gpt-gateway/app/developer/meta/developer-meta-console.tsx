@@ -4,7 +4,7 @@ import Link from "next/link";
 import SocialReadiness from "@/app/connections/social-readiness";
 import "@/app/connections/connections.css";
 type Provider="facebook_pages"|"instagram_professional";
-type Meta={provider:Provider;appConfigured:boolean;missingSettings:string[];permissions:string[];callbackUrl:string|null;launchEnabled:boolean;duplicateAppId:boolean;readOnly:true;publishingEnabled:false};
+type Meta={provider:Provider;appConfigured:boolean;missingSettings:string[];permissions:string[];callbackUrl:string|null;launchEnabled:boolean;duplicateAppId:boolean;readOnly:true;publishingEnabled:false;loginMethod:"unified"|"direct";unifiedConfigured:boolean;unifiedRequested:boolean};
 type Status={authenticated:true;storageApproved:boolean;meta:Meta[];developerOnly:true;publishingEnabled:false};
 export default function DeveloperMetaConsole(){
  const [status,setStatus]=useState<Status|null>(null);
@@ -31,6 +31,13 @@ export default function DeveloperMetaConsole(){
   {error&&<p role="alert" className="reach-conn-error">{error}</p>}
   {!status&&!error&&<p role="status">Checking platform developer setup…</p>}
   {status&&<SocialReadiness meta={status.meta} storageApproved={status.storageApproved} onConfigured={()=>setVersion(x=>x+1)}/>}
+  <section className="reach-conn-alert">
+   <h2>Instagram Unified Login activation</h2>
+   <p>Meta Developer Apps → Use cases → Manage messaging &amp; content on Instagram → Customize → API setup with Unified login → Create configuration. Save this REACH callback URL in Meta: <code>https://agency-control-gateway.vercel.app/api/platform/social/meta/callback</code>.</p>
+   <p>In Vercel's private project settings, configure <code>SOCIAL_META_INSTAGRAM_UNIFIED_ENABLED=true</code> and <code>SOCIAL_META_INSTAGRAM_UNIFIED_CONFIG_ID</code> with the numeric Meta configuration ID. Use the existing matching Meta App ID/Secret in the encrypted owner vault. The config ID is not an access token. Redeploy after configuration; REACH keeps Instagram unavailable until both settings are valid.</p>
+   <p>Meta controls the configuration's permissions, including its mandatory Instagram permissions. Review these carefully; REACH publishing and messaging remain disabled. Do not change the existing Facebook Page app or disconnect its authorization.</p>
+   <a href="https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-unified-login/get-started" target="_blank" rel="noopener noreferrer">Meta Unified Login setup guide</a>
+  </section>
   <section className="reach-conn-alert">
    <h2>Meta approval checklist</h2>
    <p>For customers beyond your app's test roles, configure the business-owned Meta application, approved OAuth redirect URLs, relevant permission reviews and Live mode in Meta Developer Apps. Instagram Unified Login requires a separate configuration and callback handler before it can be enabled. Threads requires its own verified OAuth integration.</p>
