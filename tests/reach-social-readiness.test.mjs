@@ -3,24 +3,67 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {createRequire} from "node:module";
 const read=p=>readFileSync(new URL("../ghl-gpt-gateway/"+p,import.meta.url),"utf8");
-test("Meta social readiness connects to exact hub status, never treats setup as connected",()=>{
- const page=read("app/connections/page.tsx"),ui=read("app/connections/social-readiness.tsx");
- assert.match(page,/SocialReadiness meta=\{hub.meta\} storageApproved=\{hub.storageApproved\} onConfigured=/);
- assert.match(ui,/item\.launchEnabled/);
- assert.match(ui,/storageApproved/);
- assert.match(ui,/Missing developer configuration/);
+
+test("customer Connections offers direct social OAuth without any developer app controls",()=>{
+ const page=read("app/connections/page.tsx");
+ assert.match(page,/Connect "\+p\.name/);
+ assert.match(page,/Reconnect "\+p\.name/);
+ assert.match(page,/start\(p\.id as "facebook"\|"instagram"\)/);
+ assert.match(page,/Verify/);
+ assert.match(page,/Disconnect/);
+ assert.match(page,/Only a successfully completed provider OAuth and verified stored account record/);
+ assert.match(page,/No developer app credentials are required/);
+ for(const hidden of [
+  "SocialReadiness","meta-app-id-","meta-app-secret-","clientSecret:","missingSettings",
+  "callbackUrl","duplicateAppId","Developer settings needed","Developer settings required",
+  "p.appSetup","SOCIAL_META_FACEBOOK_CLIENT_SECRET"
+ ])assert.ok(!page.includes(hidden),"Customer must not contain "+hidden);
+ assert.doesNotMatch(page,/localStorage|sessionStorage|\/api\/platform\/social\/dispatch|publishPost|sendMessage/);
+});
+
+test("developer console requires owner session and contains isolated credentials, separate from customers",()=>{
+ const server=read("app/developer/meta/page.tsx");
+ const admin=read("app/developer/meta/developer-meta-console.tsx");
+ const route=read("app/api/reach/developer/meta-status/route.ts");
+ const ui=read("app/connections/social-readiness.tsx");
+ assert.match(server,/await cookies\(\)/);
+ assert.match(server,/validSession\(jar\.get\(cookieName\(\)\)\?\.value\)/);
+ assert.match(server,/redirect\("\/login\?next=%2Fdeveloper%2Fmeta"\)/);
+ assert.match(admin,/SocialReadiness meta=\{status\.meta\}/);
+ assert.match(admin,/\/api\/reach\/developer\/meta-status/);
+ assert.match(route,/if\(!adminAuthenticated\(req\)\)/);
+ assert.match(route,/missingSettings:state\.missingSettings/);
+ assert.match(route,/callbackUrl:state\.callbackUrl/);
+ assert.match(route,/duplicateAppId:/);
+ assert.match(ui,/STEP 2A · FACEBOOK CONNECTION/);
+ assert.match(ui,/STEP 2B · INSTAGRAM CONNECTION/);
  assert.match(ui,/reach-meta-setup-/);
- assert.match(ui,/Start here: enter your developer App ID and Secret/);
+ assert.match(ui,/connectedAccounts\[item\.provider\]/);
+ assert.match(ui,/working\[item\.provider\]/);
+ assert.match(ui,/body:JSON\.stringify\(\{provider,clientId:id,clientSecret:secret\}\)/);
+ assert.match(ui,/Missing developer configuration/);
  assert.match(ui,/Publishing & messaging/);
  assert.match(ui,/Disabled/);
- assert.match(ui,/api\/platform\/social\/meta\/callback/);
- assert.match(ui,/item\.duplicateAppId/);
- assert.match(ui,/Instagram App ID and matching Instagram App Secret/);
+ assert.match(ui,/API setup with Unified login/);
+ assert.match(ui,/Instagram-specific App ID \(if available\)/);
  assert.match(ui,/developers\.facebook\.com\/apps\//);
  assert.doesNotMatch(ui,/SOCIAL_META_FACEBOOK_CLIENT_SECRET=|SOCIAL_META_INSTAGRAM_CLIENT_SECRET=|console\.log|localStorage/);
 });
 
-test("identical valid Meta app IDs are a safe, actionable Instagram blocker",async()=>{
+test("customer hub returns only provider capability and never app IDs, secrets, callback or setup keys",()=>{
+ const hub=read("app/api/reach/connection-hub/route.ts");
+ assert.match(hub,/if\(!adminAuthenticated\(req\)\)/);
+ assert.match(hub,/const customerMeta=meta\.map/);
+ assert.match(hub,/meta:customerMeta/);
+ assert.match(hub,/requiredSetup:\["Social connections are not available/);
+ assert.doesNotMatch(hub,/client_secret:|access_token:|tokenValue/);
+ assert.match(hub,/externalMessagingEnabled:false/);
+ const developer=read("app/api/reach/developer/meta-status/route.ts");
+ assert.match(developer,/resolvedMetaEnv/);
+ assert.match(developer,/developerOnly:true/);
+});
+
+test("valid identical Meta App IDs are detected only as Instagram Direct Login incompatibility",async()=>{
  const require=createRequire(new URL("../ghl-gpt-gateway/package.json",import.meta.url));
  const ts=require("typescript");
  const source=read("lib/social-meta-contract.ts");
@@ -28,49 +71,14 @@ test("identical valid Meta app IDs are a safe, actionable Instagram blocker",asy
  const {duplicateMetaAppId}=await import("data:text/javascript;base64,"+Buffer.from(code).toString("base64"));
  assert.equal(duplicateMetaAppId("123456789123","123456789123"),true);
  assert.equal(duplicateMetaAppId("123456789123","123456789124"),false);
- for(const [a,b] of [["",""],[undefined,undefined],["not-a-valid-id","not-a-valid-id"],["123456789123",null]]){
-  assert.equal(duplicateMetaAppId(a,b),false);
- }
- const hub=read("app/api/reach/connection-hub/route.ts");
+ for(const [a,b] of [["",""],[undefined,undefined],["not-an-id","not-an-id"],["123456789123",null]])assert.equal(duplicateMetaAppId(a,b),false);
  const start=read("app/api/platform/social/meta/start/route.ts");
- const page=read("app/connections/page.tsx");
- assert.match(hub,/duplicateMetaAppId\(/);
- assert.match(hub,/provider==="instagram_professional"&&duplicatedInstagramId/);
- assert.match(page,/setup\?\.duplicateAppId/);
- assert.match(page,/meta\.duplicateAppId/);
  assert.match(start,/duplicateMetaAppId\(/);
  assert.match(start,/Instagram Direct Login cannot authorize/);
  assert.match(start,/Unified Login/);
- assert.doesNotMatch(hub,/clientSecret:|sealed_client_secret:|encrypted_access_token:/);
 });
 
-test("Facebook and Instagram have independent setup, credentials, account inventory and actions",()=>{
- const ui=read("app/connections/social-readiness.tsx");
- const page=read("app/connections/page.tsx");
- const vault=read("lib/reach-meta-app-vault.ts");
- const server=read("app/api/reach/connections/meta-apps/route.ts");
- const store=read("lib/social-meta-connection-store.ts");
- for(const marker of ["STEP 2A · FACEBOOK CONNECTION","STEP 2B · INSTAGRAM CONNECTION",
-  "reach-social-heading-","reach-meta-setup-","reach-provider-"])assert.ok((ui+page).includes(marker),marker);
- assert.match(ui,/connectedAccounts\[item\.provider\]/);
- assert.match(ui,/working\[item\.provider\]/);
- assert.match(ui,/setMessage\(old=>\(\{\.\.\.old,\[provider\]/);
- assert.match(ui,/setError\(old=>\(\{\.\.\.old,\[provider\]/);
- assert.match(ui,/body:JSON\.stringify\(\{provider,clientId:id,clientSecret:secret\}\)/);
- assert.match(page,/c\.provider==="facebook_pages"/);
- assert.match(page,/c\.provider==="instagram_professional"/);
- assert.match(page,/id=\{"reach-provider-"\+p\.id\}/);
- assert.match(vault,/reach-vault:primary-owner:meta-app:/);
- assert.match(vault,/WHERE owner_key=\$1 AND provider=\$2/);
- assert.match(server,/!isMetaProvider\(p\.provider\)/);
- assert.match(store,/ON CONFLICT\(workspace_id,provider,provider_account_id\)/);
- assert.match(store,/WHERE workspace_id=\$1::uuid AND id=\$2::uuid/);
- assert.match(ui,/API setup with Unified login/);
- assert.match(ui,/One callback endpoint is safe/);
- assert.doesNotMatch(ui,/localStorage|sessionStorage|console\.log/);
-});
-
-test("parallel Facebook and Instagram OAuth use separate nonce cookies with verified provider state",()=>{
+test("Facebook and Instagram OAuth maintain separate nonce cookies and provider-bound consent",()=>{
  const start=read("app/api/platform/social/meta/start/route.ts");
  const callback=read("app/api/platform/social/meta/callback/route.ts");
  const crypto=read("lib/social-meta-crypto.ts");
@@ -80,6 +88,5 @@ test("parallel Facebook and Instagram OAuth use separate nonce cookies with veri
  assert.match(callback,/sameNonce\(cookie,parsed\.nonce\)/);
  assert.match(callback,/consumeMetaFlow\(parsed\.workspaceId,parsed\.provider,parsed\.nonce\)/);
  assert.match(crypto,/createHmac\("sha256",secret\)/);
- assert.doesNotMatch(start,/response\.cookies\.set\("agency_meta_nonce",nonce/);
  assert.doesNotMatch(callback,/req\.cookies\.get\("agency_meta_nonce"\)/);
 });

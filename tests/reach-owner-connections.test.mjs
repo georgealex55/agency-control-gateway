@@ -42,7 +42,7 @@ test("owner login uses existing server session, strict same-origin cookie and sa
  assert.match(login,/credentials:"same-origin"/);
  assert.match(login,/type="password"/);
  assert.match(login,/autoComplete="current-password"/);
- assert.match(login,/value==="\/connections"\|\|value==="\/"/);
+ assert.match(login,/value==="\/connections"\|\|value==="\/developer\/meta"\|\|value==="\/"/);
  assert.match(login,/window\.location\.assign\(next\)/);
  assert.doesNotMatch(login,/localStorage|sessionStorage/);
  assert.match(loginApi,/if \(!sameOrigin\(req\)\)/);
@@ -86,14 +86,14 @@ test("connection actions are explicit, selected workspace scoped and read-only",
  assert.match(connectionUI,/window\.confirm\("Disconnect this account/);
  assert.match(connectionUI,/workspaceId:workspace/);
  assert.match(connectionUI,/Account selected\. Read-only verification is available/);
- assert.match(connectionUI,/Developer authorization not available/);
+ assert.match(connectionUI,/Integration not yet available/);
  assert.match(connectionUI,/guideMetaSetup\(/);
- assert.match(connectionUI,/Set up /);
+ assert.match(connectionUI,/No developer app credentials are required/);
  assert.doesNotMatch(connectionUI,/localStorage|sessionStorage|access_token|client_secret/);
 });
 test("UI never infers connection from provider config or enables posting",()=>{
- assert.match(connectionUI,/linked\.some\(c=>!c\.expired\)\?"Read-only record"/);
- assert.match(connectionUI,/Not connected \/ unverified/);
+ assert.match(connectionUI,/linked\.some\(c=>!c\.expired&&c\.lastVerifiedAt\)\?"Connected"/);
+ assert.match(connectionUI,/Not connected/);
  assert.match(connectionUI,/Only a successfully completed provider OAuth and verified stored account record/);
  assert.match(connectionUI,/Publishing and messaging stay disabled/);
  assert.match(home,/href="\/connections"/);

@@ -3,11 +3,10 @@ import {useEffect,useState} from "react";
 import Link from "next/link";
 import "./connections.css";
 import NeonCustomerCard from "./neon-customer-card";
-import SocialReadiness from "./social-readiness";
 
 type Workspace={id:string;name:string;slug:string};
-type MetaSetup={provider:"facebook_pages"|"instagram_professional";appConfigured:boolean;missingSettings:string[];permissions:string[];callbackUrl:string|null;launchEnabled:boolean;duplicateAppId:boolean;readOnly:true;publishingEnabled:false};
-type Provider={id:string;name:string;accounts:string;scopes:string[];appSetup:string;mode:"read_only"|"setup_required";launchEnabled:boolean;publishingEnabled:false;connectionStatus:"not_verified"};
+type MetaSetup={provider:"facebook_pages"|"instagram_professional";launchEnabled:boolean;readOnly:true;publishingEnabled:false};
+type Provider={id:string;name:string;accounts:string;scopes:string[];mode:"read_only"|"setup_required";launchEnabled:boolean;publishingEnabled:false;connectionStatus:"not_verified"};
 type Hub={authenticated:true;environment:string;storageApproved:boolean;workspaces:Workspace[];providers:Provider[];meta:MetaSetup[];publishingEnabled:false;externalMessagingEnabled:false;requiredSetup:string[]};
 type MetaCandidate={id:string;name:string;accountType?:string};
 type MetaConnection={id:string;provider:string;accountId:string;name:string;connectedAt:string;expiresAt:string|null;lastVerifiedAt:string|null;expired:boolean};
@@ -46,7 +45,7 @@ export default function Connections(){
  useEffect(()=>{
   const status=new URLSearchParams(window.location.search).get("meta");
   if(status==="select")setInfo("Authorization completed. Choose the exact account below to finish connecting.");
-  if(status==="failed")setError("Authorization was not completed. Review your developer app setup and try again.");
+  if(status==="failed")setError("Authorization did not finish. Confirm your provider account has access and try connecting again.");
   if(status==="canceled")setInfo("You canceled authorization. Nothing was connected.");
  },[]);
  useEffect(()=>{
@@ -74,24 +73,10 @@ export default function Connections(){
  },[hub,workspace]);
  /** Non-functional Connect buttons should guide the owner into setup, not remain disabled. */
  function guideMetaSetup(provider:"facebook"|"instagram"){
-  const id=metaId(provider);
-  if(!id)return;
-  const setup=hub?.meta.find(m=>m.provider===id);
-  if(!hub?.storageApproved){
-   setError("REACH workspace storage is not ready. Use Refresh connections after it is configured.");
-  }else if(provider==="instagram"&&setup?.duplicateAppId){
-   setInfo("Instagram Direct Login is not compatible with the saved Facebook App ID. If the Meta dashboard offers Unified Login, that method still needs its own authorization flow. Otherwise use the Instagram-specific App ID and Secret in the Instagram setup panel.");
-  }else if(setup?.appConfigured){
-   setInfo("The Meta app is saved, but OAuth is not ready on this hostname or with the current callback settings. Check the setup details and use the canonical REACH production URL.");
-  }else{
-   setInfo("Save the "+(provider==="facebook"?"Facebook":"Instagram")+" developer App ID and App Secret in the highlighted setup form. This must be done before Meta can request account consent.");
-  }
-  document.getElementById("reach-meta-setup-"+id)?.scrollIntoView({behavior:"smooth",block:"center"});
-  if(!setup?.appConfigured){
-   const field=document.getElementById("meta-app-id-"+id);
-   if(field instanceof HTMLInputElement&&!field.disabled)field.focus({preventScroll:true});
-  }
+  const service=provider==="facebook"?"Facebook Pages":"Instagram Professional";
+  setError(service+" authorization is not available on this REACH environment. Try again after the platform enables this connection. No developer app credentials are required.");
  }
+
  async function start(provider:"facebook"|"instagram"){
   const m=metaId(provider);
   if(!m||!workspace)return;
@@ -137,7 +122,7 @@ export default function Connections(){
   <div className="reach-conn-wrap">
    <nav aria-label="Connections navigation"><Link href="/">← Command Center</Link><Link href="/login?next=%2Fconnections">Owner login</Link></nav>
    <header><div className="reach-conn-eyebrow">REACH 2.3 · OWNER CONNECTIONS</div><h1>Connect your accounts.</h1>
-    <p>Manage read-only account authorization, choose the correct business profiles, verify access and disconnect when needed. Publishing and messaging stay disabled.</p>
+    <p>Connect Facebook and Instagram with a secure Meta sign-in. Approve access, choose your business account, and REACH handles the connection. No developer account or API keys required. Publishing and messaging stay disabled.</p>
    </header>
    {loading&&<p role="status">Checking owner session and provider configuration…</p>}
    {!loading&&loggedIn===false&&<section className="reach-conn-alert">
@@ -148,16 +133,13 @@ export default function Connections(){
    {info&&<p className="reach-conn-info" role="status">{info}</p>}
    {hub&&<>
     <NeonCustomerCard/>
-    <SocialReadiness meta={hub.meta} storageApproved={hub.storageApproved} onConfigured={()=>setCheck(v=>v+1)} connectedAccounts={{facebook_pages:inventory?.connections.filter(c=>c.provider==="facebook_pages"&&!c.expired).map(c=>c.name)||[],instagram_professional:inventory?.connections.filter(c=>c.provider==="instagram_professional"&&!c.expired).map(c=>c.name)||[]}}/>
     <section className="reach-conn-overview">
      <div><strong>Owner session</strong><span>Authenticated</span></div>
      <div><strong>Connection storage</strong><span>{hub.storageApproved?"Approved workspace data":"Setup required"}</span></div>
      <div><strong>External posting</strong><span>Disabled</span></div>
     </section>
     {!hub.storageApproved&&<section className="reach-conn-alert"><h2>Finish secure provider setup</h2>
-     <p>Account connections are not activated for this environment. Configure and approve a dedicated storage target and app credentials first. Do not paste secrets into this page.</p>
-     <p className="reach-conn-keyline">Required configuration keys:</p>
-     <div className="reach-conn-keylist">{hub.requiredSetup.map(k=><code key={k}>{k}</code>)}</div>
+     <p>Social connections are temporarily unavailable while REACH finishes provider setup. Your accounts are unchanged; try again later.</p>
     </section>}
     <section className="reach-conn-workspace">
      <label htmlFor="reach-workspace">Business workspace</label>
@@ -175,19 +157,15 @@ export default function Connections(){
       const canConnect=Boolean(meta?.launchEnabled&&hub.storageApproved&&workspace&&!busy);
       const requiresSetup=Boolean(meta&&!meta.launchEnabled);
       return <article key={p.id} id={"reach-provider-"+p.id} className="reach-conn-card">
-       <div className="reach-conn-card-head"><h2>{p.name}</h2><span>{linked.some(c=>!c.expired)?"Read-only record":linked.length?"Expired":"Not connected / unverified"}</span></div>
+       <div className="reach-conn-card-head"><h2>{p.name}</h2><span>{linked.some(c=>!c.expired&&c.lastVerifiedAt)?"Connected":linked.length?"Reconnect required":"Not connected"}</span></div>
        <p>{p.accounts}</p>
        <p className="reach-conn-small">Access scope: {p.scopes.length?p.scopes.join(", "):"Requires approved developer access"}</p>
-       <p className="reach-conn-small">{p.appSetup}</p>
        {meta?<><button type="button" disabled={busy!==""}
         onClick={()=>canConnect?void start(p.id as "facebook"|"instagram"):guideMetaSetup(p.id as "facebook"|"instagram")}>
-        {busy===p.id?"Starting…":canConnect?(linked.length?"Reconnect account":"Connect "+p.name):"Set up "+p.name}
+        {busy===p.id?"Opening Meta…":linked.length?"Reconnect "+p.name:"Connect "+p.name}
        </button>
-        {requiresSetup&&<p className="reach-conn-small">{!hub.storageApproved?"Workspace database setup is required before connecting.":meta.duplicateAppId?"Instagram Direct Login is blocked by this App ID. Check the Instagram-only setup panel for Instagram Login versus newer Unified Login instructions.":!meta.appConfigured?"Save the developer App ID and Secret in this provider's own setup panel above. Select Set up to jump to that form.":"Review the OAuth callback/hostname requirements above before connecting."}</p>}
+        {requiresSetup&&<p className="reach-conn-small">This connection is not available yet. REACH support is completing the Meta integration; no developer configuration is needed from you.</p>}
         {!requiresSetup&&!workspace&&<p className="reach-conn-small">Choose your business workspace before connecting.</p>}
-        {meta.missingSettings.length>0&&<details><summary>Developer settings needed ({meta.missingSettings.length})</summary>
-         <div className="reach-conn-keylist">{meta.missingSettings.map(k=><code key={k}>{k}</code>)}</div>
-        </details>}
         {pending.map(f=><div className="reach-conn-pending" key={f.id}><strong>Select an authorized account</strong>
          {f.candidates.map(c=><button key={c.id} disabled={busy!==""} onClick={()=>void choose(f.id,c.id)}>{c.name} · {c.id}</button>)}
         </div>)}
@@ -197,12 +175,11 @@ export default function Connections(){
          <button className="reach-conn-disconnect" disabled={busy!==""} onClick={()=>void disconnect(c.id)}>Disconnect</button></div>
         </div>)}
        </>:<><button type="button" onClick={()=>setExpandedProvider(value=>value===p.id?null:p.id)}>
-         {expandedProvider===p.id?"Hide setup requirements":"View setup requirements"}
+         {expandedProvider===p.id?"Hide availability details":"About this connection"}
         </button>
         {expandedProvider===p.id&&<div className="reach-conn-setup-info">
-         <strong>Developer authorization not available yet</strong>
-         <p>REACH has not implemented live OAuth for {p.name}. This card is informational, not an active account connection. Provider consent, secure token storage and integration testing must be completed before enabling Connect.</p>
-         <p>{p.appSetup}</p>
+         <strong>Integration not yet available</strong>
+         <p>Connecting {p.name} is not available yet. REACH will provide direct account authorization when this integration is ready. No developer configuration is required from you.</p>
         </div>}</>}
       </article>;
     })}
