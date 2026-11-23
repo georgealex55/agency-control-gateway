@@ -4,7 +4,7 @@ import Link from "next/link";
 import "./login.css";
 
 type Session={configured:boolean;authenticated:boolean;setupIssue?:"password_hash_invalid"|"session_secret_invalid"|"both_invalid"|null};
-const destination=(value:string|null)=>value==="/connections"||value==="/"?value:"/";
+const destination=(value:string|null)=>value==="/connections"||value==="/developer/meta"||value==="/"?value:"/";
 export default function OwnerLogin(){
  const [session,setSession]=useState<Session|null>(null);
  const [password,setPassword]=useState("");
