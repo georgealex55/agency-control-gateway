@@ -84,11 +84,11 @@ test("Owner hub and consent start/callback/readiness use vault settings",()=>{
 });
 test("Owner UI encrypts app credentials and never stores secrets in browser",()=>{
  const ui=read("app/connections/social-readiness.tsx");
- assert.match(ui,/Save app credentials \(encrypted\)/);
+ assert.match(ui,/Save this provider's credentials \(encrypted\)/);
  assert.match(ui,/type="password"/);
  assert.match(ui,/setAppSecret\(old=>\(\{\.\.\.old,\[provider\]:""\}\)\)/);
  assert.match(ui,/clientSecret:secret/);
- assert.match(ui,/Saving an app does not connect an account/);
+ assert.match(ui,/does not authorize an account automatically/);
  assert.match(ui,/Publishing & messaging/);
  assert.match(ui,/Disabled/);
  assert.doesNotMatch(ui,/localStorage|sessionStorage|document\.cookie|console\.log/);
