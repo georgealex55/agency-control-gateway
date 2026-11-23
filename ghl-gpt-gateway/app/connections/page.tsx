@@ -17,7 +17,9 @@ const trustedMetaAuth=(href:string,provider:string)=>{
  try{
   const u=new URL(href);
   return u.protocol==="https:"&&
-   (provider==="facebook"?u.hostname==="www.facebook.com":provider==="instagram"&&u.hostname==="www.instagram.com")&&
+   (provider==="facebook"?u.hostname==="www.facebook.com":provider==="instagram"&&(
+    u.hostname==="www.instagram.com"||
+    (u.hostname==="www.facebook.com"&&u.pathname==="/dialog/oauth"&&/^[0-9]{6,32}$/.test(u.searchParams.get("config_id")||""))))&&
    u.username===""&&u.password===""?u.href:null;
  }catch{return null;}
 };
@@ -74,7 +76,7 @@ export default function Connections(){
  /** Non-functional Connect buttons should guide the owner into setup, not remain disabled. */
  function guideMetaSetup(provider:"facebook"|"instagram"){
   const service=provider==="facebook"?"Facebook Pages":"Instagram Professional";
-  setError(service+" authorization is not available on this REACH environment. Try again after the platform enables this connection. No developer app credentials are required.");
+  setError(service+" authorization is awaiting REACH platform configuration. Your Meta account has not been modified. No developer app credentials are required from customers.");
  }
 
  async function start(provider:"facebook"|"instagram"){
