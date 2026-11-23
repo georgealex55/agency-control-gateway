@@ -122,7 +122,7 @@ export default function Connections(){
   <div className="reach-conn-wrap">
    <nav aria-label="Connections navigation"><Link href="/">← Command Center</Link><Link href="/login?next=%2Fconnections">Owner login</Link></nav>
    <header><div className="reach-conn-eyebrow">REACH 2.3 · OWNER CONNECTIONS</div><h1>Connect your accounts.</h1>
-    <p>Connect Facebook and Instagram with a secure Meta sign-in. Approve access, choose your business account, and REACH handles the connection. No developer account or API keys required.</p>
+    <p>Connect Facebook and Instagram with a secure Meta sign-in. Approve access, choose your business account, and REACH handles the connection. No developer account or API keys required. Publishing and messaging stay disabled.</p>
    </header>
    {loading&&<p role="status">Checking owner session and provider configuration…</p>}
    {!loading&&loggedIn===false&&<section className="reach-conn-alert">
