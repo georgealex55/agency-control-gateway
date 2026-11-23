@@ -6,6 +6,7 @@ import {connectionRuntimeEnabled,connectionRuntimeStatus} from "@/lib/reach-conn
 import {listPlatformWorkspaces} from "@/lib/platform-store";
 import {ownerSocialStorageConfigured,ownerSocialWorkspace} from "@/lib/reach-social-owner-db";
 import {resolvedMetaEnv} from "@/lib/reach-meta-app-vault";
+import {instagramUnifiedRequested,instagramUnifiedReady} from "@/lib/social-meta-instagram-unified";
 export const runtime="nodejs";export const dynamic="force-dynamic";
 const reply=(data:unknown,status=200)=>NextResponse.json(data,{status,headers:{"Cache-Control":"private, no-store"}});
 /** Returns no secrets, raw tokens or unverifiable 'connected' indicators. */
@@ -14,12 +15,14 @@ export async function GET(req:NextRequest){
  const enabled=connectionRuntimeEnabled(),environment=connectionRuntimeStatus();
  const metaEnvs=await Promise.all(META_PROVIDERS.map(provider=>resolvedMetaEnv(provider)));
  const duplicatedInstagramId=duplicateMetaAppId(metaEnvs[0].SOCIAL_META_FACEBOOK_CLIENT_ID,metaEnvs[1].SOCIAL_META_INSTAGRAM_CLIENT_ID);
+ const unifiedReady=instagramUnifiedReady(metaEnvs[1]);
+ const unifiedIncomplete=instagramUnifiedRequested(metaEnvs[1])&&!unifiedReady;
  const meta=META_PROVIDERS.map((provider,index)=>{
   const status=metaSetupStatus(metaEnvs[index],provider,req.nextUrl.origin);
   return {provider,appConfigured:status.appConfigured,missingSettings:status.missingSettings,
    permissions:status.permissions,callbackUrl:status.callbackUrl,
    duplicateAppId:provider==="instagram_professional"&&duplicatedInstagramId,
-   launchEnabled:enabled&&status.launchEnabled&&!(provider==="instagram_professional"&&duplicatedInstagramId),readOnly:true,publishingEnabled:false};
+   launchEnabled:enabled&&status.launchEnabled&&!(provider==="instagram_professional"&&(unifiedIncomplete||(duplicatedInstagramId&&!unifiedReady))),readOnly:true,publishingEnabled:false};
  });
  // Only safe connection capability reaches the normal Connections page.
  // Developer app readiness, callback URLs and missing environment variables are owner-admin only.
