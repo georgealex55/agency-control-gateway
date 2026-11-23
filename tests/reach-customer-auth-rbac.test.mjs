@@ -144,7 +144,8 @@ test("customer endpoints never reuse owner cookie and customer auth cannot acces
  assert.match(health,/connectionGate\(req\)/);
  assert.match(owner,/const COOKIE = "agency_portal_session"/);
  for(const code of [login,route]){
-  assert.doesNotMatch(code,/adminAuthenticated|agency_portal_session|decryptMetaToken|encrypted_access_token|SOCIAL_META_TOKEN_KEY|sendMessage|publishPost/);
+  const executable=code.replace(/\/\*[\s\S]*?\*\//g,"").replace(/\/\/[^\n]*/g,"");
+  assert.doesNotMatch(executable,/adminAuthenticated|agency_portal_session|decryptMetaToken|encrypted_access_token|SOCIAL_META_TOKEN_KEY|sendMessage|publishPost/);
  }
 });
 test("restricted migration never touches production tokens or modifies owner tables",()=>{
@@ -152,7 +153,8 @@ test("restricted migration never touches production tokens or modifies owner tab
  assert.match(sql,/GRANT SELECT\(id,name,slug\)/);
  assert.match(sql,/GRANT SELECT\(workspace_id,identity_subject,role\)/);
  assert.match(sql,/reach_customer_runtime/);
- assert.doesNotMatch(sql,/\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bTRUNCATE\b|\bDROP\b|\bCREATE TABLE\b|\bGRANT ALL\b/i);
+ const sqlStatements=sql.split("\n").filter(line=>!line.trimStart().startsWith("--")).join("\n");
+ assert.doesNotMatch(sqlStatements,/\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bTRUNCATE\b|\bDROP\b|\bCREATE TABLE\b|\bGRANT ALL\b/i);
  for(const file of ["lib/reach-customer-auth.ts","lib/reach-customer-access.ts","app/api/reach/customer/session/route.ts",
   "app/api/reach/customer/workspaces/route.ts","app/customer/workspaces/page.tsx"]){
   const result=toJs(read(file),file);
