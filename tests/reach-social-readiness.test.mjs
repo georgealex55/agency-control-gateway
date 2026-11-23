@@ -45,7 +45,7 @@ test("developer console requires owner session and contains isolated credentials
  assert.match(ui,/Publishing & messaging/);
  assert.match(ui,/Disabled/);
  assert.match(ui,/API setup with Unified login/);
- assert.match(ui,/Instagram Login App ID and matching Instagram App Secret|Instagram-specific App ID and matching Instagram App Secret/);
+ assert.match(ui,/Instagram-specific App ID \(if available\)/);
  assert.match(ui,/developers\.facebook\.com\/apps\//);
  assert.doesNotMatch(ui,/SOCIAL_META_FACEBOOK_CLIENT_SECRET=|SOCIAL_META_INSTAGRAM_CLIENT_SECRET=|console\.log|localStorage/);
 });
