@@ -1,7 +1,7 @@
 import {createHash,timingSafeEqual} from "node:crypto";
 import {NextRequest,NextResponse} from "next/server";
 import {connectionRuntimeEnabled} from "@/lib/reach-connection-runtime";
-import {metaConfigured,metaSetupStatus} from "@/lib/social-meta-contract";
+import {metaConfigured,metaSetupStatus,type MetaProvider} from "@/lib/social-meta-contract";
 import {verifyMetaConsent} from "@/lib/social-meta-crypto";
 import {consumeMetaFlow,stageMetaCandidates} from "@/lib/social-meta-connection-store";
 import {oauthSettings,exchangeMetaCode} from "@/lib/social-meta-oauth-server";
@@ -11,13 +11,13 @@ import {readInstagramProfessionalProfile} from "@/lib/social-meta-instagram";
 import {resolvedMetaEnv} from "@/lib/reach-meta-app-vault";
 export const runtime="nodejs";export const dynamic="force-dynamic";
 const noStore={"Cache-Control":"no-store"};
-function toSocial(req:NextRequest,status:"failed"|"canceled"|"select"){
+function toSocial(req:NextRequest,status:"failed"|"canceled"|"select",provider?:MetaProvider){
  const production=process.env.VERCEL_ENV==="production";
  const destination=new URL(production?"/connections":"/",req.nextUrl.origin);
  if(!production)destination.searchParams.set("social","connections");
  destination.searchParams.set("meta",status);
  const response=NextResponse.redirect(destination,{status:303,headers:noStore});
- response.cookies.set("agency_meta_nonce","",{path:"/api/platform/social/meta/callback",httpOnly:true,secure:true,sameSite:"lax",maxAge:0});
+ if(provider)response.cookies.set("agency_meta_nonce_"+provider,"",{path:"/api/platform/social/meta/callback",httpOnly:true,secure:true,sameSite:"lax",maxAge:0});
  return response;
 }
 function sameNonce(a:string,b:string){
@@ -32,20 +32,20 @@ export async function GET(req:NextRequest){
   return NextResponse.json({error:"Meta connections are disabled in this environment"},{status:423,headers:noStore});
  }
  const state=req.nextUrl.searchParams.get("state")||"";
- const cookie=req.cookies.get("agency_meta_nonce")?.value||"";
  const secret=process.env.SOCIAL_META_OAUTH_STATE_SECRET||"";
  const parsed=verifyMetaConsent(state,secret,Date.now());
- if(!parsed||!cookie||!sameNonce(cookie,parsed.nonce))return toSocial(req,"failed");
+ const cookie=parsed?req.cookies.get("agency_meta_nonce_"+parsed.provider)?.value||"":"";
+ if(!parsed||!cookie||!sameNonce(cookie,parsed.nonce))return toSocial(req,"failed",parsed?.provider);
  const metaEnv=await resolvedMetaEnv(parsed.provider);
- if(!metaConfigured(metaEnv,parsed.provider))return toSocial(req,"failed");
+ if(!metaConfigured(metaEnv,parsed.provider))return toSocial(req,"failed",parsed?.provider);
  const settings=oauthSettings(metaEnv,parsed.provider);
  const setup=metaSetupStatus(metaEnv,parsed.provider,req.nextUrl.origin);
- if(!setup.isCanonicalHost||!setup.branchMatches)return toSocial(req,"failed");
+ if(!setup.isCanonicalHost||!setup.branchMatches)return toSocial(req,"failed",parsed?.provider);
  try{
-  if(!await consumeMetaFlow(parsed.workspaceId,parsed.provider,parsed.nonce))return toSocial(req,"failed");
-  if(req.nextUrl.searchParams.has("error")||req.nextUrl.searchParams.has("error_reason"))return toSocial(req,"canceled");
+  if(!await consumeMetaFlow(parsed.workspaceId,parsed.provider,parsed.nonce))return toSocial(req,"failed",parsed?.provider);
+  if(req.nextUrl.searchParams.has("error")||req.nextUrl.searchParams.has("error_reason"))return toSocial(req,"canceled",parsed.provider);
   const code=req.nextUrl.searchParams.get("code");
-  if(!code)return toSocial(req,"failed");
+  if(!code)return toSocial(req,"failed",parsed?.provider);
   const shortLived=await exchangeMetaCode(parsed.provider,code,settings);
   const authorized=parsed.provider==="facebook_pages"?
    await exchangeFacebookLongLived({shortLivedToken:shortLived.token,appId:settings.clientId,appSecret:settings.clientSecret,graphVersion:settings.version}):
@@ -54,8 +54,8 @@ export async function GET(req:NextRequest){
    (await listFacebookPages({token:authorized.token,version:settings.version})).map(p=>({id:p.id,name:p.name,tasks:p.tasks})):
    [await readInstagramProfessionalProfile({token:authorized.token,version:settings.version})].map(p=>({id:p.id,name:"@"+p.username,accountType:p.accountType}));
   await stageMetaCandidates(parsed.workspaceId,parsed.provider,authorized.token,authorized.expiresAt,candidates,process.env.SOCIAL_META_TOKEN_KEY||"");
-  return toSocial(req,"select");
+  return toSocial(req,"select",parsed.provider);
  }catch{
-  return toSocial(req,"failed");
+  return toSocial(req,"failed",parsed?.provider);
  }
 }
