@@ -21,23 +21,24 @@ export async function GET(req:NextRequest){
    duplicateAppId:provider==="instagram_professional"&&duplicatedInstagramId,
    launchEnabled:enabled&&status.launchEnabled&&!(provider==="instagram_professional"&&duplicatedInstagramId),readOnly:true,publishingEnabled:false};
  });
+ // Only safe connection capability reaches the normal Connections page.
+ // Developer app readiness, callback URLs and missing environment variables are owner-admin only.
+ const customerMeta=meta.map(m=>({provider:m.provider,launchEnabled:m.launchEnabled,readOnly:m.readOnly,publishingEnabled:m.publishingEnabled}));
  const providers=SOCIAL_PROVIDER_CATALOG.map(p=>({
-  id:p.id,name:p.name,accounts:p.accounts,scopes:[...p.scopes],appSetup:p.appSetup,
+  id:p.id,name:p.name,accounts:p.accounts,scopes:[...p.scopes],
   mode:p.id==="facebook"||p.id==="instagram"?"read_only" as const:"setup_required" as const,
   launchEnabled:p.id==="facebook"?meta[0].launchEnabled:p.id==="instagram"?meta[1].launchEnabled:false,
   publishingEnabled:false,connectionStatus:"not_verified" as const
  }));
  if(!enabled)return reply({
-  authenticated:true,environment,storageApproved:false,workspaces:[],providers,meta,
+  authenticated:true,environment,storageApproved:false,workspaces:[],providers,meta:customerMeta,
   publishingEnabled:false,externalMessagingEnabled:false,
-  requiredSetup:["AGENCY_PORTAL_PASSWORD_SHA256","AGENCY_PORTAL_SESSION_SECRET",
-   "REACH_CONNECTIONS_PRODUCTION_ENABLED","REACH_CONNECTIONS_APPROVED_DATABASE_SHA256",
-   "AGENCY_PLATFORM_DATABASE_URL","SOCIAL_META_CONNECTIONS_ENABLED"]
+  requiredSetup:["Social connections are not available. Contact REACH support."]
  });
  try{
   const workspaces=ownerSocialStorageConfigured()?await ownerSocialWorkspace():await listPlatformWorkspaces();
   return reply({authenticated:true,environment,storageApproved:true,
    workspaces:workspaces.map(w=>({id:w.id,name:w.name,slug:w.slug})),
-   providers,meta,publishingEnabled:false,externalMessagingEnabled:false,requiredSetup:[]});
+   providers,meta:customerMeta,publishingEnabled:false,externalMessagingEnabled:false,requiredSetup:[]});
  }catch{return reply({error:"Approved workspace database unavailable"},503);}
 }
