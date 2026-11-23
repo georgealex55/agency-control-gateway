@@ -39,6 +39,33 @@ test("identical valid Meta app IDs are a safe, actionable Instagram blocker",asy
  assert.match(page,/setup\?\.duplicateAppId/);
  assert.match(page,/meta\.duplicateAppId/);
  assert.match(start,/duplicateMetaAppId\(/);
- assert.match(start,/Replace Instagram-specific credentials/);
+ assert.match(start,/Instagram Direct Login cannot authorize/);
+ assert.match(start,/Unified Login/);
  assert.doesNotMatch(hub,/clientSecret:|sealed_client_secret:|encrypted_access_token:/);
+});
+
+test("Facebook and Instagram have independent setup, credentials, account inventory and actions",()=>{
+ const ui=read("app/connections/social-readiness.tsx");
+ const page=read("app/connections/page.tsx");
+ const vault=read("lib/reach-meta-app-vault.ts");
+ const server=read("app/api/reach/connections/meta-apps/route.ts");
+ const store=read("lib/social-meta-connection-store.ts");
+ for(const marker of ["STEP 2A · FACEBOOK CONNECTION","STEP 2B · INSTAGRAM CONNECTION",
+  "reach-social-heading-","reach-meta-setup-","reach-provider-"])assert.ok((ui+page).includes(marker),marker);
+ assert.match(ui,/connectedAccounts\[item\.provider\]/);
+ assert.match(ui,/working\[item\.provider\]/);
+ assert.match(ui,/setMessage\(old=>\(\{\.\.\.old,\[provider\]/);
+ assert.match(ui,/setError\(old=>\(\{\.\.\.old,\[provider\]/);
+ assert.match(ui,/body:JSON\.stringify\(\{provider,clientId:id,clientSecret:secret\}\)/);
+ assert.match(page,/c\.provider==="facebook_pages"/);
+ assert.match(page,/c\.provider==="instagram_professional"/);
+ assert.match(page,/id=\{"reach-provider-"\+p\.id\}/);
+ assert.match(vault,/reach-vault:primary-owner:meta-app:/);
+ assert.match(vault,/WHERE owner_key=\$1 AND provider=\$2/);
+ assert.match(server,/!isMetaProvider\(p\.provider\)/);
+ assert.match(store,/ON CONFLICT\(workspace_id,provider,provider_account_id\)/);
+ assert.match(store,/WHERE workspace_id=\$1::uuid AND id=\$2::uuid/);
+ assert.match(ui,/API setup with Unified login/);
+ assert.match(ui,/One callback endpoint is safe/);
+ assert.doesNotMatch(ui,/localStorage|sessionStorage|console\.log/);
 });
