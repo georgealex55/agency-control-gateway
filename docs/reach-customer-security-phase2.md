@@ -1,41 +1,46 @@
-# REACH Phase 2 — separate customer identity and workspace authorization
+# REACH Phase 2 — Staging identity, tenant permissions and invitations
 
-Status 2026-11-23: implemented on a **feature branch**, stacked on Connections 3.0 PR #33. No production merge, provider authorization, or database change.
+Status: **STAGING ONLY**, 2026-11-23. Draft PR #34 is stacked on draft Connections PR #33; neither is merged to main. No production branch, production Neon credentials, Meta connection or external provider grants have changed.
 
-## Current vs target
-- Platform owner: existing `agency_portal_session` password login; full platform/developer access. **Unchanged.**
-- Customer: Neon Auth-issued signed identity assertion validated against the **pinned Neon JWKS**, exact issuer and audience, expiration and algorithm. Exchanges for an independent HttpOnly, SameSite=Strict 15-minute `reach_customer_session`. Never accepts the owner cookie as a customer identity or caller-supplied role.
-- Workspace authorization: no global customer workspace list. Each customer call queries `agency_platform_memberships` using `neon_auth:<verified-sub>`, with parameterized queries, returning only authorized `agency_platform_workspaces`. Per-workspace `requireCustomerWorkspace(identity,id,permission)` must gate every future business endpoint.
-- Role matrix: `viewer` may read, `instructor` may read/edit content, `client_editor` may read/edit content, `client_owner` may manage membership. **External actions default DENY for all roles**, including owner, until specific consent policy and separate provider route is approved.
-- The customer API `GET /api/reach/customer/workspaces` is read-only and requires this customer cookie. `GET /api/reach/customer/workspaces?workspaceId=...` rejects arbitrary cross-tenant workspace IDs. `GET/POST/DELETE /api/reach/customer/session` handles session check, verified assertion exchange, and local logout.
-- Existing `/connections`, `/api/platform/social/meta/*`, owner vault, Command Center, and developer console **remain owner-only**. Customer social-read APIs need additional per-account RLS audit before being exposed to tenants.
+## Real staging environment
+- Neon project `red-violet-71016741`; **staging branch** `br-calm-block-bdxsar49` (`reach-phase2-auth-staging-20261123`), created as child of the existing synthetic test branch, not of production.
+- Managed Better Auth was provisioned on staging only, using dedicated `neon_auth` tables and its own HTTPS auth origin/JWKS.
+- Email/password and mandatory email verification are active, using email OTP; password reset revokes sessions. Organization invitation emails and external action automations remain disabled.
+- Two reserved synthetic test identities and two separate test workspaces are present in staging. Alpha is a `client_owner` of Synthetic Alpha; Beta is a `viewer` of Synthetic Beta. **Neither test email is verified**, so the verified-membership view correctly returns no accessible workspace. These are seeded identity fixtures, not evidence that real mailbox-based sign-in has succeeded.
+- Production still has no `neon_auth` schema. Production `main`, tokens and the Xander Tech Facebook authorization have not been changed.
+- Vercel configuration is restricted to branch-specific Preview variables for `feature/reach-customer-auth-workspace-rbac-20261123`: `NEON_AUTH_BASE_URL`, `NEON_AUTH_COOKIE_SECRET`, `REACH_CUSTOMER_AUTH_ENABLED`, `REACH_CUSTOMER_AUTH_ISSUER`, `REACH_CUSTOMER_AUTH_AUDIENCE`, `REACH_CUSTOMER_AUTH_JWKS_URL`, `REACH_CUSTOMER_SESSION_SECRET`, `REACH_CUSTOMER_DATABASE_URL`, `REACH_CUSTOMER_INVITES_DATABASE_URL`. Secrets are stored as sensitive environment variables; nothing is added to Git.
 
-## Database boundary / threat model
-A dedicated runtime database role `reach_customer_runtime` may be granted **SELECT only** on membership columns and workspace name/id/slug. It cannot read Meta token tables, owner vault, client application secrets, other business data, or modify any database records. The app only issues query parameters from **verified** identity claims, not from arbitrary user roles. Use separate `REACH_CUSTOMER_DATABASE_URL` in private Vercel settings; never reuse `AGENCY_PLATFORM_DATABASE_URL` or the production owner runtime role.
+## Customer login
+- Official pinned `@neondatabase/auth@0.7.0-beta` Next.js SDK is installed on this feature branch; its current peer requirement is **Next.js 16**, so this Preview alone uses `next@16.4.6`. Do not merge into production without a separate major-version compatibility review.
+- `/api/auth/[...path]` proxies the managed Better Auth service only when feature flags and server-side cookie secret are valid; otherwise it returns unavailable.
+- `/customer/sign-in` performs real managed sign-in, obtains the signed JWT from the Neon session, and exchanges it for an **independent** 15-minute REACH customer cookie.
+- `/customer/register?invite=...` handles email/password signup and email OTP verification. The invitation link is required for the UI; however Neon Auth currently allows signup and may accept direct API registrations. **Signup never grants workspace access without an invitation or explicit owner-issued membership.**
+- `/customer/invite?token=...` redeems a token after sign-in and verifies the email and token against staging database functions.
+- The customer cookie is distinct from the existing `agency_portal_session` platform-owner cookie. Owner session cannot authenticate customer APIs, and customer session never enables owner/Meta APIs.
+- Neon JWT verification enforces EdDSA (Ed25519) signed by the **pinned branch JWKS**, exact issuer/audience equal to the Auth origin, expected expiration and `emailVerified=true`; session signature and expiry independently validated by REACH.
+- A verified person may have **zero** workspaces before accepting an invitation. The customer workspace endpoint returns only granted workspaces and never lists other tenants.
 
-This is **application-level** tenant authorization with a restricted database reader; it does not yet add comprehensive Postgres RLS to every REACH feature table. Before enabling customer reads/writes beyond membership metadata, independently test proper RLS for every customer table and role. Session expiry is 15 minutes; removing membership blocks subsequent workspace reads immediately, but an identity-provider sign-out does not by itself revoke the short-lived REACH cookie. Add revocation checking and customer session tracking before wider rollout.
+## Tenant enforcement and database roles
+- `reach_customer_runtime`: restricted to a verified-membership **view** in schema `reach_customer`, with no access to `public` Meta tokens, `reach_vault` or `neon_auth` internals.
+- The view joins `agency_platform_memberships` to `neon_auth.user`, only where `emailVerified=true` and not banned. Server queries always bind the identity's `neon_auth:<sub>` and requested UUID; cross-tenant workspace IDs return 404.
+- `reach_invite_runtime`: separate staging role, with executable-only invitation functions in `reach_customer_invites` and no access to secret invite table or provider connections. Its `available_workspaces()` returns only workspace IDs and names for an authenticated platform owner.
+- SQL migrations: `V001__read_only_customer_membership_grants.sql` and `V002__staging_workspace_invitation_functions.sql`. They were applied **only to the isolated staging branch**; do not apply to production during this milestone.
+- Permissions: `client_owner`, `client_editor`, `instructor`, and `viewer`. All external execution/publishing/messaging remains denied at this stage, regardless of role.
 
-The existing production project has **no Neon Auth integration enabled** (checked read-only). Hence the new customer identity routes default to **503 unavailable**: no insecure fallback to owner sessions, demo accounts, or bypass. No credentials, Neon Auth integration, or role grants have been activated.
+## Invitation flow
+- `/developer/meta` contains the owner-only staging invitation form with a real workspace dropdown.
+- `POST /api/reach/customer/invitations`: requires same-origin owner session and Vercel **Preview**; issues a cryptographically random, base64url 32-byte token, stores **only SHA-256 hash** in staging, bound to one workspace, one role and lowercase recipient email. Valid for 48 hours; response returns one manual-delivery link and explicitly indicates **no email sent**.
+- `POST /api/reach/customer/invitations/accept`: requires a valid customer session, exact bound verified email in Neon Auth, a currently valid unconsumed token, and atomic one-time assignment. Existing membership is not silently upgraded on conflict. Any cross-tenant, unverified or replayed invitation is rejected.
+- The managed Neon organization plugin also exists but is **not** used as authority for REACH workspace RBAC, which stays application-owned.
 
-## Activation gates — not authorized on this branch
-1. Provision Neon Auth on a **dedicated isolated Neon branch first**; configure email verification, recovery, trusted Preview origin, login throttling and audit, then a test customer account.
-2. Review the official Neon Auth Next.js server integration and finalize the real login UI/SDK handoff. The Phase 2 API accepts **Neon Auth JWT assertions**, not opaque `getSession().session.token` cookie tokens.
-3. Independently create `reach_customer_runtime` via Neon with restricted privileges. Review (but do not apply on this branch) `db/reach-customer/V001__read_only_customer_membership_grants.sql`, in the correct tenant database. Confirm no provider access grants.
-4. For each verified Neon Auth identity, provision membership `identity_subject='neon_auth:' || <sub>` in the existing `agency_platform_memberships` table via a **separately approved owner workflow**. No customer self-registration or default membership grants.
-5. Configure in Vercel **Preview only**, never a public client environment:
-   - `REACH_CUSTOMER_AUTH_ENABLED=true`
-   - `REACH_CUSTOMER_AUTH_ISSUER=https://<Neon Auth HTTPS origin>`
-   - `REACH_CUSTOMER_AUTH_JWKS_URL=https://<matching Neon JWKS endpoint>`
-   - `REACH_CUSTOMER_AUTH_AUDIENCE=<exact Neon Auth JWT audience>`
-   - `REACH_CUSTOMER_SESSION_SECRET=<independent 32+ character secret>`
-   - `REACH_CUSTOMER_DATABASE_URL=<postgresql URL for reach_customer_runtime>`
-6. Test two independent test customers, two workspaces and all four roles. Demonstrate cross-tenant denial, expired/tampered assertion rejection, session expiry, member revocation, and 403/404/503 responses, before connecting any external provider.
-7. Do not merge into production until Phase 2 owner approval and security review. Do not enable Instagram Unified Login, automated refresh, email/SMS, publishing, or external actions in this milestone.
+## Test evidence and remaining gates
+- Generated Ed25519 JWT and signed-cookie tests, expired/tampered/invalid assertion tests, role escalation and cross-tenant denial, invitation-token issue/replay and recipient mismatch test, and Next.js TypeScript/build/owner HTTP login gate execute in CI.
+- Independent **staging Postgres authorization tests** confirmed: `reach_customer_runtime` cannot SELECT Meta token tables, `reach_invite_runtime` cannot SELECT Meta tables, staging view filters unverified fixture identities, and invitation workspace list contains only Synthetic Alpha/Beta.
+- Browser-based signup, receipt of a real OTP email, sign-in, return from login to invite and live invitation acceptance **still require test mailboxes**: the two `example.com` fixture accounts cannot receive OTP. Do not mark this end-to-end flow verified.
+- Production release blocked until: E2E test with two controlled verified email accounts; approved invitation/OTP email delivery; CORS/cookie and customer session revocation review; complete per-feature tenant RLS; reviewed Next.js 16 upgrade; secure owner onboarding and customer account provisioning; fresh PR review.
+- No Instagram Unified Login, social publishing, provider messaging, customer payments, API-key automation, webhook subscription or other provider actions are activated.
 
-## Design references
-- Neon Auth for Next.js, server-issued JWT vs opaque session cookie:
-  https://github.com/neondatabase/neon-js/blob/main/packages/auth/NEXT-JS.md
-- https://neon.com/docs/auth/authentication-flow
-
-## Remaining work
-Actual Neon Auth provisioning, customer sign-in UI/managed SDK, invitation workflow, DB membership provisioning, complete customer session revocation, cross-provider workspace RLS and automated customer notifications. No simulated connected customer credentials in Preview.
+## Official references
+- https://neon.com/docs/auth/guides/plugins/jwt
+- https://github.com/neondatabase/neon-js/blob/main/packages/auth/NEXT-JS.md
+- https://neon.com/docs/auth/guides/email-verification
