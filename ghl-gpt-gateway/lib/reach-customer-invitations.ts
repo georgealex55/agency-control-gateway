@@ -38,6 +38,13 @@ export async function issueCustomerInvitation(input:{workspaceId:string;email:st
  if(r[0]?.issued!==true)throw Error("Workspace invitation was not created");
  return token; // Raw token is shown only once to the authenticated owner, never stored.
 }
+export async function listInvitableWorkspaces():Promise<{id:string;name:string}[]>{
+ const r=resultRows(await db().query("SELECT id,name FROM reach_customer_invites.available_workspaces()"));
+ return r.map(v=>{
+  if(!workspaceIsValid(v.id)||typeof v.name!=="string"||v.name.length<1||v.name.length>120)throw Error("Invalid workspace registry");
+  return {id:v.id,name:v.name};
+ });
+}
 export async function acceptCustomerInvitation(identity:CustomerIdentity,token:string):Promise<boolean>{
  if(typeof token!=="string"||!TOKEN.test(token))return false;
  const subject="neon_auth:"+identity.subject;
