@@ -42,7 +42,7 @@ export async function verifyCustomerAssertion(assertion:string,config:CustomerAu
   payload.exp<=now||payload.exp>now+20*60||
   (payload.nbf!==undefined&&(typeof payload.nbf!=="number"||payload.nbf>now+30))||
   (payload.iat!==undefined&&(typeof payload.iat!=="number"||payload.iat>now+30))||
-  payload.email_verified===false)throw Error("Untrusted customer assertion");
+  payload.emailVerified!==true)throw Error("Untrusted customer assertion");
  const source=new URL(config.jwksUrl);
  if(source.protocol!=="https:"||!source.hostname.endsWith(".neon.tech"))throw Error("Untrusted JWKS source");
  const response=await fetcher(config.jwksUrl,{method:"GET",redirect:"error",cache:"no-store",
