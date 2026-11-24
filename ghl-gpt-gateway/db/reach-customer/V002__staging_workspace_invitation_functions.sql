@@ -60,4 +60,6 @@ GRANT CONNECT ON DATABASE reach_platform TO reach_invite_runtime;
 GRANT USAGE ON SCHEMA reach_customer_invites TO reach_invite_runtime;
 GRANT EXECUTE ON FUNCTION reach_customer_invites.issue(TEXT,UUID,TEXT,TEXT) TO reach_invite_runtime;
 GRANT EXECUTE ON FUNCTION reach_customer_invites.accept(TEXT,TEXT) TO reach_invite_runtime;
+REVOKE ALL ON FUNCTION reach_customer_invites.available_workspaces() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION reach_customer_invites.available_workspaces() TO reach_invite_runtime;
 COMMIT;
