@@ -13,9 +13,13 @@ export default function CustomerSignIn(){
  const [invite,setInvite]=useState("");
  const destination=()=>invite?"/customer/invite?token="+encodeURIComponent(invite):"/customer/workspaces";
  useEffect(()=>{
+  const t=new URLSearchParams(window.location.search).get("invite")||"";
+  const safe=/^[A-Za-z0-9_-]{43}$/.test(t)?t:"";
+  setInvite(safe);
+  const returnTo=safe?"/customer/invite?token="+encodeURIComponent(safe):"/customer/workspaces";
   const c=new AbortController();
   fetch("/api/reach/customer/session",{credentials:"same-origin",cache:"no-store",signal:c.signal})
-   .then(async r=>{if(!c.signal.aborted){setConfigured(r.status!==503);if(r.ok){const j=await r.json();if(j.authenticated)window.location.assign("/customer/workspaces");}}})
+   .then(async r=>{if(!c.signal.aborted){setConfigured(r.status!==503);if(r.ok){const j=await r.json();if(j.authenticated)window.location.assign(returnTo);}}})
    .catch(()=>{if(!c.signal.aborted)setConfigured(false);});
   return()=>c.abort();
  },[]);
@@ -29,7 +33,7 @@ export default function CustomerSignIn(){
    const r=await fetch("/api/reach/customer/session",{method:"POST",credentials:"same-origin",
     headers:{"Content-Type":"application/json"},body:JSON.stringify({assertion:token.data.session.token}),cache:"no-store"});
    if(!r.ok)throw Error(r.status===403?"This verified identity is not assigned to a REACH workspace.":"Customer access not yet approved.");
-   setPassword("");window.location.assign("/customer/workspaces");
+   setPassword("");window.location.assign(destination());
   }catch(e){setStatus(e instanceof Error?e.message:"Sign-in unavailable.");}
   finally{setBusy(false);}
  }
