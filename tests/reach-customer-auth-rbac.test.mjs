@@ -102,8 +102,8 @@ test("membership SQL always binds verified identity and requested workspace, den
  globalThis.__reachMembershipFixture=(sql,params)=>{
   observed.push({sql,params});
   assert.equal(params[0],"neon_auth:customer_fixture_123");
-  assert.match(sql,/agency_platform_memberships/);
-  assert.match(sql,/m\.identity_subject=\$1/);
+  assert.match(sql,/reach_customer\.verified_memberships/);
+  assert.match(sql,/identity_subject=\$1/);
   const record={id:tenant1,name:"Tenant A",slug:"tenant-a",role:"viewer"};
   return params[1]===tenant2?[]:[record];
  };
@@ -115,7 +115,7 @@ test("membership SQL always binds verified identity and requested workspace, den
   assert.equal(await access.requireCustomerWorkspace(subject,tenant1,"members:manage"),null);
   assert.equal(await access.requireCustomerWorkspace(subject,tenant2,"workspace:read"),null);
   assert.equal(await access.requireCustomerWorkspace(subject,"not-a-uuid","workspace:read"),null);
-  assert.match(observed[1].sql,/m\.workspace_id=\$2::uuid/);
+  assert.match(observed[1].sql,/id=\$2::uuid/);
   assert.deepEqual(observed[2].params,["neon_auth:customer_fixture_123",tenant1]);
   assert.deepEqual(observed[3].params,["neon_auth:customer_fixture_123",tenant2]);
   assert.equal(access.customerDatabaseConfigured({REACH_CUSTOMER_AUTH_ENABLED:"true",REACH_CUSTOMER_DATABASE_URL:"postgresql://admin:pass@localhost/reach_platform?sslmode=disable"}),false);
