@@ -13,7 +13,8 @@ export async function GET(req:NextRequest){
  if(!identity)return reply({authenticated:false,configured:true},401);
  try{
   const workspaces=await listCustomerWorkspaces(identity);
-  if(workspaces.length===0)return reply({authenticated:false,configured:true},403);
+  // A verified invited identity with no membership may accept a pending invite.
+  // The workspace API still returns nothing until an owner-created grant exists.
   return reply({authenticated:true,configured:true,workspaceCount:workspaces.length,readOnly:true});
  }catch{return reply({authenticated:false,configured:false},503);}
 }
@@ -31,7 +32,6 @@ export async function POST(req:NextRequest){
  try{
   const identity=await verifyCustomerAssertion(assertion,config);
   const membership=await listCustomerWorkspaces(identity);
-  if(!membership.length)return reply({error:"No authorized REACH workspace"},403);
   const response=reply({authenticated:true,workspaceCount:membership.length,readOnly:true});
   response.cookies.set(customerCookieName(),createCustomerSession(identity,config.sessionSecret),{...cookieOptions,maxAge:customerCookieLifetime()});
   return response;
