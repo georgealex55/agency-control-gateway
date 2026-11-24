@@ -14,18 +14,18 @@ const isolatedAccess=read("lib/reach-customer-access.ts").replace(
  'const neon=()=>({query:async(sql,params)=>globalThis.__reachMembershipFixture(sql,params)});'
 );
 const access=await moduleFrom(toJs(isolatedAccess,"lib/reach-customer-access.ts").outputText);
-const {privateKey,publicKey}=generateKeyPairSync("rsa",{modulusLength:2048});
+const {privateKey,publicKey}=generateKeyPairSync("ed25519");
 const jwk=publicKey.export({format:"jwk"});
-const issuedKey={...jwk,kid:"fixture-key-1",use:"sig",alg:"RS256"};
+const issuedKey={...jwk,kid:"fixture-key-1",use:"sig",alg:"EdDSA"};
 const issuer="https://sample-auth.neon.tech",audience="reach-customer";
 const secret="synthetic-SESSION-SECRET-0123456789-0123456789-0123456789";
 const now=1795456800;
 const config={issuer,audience,jwksUrl:issuer+"/.well-known/jwks.json",sessionSecret:secret};
 const b64=value=>Buffer.from(JSON.stringify(value)).toString("base64url");
 const issue=(claims={},header={})=>{
- const h=b64({alg:"RS256",kid:"fixture-key-1",typ:"JWT",...header});
- const p=b64({iss:issuer,aud:audience,sub:"customer_fixture_123",exp:now+600,iat:now-10,email_verified:true,...claims});
- return h+"."+p+"."+sign("RSA-SHA256",Buffer.from(h+"."+p),privateKey).toString("base64url");
+ const h=b64({alg:"EdDSA",kid:"fixture-key-1",typ:"JWT",...header});
+ const p=b64({iss:issuer,aud:audience,sub:"customer_fixture_123",exp:now+600,iat:now-10,emailVerified:true,...claims});
+ return h+"."+p+"."+sign(null,Buffer.from(h+"."+p),privateKey).toString("base64url");
 };
 const remote=async(url,opts)=>{
  assert.equal(url,config.jwksUrl);
@@ -58,7 +58,7 @@ test("cryptographically verified Neon JWT accepts only trusted key, audience, is
  for(const jwt of [
   issue({iss:"https://attacker.neon.tech"}),issue({aud:"incorrect"}),
   issue({exp:now}),issue({exp:now+25*3600}),issue({nbf:now+100}),issue({iat:now+100}),
-  issue({sub:"bad subject"}),issue({email_verified:false}),issue({}, {alg:"none"}),
+  issue({sub:"bad subject"}),issue({emailVerified:false}),issue({}, {alg:"none"}),
   issue({}, {jku:"https://evil.example/jwks"}),issue({}, {kid:"unknown"}),
   issue().slice(0,-3)+"aaa"
  ]){
@@ -150,8 +150,8 @@ test("customer endpoints never reuse owner cookie and customer auth cannot acces
 });
 test("restricted migration never touches production tokens or modifies owner tables",()=>{
  const sql=read("db/reach-customer/V001__read_only_customer_membership_grants.sql");
- assert.match(sql,/GRANT SELECT\(id,name,slug\)/);
- assert.match(sql,/GRANT SELECT\(workspace_id,identity_subject,role\)/);
+ assert.match(sql,/CREATE OR REPLACE VIEW reach_customer\.verified_memberships/);
+ assert.match(sql,/GRANT SELECT ON reach_customer\.verified_memberships/);
  assert.match(sql,/reach_customer_runtime/);
  const sqlStatements=sql.split("\n").filter(line=>!line.trimStart().startsWith("--")).join("\n");
  assert.doesNotMatch(sqlStatements,/\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bTRUNCATE\b|\bDROP\b|\bCREATE TABLE\b|\bGRANT ALL\b/i);
