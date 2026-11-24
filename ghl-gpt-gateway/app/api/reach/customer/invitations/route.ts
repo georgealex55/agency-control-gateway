@@ -4,6 +4,12 @@ import {invitesAvailable,issueCustomerInvitation,listInvitableWorkspaces} from "
 import {isCustomerRole,workspaceIsValid} from "@/lib/reach-customer-access";
 export const runtime="nodejs";export const dynamic="force-dynamic";
 const reply=(body:unknown,status=200)=>NextResponse.json(body,{status,headers:{"Cache-Control":"private, no-store"}});
+export async function GET(req:NextRequest){
+ if(!adminAuthenticated(req))return reply({error:"Platform owner sign-in required"},401);
+ if(process.env.VERCEL_ENV!=="preview"||!invitesAvailable())return reply({error:"Staging invitations disabled"},503);
+ try{return reply({workspaces:await listInvitableWorkspaces(),stagingOnly:true,readOnly:true});}
+ catch{return reply({error:"Staging workspace list unavailable"},503);}
+}
 export async function POST(req:NextRequest){
  if(!sameOrigin(req))return reply({error:"Invalid request origin"},403);
  if(!adminAuthenticated(req))return reply({error:"Platform owner sign-in required"},401);
