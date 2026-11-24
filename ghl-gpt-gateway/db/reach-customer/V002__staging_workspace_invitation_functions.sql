@@ -47,6 +47,10 @@ BEGIN
  ON CONFLICT(workspace_id,identity_subject) DO NOTHING;
  RETURN TRUE;
 END $$;
+CREATE OR REPLACE FUNCTION reach_customer_invites.available_workspaces()
+RETURNS TABLE(id UUID,name TEXT) LANGUAGE sql SECURITY DEFINER SET search_path=pg_catalog AS $
+ SELECT w.id,w.name::TEXT FROM public.agency_platform_workspaces w ORDER BY w.name ASC LIMIT 100
+$;
 REVOKE ALL ON SCHEMA reach_secret_invites FROM PUBLIC;
 REVOKE ALL ON SCHEMA reach_customer_invites FROM PUBLIC;
 REVOKE ALL ON FUNCTION reach_customer_invites.issue(TEXT,UUID,TEXT,TEXT) FROM PUBLIC;
