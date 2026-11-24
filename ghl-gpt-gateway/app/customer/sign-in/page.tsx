@@ -1,6 +1,7 @@
 "use client";
 import {useEffect,useState,type FormEvent} from "react";
 import Link from "next/link";
+import "@/app/connections/connections.css";
 import {customerAuthClient} from "@/lib/reach-customer-neon-client";
 
 export default function CustomerSignIn(){
@@ -21,10 +22,10 @@ export default function CustomerSignIn(){
   try{
    const result=await customerAuthClient.signIn.email({email:email.trim().toLowerCase(),password});
    if(result.error)throw Error("Credentials could not be verified; check email verification and try again.");
-   const token=await customerAuthClient.token();
-   if(token.error||!token.data?.token)throw Error("Neon Auth session token unavailable.");
+   const token=await customerAuthClient.getSession();
+   if(token.error||!token.data?.session?.token)throw Error("Neon Auth session token unavailable.");
    const r=await fetch("/api/reach/customer/session",{method:"POST",credentials:"same-origin",
-    headers:{"Content-Type":"application/json"},body:JSON.stringify({assertion:token.data.token}),cache:"no-store"});
+    headers:{"Content-Type":"application/json"},body:JSON.stringify({assertion:token.data.session.token}),cache:"no-store"});
    if(!r.ok)throw Error(r.status===403?"This verified identity is not assigned to a REACH workspace.":"Customer access not yet approved.");
    setPassword("");window.location.assign("/customer/workspaces");
   }catch(e){setStatus(e instanceof Error?e.message:"Sign-in unavailable.");}
