@@ -10,6 +10,8 @@ export default function CustomerSignIn(){
  const [status,setStatus]=useState("");
  const [busy,setBusy]=useState(false);
  const [configured,setConfigured]=useState<boolean|null>(null);
+ const [invite,setInvite]=useState("");
+ const destination=()=>invite?"/customer/invite?token="+encodeURIComponent(invite):"/customer/workspaces";
  useEffect(()=>{
   const c=new AbortController();
   fetch("/api/reach/customer/session",{credentials:"same-origin",cache:"no-store",signal:c.signal})
