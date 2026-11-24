@@ -11,7 +11,7 @@ export default function OwnerCustomerInvitations(){
  const [busy,setBusy]=useState(false);
  useEffect(()=>{
   const c=new AbortController();
-  fetch("/api/reach/connection-hub",{credentials:"same-origin",cache:"no-store",signal:c.signal})
+  fetch("/api/reach/customer/invitations",{credentials:"same-origin",cache:"no-store",signal:c.signal})
    .then(async r=>r.ok?r.json():null).then(v=>{if(!c.signal.aborted&&Array.isArray(v?.workspaces)){setWorkspaces(v.workspaces);setWorkspaceId(v.workspaces[0]?.id||"");}})
    .catch(()=>{});
   return()=>c.abort();
