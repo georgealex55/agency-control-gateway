@@ -44,17 +44,17 @@ function validatedWorkspace(row:Row):CustomerWorkspace|null{
 export function workspaceIsValid(value:unknown):value is string{
  return typeof value==="string"&&uuid.test(value);
 }
-/** This credential is SELECT-only and is not shared with owner Meta token storage.
- * Each query restricts by verified, server-supplied Neon Auth identity subject.
+/** This role has SELECT only on reach_customer.verified_memberships, a
+ * security-definer view that joins Neon Auth VERIFIED users to memberships.
+ * It has no access to public customer data, Meta tokens or Neon Auth secrets.
  * No client-controlled workspace id can grant membership.
  */
 export async function listCustomerWorkspaces(identity:CustomerIdentity):Promise<CustomerWorkspace[]>{
  if(!customerDatabaseConfigured())throw Error("Customer membership storage not configured");
  const sql=neon(process.env.REACH_CUSTOMER_DATABASE_URL!,{fetchOptions:{signal:AbortSignal.timeout(8000)}});
  const records=mappedRows(await sql.query(
-  "SELECT w.id,w.name,w.slug,m.role FROM public.agency_platform_memberships m "+
-  "JOIN public.agency_platform_workspaces w ON w.id=m.workspace_id "+
-  "WHERE m.identity_subject=$1 ORDER BY w.name ASC LIMIT 100",
+  "SELECT id,name,slug,role FROM reach_customer.verified_memberships "+
+  "WHERE identity_subject=$1 ORDER BY name ASC LIMIT 100",
   [subjectFor(identity)]));
  const mapped=records.map(validatedWorkspace);
  if(mapped.some(v=>!v))throw Error("Invalid membership record");
@@ -64,9 +64,8 @@ export async function requireCustomerWorkspace(identity:CustomerIdentity,workspa
  if(!workspaceIsValid(workspaceId)||!customerDatabaseConfigured())return null;
  const sql=neon(process.env.REACH_CUSTOMER_DATABASE_URL!,{fetchOptions:{signal:AbortSignal.timeout(8000)}});
  const records=mappedRows(await sql.query(
-  "SELECT w.id,w.name,w.slug,m.role FROM public.agency_platform_memberships m "+
-  "JOIN public.agency_platform_workspaces w ON w.id=m.workspace_id "+
-  "WHERE m.identity_subject=$1 AND m.workspace_id=$2::uuid LIMIT 1",
+  "SELECT id,name,slug,role FROM reach_customer.verified_memberships "+
+  "WHERE identity_subject=$1 AND id=$2::uuid LIMIT 1",
   [subjectFor(identity),workspaceId]));
  const membership=records.length===1?validatedWorkspace(records[0]):null;
  return membership&&customerCan(membership.role,permission)?membership:null;
