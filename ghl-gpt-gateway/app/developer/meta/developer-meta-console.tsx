@@ -3,6 +3,7 @@ import {useEffect,useState} from "react";
 import Link from "next/link";
 import SocialReadiness from "@/app/connections/social-readiness";
 import NeonCustomerCard from "@/app/connections/neon-customer-card";
+import OwnerCustomerInvitations from "./owner-customer-invitations";
 import "@/app/connections/connections.css";
 type Provider="facebook_pages"|"instagram_professional";
 type Meta={provider:Provider;appConfigured:boolean;missingSettings:string[];permissions:string[];callbackUrl:string|null;launchEnabled:boolean;duplicateAppId:boolean;readOnly:true;publishingEnabled:false;loginMethod:"unified"|"direct";unifiedConfigured:boolean;unifiedRequested:boolean};
@@ -33,6 +34,7 @@ export default function DeveloperMetaConsole(){
   {!status&&!error&&<p role="status">Checking platform developer setup…</p>}
   <section aria-label="Neon infrastructure administration" className="reach-conn-alert"><h2>Infrastructure storage</h2><p>Owner-only database verification. This does not change the active REACH database or customer workspace data automatically.</p></section>
   <NeonCustomerCard/>
+  <OwnerCustomerInvitations/>
   {status&&<SocialReadiness meta={status.meta} storageApproved={status.storageApproved} onConfigured={()=>setVersion(x=>x+1)}/>}
   <section className="reach-conn-alert">
    <h2>Instagram Unified Login activation</h2>
