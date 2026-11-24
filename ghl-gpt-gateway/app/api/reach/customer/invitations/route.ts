@@ -1,6 +1,6 @@
 import {NextRequest,NextResponse} from "next/server";
 import {adminAuthenticated,sameOrigin} from "@/lib/portal-auth";
-import {invitesAvailable,issueCustomerInvitation} from "@/lib/reach-customer-invitations";
+import {invitesAvailable,issueCustomerInvitation,listInvitableWorkspaces} from "@/lib/reach-customer-invitations";
 import {isCustomerRole,workspaceIsValid} from "@/lib/reach-customer-access";
 export const runtime="nodejs";export const dynamic="force-dynamic";
 const reply=(body:unknown,status=200)=>NextResponse.json(body,{status,headers:{"Cache-Control":"private, no-store"}});
