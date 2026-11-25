@@ -99,7 +99,9 @@ test("user-facing login, registration and invite acceptance are separate from pl
  const owner=read("app/developer/meta/owner-customer-invitations.tsx");
  const console=read("app/developer/meta/developer-meta-console.tsx");
  assert.match(login,/customerAuthClient\.signIn\.email/);
- assert.match(login,/customerAuthClient\.getSession/);
+ assert.match(login,/customerAuthClient\.getJWTToken\(\)/);
+ assert.match(login,/assertion\.split\("\."\)\.length!==3/);
+ assert.doesNotMatch(login,/assertion:token\.data\.session\.token/);
  assert.match(register,/customerAuthClient\.signUp\.email/);
  assert.match(register,/emailOtp\.verifyEmail/);
  assert.match(accept,/\/api\/reach\/customer\/invitations\/accept/);
