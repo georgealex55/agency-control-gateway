@@ -92,10 +92,10 @@ test("connection actions are explicit, selected workspace scoped and read-only",
  assert.doesNotMatch(connectionUI,/localStorage|sessionStorage|access_token|client_secret/);
 });
 test("UI never infers connection from provider config or enables posting",()=>{
- assert.match(connectionUI,/linked\.some\(c=>!c\.expired&&c\.lastVerifiedAt\)\?"Connected"/);
+ assert.match(connectionUI,/health&&stats\.length\?stats\.every\(h=>h\.status==="verified_recently"\)/);
  assert.match(connectionUI,/Not connected/);
  assert.match(connectionUI,/Only a successfully completed provider OAuth and verified stored account record/);
- assert.match(connectionUI,/Publishing and messaging stay disabled/);
+ assert.match(connectionUI,/publishing and messaging stay disabled/);
  assert.match(home,/href="\/connections"/);
  assert.match(home,/href="\/login"/);
  assert.match(workspaces,/VERCEL_ENV==="production"&&!productionConnectionApproved\(\)/);

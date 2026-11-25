@@ -30,3 +30,14 @@
 
 .reach-conn-setup-info{padding:13px;background:#202c48;border:1px solid #526183;border-radius:10px;display:grid;gap:8px;font-size:12px}
 .reach-conn-setup-info strong{color:#e8e4ff}
+
+/* Connections 3.0: status-first view, no false live provider indicators. */
+.reach-health-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:21px 0 6px;padding:16px 18px;background:#151f38;border:1px solid #354461;border-radius:14px}
+.reach-health-toolbar strong{font-size:14px}.reach-health-toolbar p{font-size:12px;color:#aab9d3;margin:4px 0 0}
+.reach-health-toolbar button[aria-pressed=true]{background:#d4ccff}
+.reach-health-warning{padding:13px 17px;border:1px solid #a77843;background:#2c2730;border-radius:10px;color:#ffe1b1}
+.reach-health-status{font-weight:800;letter-spacing:.01em}
+.reach-health-status.ok{color:#a4efd4!important}
+.reach-health-status.attention{color:#ffd1ac!important}
+.reach-conn-overview span{font-variant-numeric:tabular-nums}
+@media(max-width:660px){.reach-health-toolbar{align-items:stretch;flex-direction:column}.reach-health-toolbar button{width:100%}}

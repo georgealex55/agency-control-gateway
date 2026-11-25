@@ -58,10 +58,14 @@ test("customer entry never transmits project/branch IDs or stores secrets in bro
  assert.match(card,/setPassword\(""\)/);assert.match(card,/setDsn\(""\)/);
  assert.doesNotMatch(card,/localStorage|sessionStorage|document\.cookie/);
 });
-test("Neon card is mounted only after signed-in connection hub loads",()=>{
- const page=read("app/connections/page.tsx");
- assert.match(page,/import NeonCustomerCard from "\.\/neon-customer-card"/);
- assert.match(page,/\{hub&&<>\s*<NeonCustomerCard\/>/);
+test("Neon infrastructure form is accessible only in the owner-guarded developer area",()=>{
+ const customer=read("app/connections/page.tsx");
+ const developer=read("app/developer/meta/developer-meta-console.tsx");
+ const gate=read("app/developer/meta/page.tsx");
+ assert.doesNotMatch(customer,/NeonCustomerCard|neon\/saved|neon\/verify/);
+ assert.match(developer,/import NeonCustomerCard/);
+ assert.match(developer,/<NeonCustomerCard\/>/);
+ assert.match(gate,/validSession\(jar\.get\(cookieName\(\)\)\?\.value\)/);
 });
 test("new TS and TSX files compile without syntax diagnostics",()=>{
  for(const path of ["lib/reach-neon-customer-config.ts","app/api/reach/connections/neon/verify/route.ts","app/connections/neon-customer-card.tsx"]){
