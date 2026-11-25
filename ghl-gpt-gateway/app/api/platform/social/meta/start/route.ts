@@ -3,7 +3,7 @@ import {NextRequest} from "next/server";
 import {connectionGate,reply} from "@/lib/social-api";
 import {validId} from "@/lib/social-contract";
 import {connectionRuntimeEnabled} from "@/lib/reach-connection-runtime";
-import {isMetaProvider,metaConfigured,metaSetupStatus,buildMetaAuthorizeURL,duplicateMetaAppId} from "@/lib/social-meta-contract";
+import {isMetaProvider,metaConfigured,metaSetupStatus,buildMetaAuthorizeURL,duplicateMetaAppId,META_SOCIAL_PERMISSIONS,META_READ_PERMISSIONS,type MetaPermissionPreset} from "@/lib/social-meta-contract";
 import {signMetaConsent} from "@/lib/social-meta-crypto";
 import {createMetaFlow} from "@/lib/social-meta-connection-store";
 import {oauthSettings} from "@/lib/social-meta-oauth-server";
@@ -16,6 +16,9 @@ export async function POST(req:NextRequest){
  let raw:unknown;try{raw=await req.json();}catch{return reply({error:"Invalid JSON"},400);}
  const input=raw&&typeof raw==="object"&&!Array.isArray(raw)?raw as Record<string,unknown>:null;
  if(!input||!validId(input.workspaceId)||!isMetaProvider(input.provider))return reply({error:"Valid workspace and Meta provider required"},400);
+ const preset:MetaPermissionPreset=input.permissionPreset==="social_tools"?"social_tools":"basic";
+ if(input.permissionPreset!==undefined&&input.permissionPreset!=="basic"&&input.permissionPreset!=="social_tools")
+  return reply({error:"Unsupported permission request"},400);
  const metaEnv=await resolvedMetaEnv(input.provider);
  if(!metaConfigured(metaEnv,input.provider))return reply({error:"Meta Developer app credentials are not configured for this provider"},503);
  if(input.provider==="instagram_professional"){
@@ -39,8 +42,8 @@ export async function POST(req:NextRequest){
   const configId=unified?instagramUnifiedConfigId(metaEnv):null;
   const url=unified&&configId?
    buildInstagramUnifiedAuthorizeURL({clientId:settings.clientId,configId,redirectUri:settings.redirectUri,state}):
-   buildMetaAuthorizeURL({provider:input.provider,clientId:settings.clientId,redirectUri:settings.redirectUri,state,graphVersion:settings.version});
-  const response=reply({authorizeUrl:url,requestedPermissions:unified?[]:input.provider==="facebook_pages"?["pages_show_list","pages_read_engagement"]:["instagram_business_basic"],
+   buildMetaAuthorizeURL({provider:input.provider,clientId:settings.clientId,redirectUri:settings.redirectUri,state,graphVersion:settings.version,permissionPreset:preset});
+  const response=reply({authorizeUrl:url,requestedPermissions:unified?[]:[...(preset==="social_tools"?META_SOCIAL_PERMISSIONS[input.provider]:META_READ_PERMISSIONS[input.provider])],
    permissionSource:unified?"meta_login_configuration":"explicit_scopes",publishingEnabled:false});
   response.cookies.set("agency_meta_nonce_"+input.provider,nonce,{httpOnly:true,secure:true,sameSite:"lax",path:"/api/platform/social/meta/callback",maxAge:600});
   return response;

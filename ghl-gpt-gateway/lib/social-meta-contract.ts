@@ -4,6 +4,11 @@ export const META_READ_PERMISSIONS={
  facebook_pages:["pages_show_list","pages_read_engagement"],
  instagram_professional:["instagram_business_basic"]
 } as const;
+export const META_SOCIAL_PERMISSIONS={
+ facebook_pages:["pages_show_list","pages_read_engagement","read_insights","pages_manage_posts","pages_manage_engagement","pages_manage_metadata","pages_messaging"],
+ instagram_professional:["instagram_business_basic","instagram_business_manage_insights","instagram_business_content_publishing","instagram_business_manage_comments","instagram_business_manage_messages"]
+} as const;
+export type MetaPermissionPreset="basic"|"social_tools";
 export function isMetaProvider(value:unknown):value is MetaProvider{
  return META_PROVIDERS.some(x=>x===value);
 }
@@ -14,7 +19,7 @@ export function validMetaRedirect(value:unknown):value is string{
  if(typeof value!=="string")return false;
  try{const u=new URL(value);return u.protocol==="https:"&&!u.username&&!u.password&&!u.search&&!u.hash&&u.pathname==="/api/platform/social/meta/callback";}catch{return false;}
 }
-export function buildMetaAuthorizeURL(input:{provider:MetaProvider;clientId:string;redirectUri:string;state:string;graphVersion:string}):string{
+export function buildMetaAuthorizeURL(input:{provider:MetaProvider;clientId:string;redirectUri:string;state:string;graphVersion:string;permissionPreset?:MetaPermissionPreset}):string{
  if(!/^[0-9]{6,32}$/.test(input.clientId)||!validMetaRedirect(input.redirectUri)||!validGraphVersion(input.graphVersion)||!/^[-_A-Za-z0-9.]{30,700}$/.test(input.state))throw Error("Invalid Meta OAuth parameters");
  const facebook=input.provider==="facebook_pages";
  const u=new URL(facebook?"https://www.facebook.com/"+input.graphVersion+"/dialog/oauth":"https://www.instagram.com/oauth/authorize");
@@ -22,7 +27,7 @@ export function buildMetaAuthorizeURL(input:{provider:MetaProvider;clientId:stri
  u.searchParams.set("redirect_uri",input.redirectUri);
  u.searchParams.set("state",input.state);
  u.searchParams.set("response_type","code");
- u.searchParams.set("scope",META_READ_PERMISSIONS[input.provider].join(","));
+ u.searchParams.set("scope",(input.permissionPreset==="social_tools"?META_SOCIAL_PERMISSIONS[input.provider]:META_READ_PERMISSIONS[input.provider]).join(","));
  if(!facebook)u.searchParams.set("enable_fb_login","0");
  return u.href;
 }
