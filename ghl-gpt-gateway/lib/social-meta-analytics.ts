@@ -57,7 +57,7 @@ export async function fetchMetaAnalytics(input:{mode:MetaLoginMode;accountId:str
  const mode=input.mode;
  const params=facebook?{fields:"id,name,followers_count,fan_count"}:
    {fields:"id,username,followers_count,media_count"};
- const profile=await graphGet({mode,accountId:input.accountId,version:input.version,token,appSecret:input.appSecret,
+ const profile=await graphGet({mode,version:input.version,token,appSecret:input.appSecret,
   path:input.accountId,params,fetcher});
  if(profile.id!==input.accountId)throw Error("Meta returned a different account identity");
  const postPath=input.accountId+(facebook?"/published_posts":"/media");
