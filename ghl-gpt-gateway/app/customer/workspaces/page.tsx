@@ -1,12 +1,24 @@
 "use client";
 import {useEffect,useState} from "react";
 import Link from "next/link";
+import {customerAuthClient} from "@/lib/reach-customer-neon-client";
 type Workspace={id:string;name:string;slug:string;role:"client_owner"|"client_editor"|"instructor"|"viewer"};
 export default function CustomerWorkspaces(){
  const [loading,setLoading]=useState(true);
  const [workspaces,setWorkspaces]=useState<Workspace[]>([]);
  const [message,setMessage]=useState("");
  const [authenticated,setAuthenticated]=useState(false);
+ const [signingOut,setSigningOut]=useState(false);
+ async function signOut(){
+  setSigningOut(true);setMessage("");
+  try{
+   const upstream=await customerAuthClient.signOut();
+   const local=await fetch("/api/reach/customer/session",{method:"DELETE",credentials:"same-origin",cache:"no-store"});
+   if(!local.ok||upstream.error)throw Error("Sign-out was incomplete. The managed identity session may still be active.");
+   window.location.assign("/customer/sign-in");
+  }catch(e){setMessage(e instanceof Error?e.message:"Could not complete sign-out");}
+  finally{setSigningOut(false);}
+ }
  useEffect(()=>{
   const controller=new AbortController();
   fetch("/api/reach/customer/workspaces",{credentials:"same-origin",cache:"no-store",signal:controller.signal})
@@ -23,7 +35,7 @@ export default function CustomerWorkspaces(){
  },[]);
  return <main style={{minHeight:"100dvh",background:"#0c1124",color:"#eff1ff",fontFamily:"system-ui,sans-serif",padding:"32px 18px"}}>
   <div style={{maxWidth:780,margin:"0 auto"}}>
-   <nav><Link href="/" style={{color:"#bfb3ff"}}>← REACH</Link></nav>
+   <nav style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}><Link href="/" style={{color:"#bfb3ff"}}>← REACH</Link>{authenticated&&<button type="button" disabled={signingOut} onClick={()=>void signOut()} style={{padding:"7px 12px",borderRadius:8}}>{signingOut?"Signing out…":"Sign out"}</button>}</nav>
    <p style={{marginTop:36,fontSize:12,letterSpacing:2,color:"#aa9cff"}}>REACH · CUSTOMER WORKSPACES</p>
    <h1>Your business workspaces</h1>
    <p style={{color:"#b4bfd6"}}>Only workspaces granted to your verified customer identity appear here. Platform developer credentials and account secrets stay private.</p>
