@@ -82,7 +82,7 @@ export async function fetchMetaAnalytics(input:{mode:MetaLoginMode;accountId:str
       (url.hostname==="www.facebook.com"||url.hostname==="facebook.com"||url.hostname==="www.instagram.com"||url.hostname==="instagram.com")?url.href:null;
      }catch{return null;}
     })()};
-  }};
+  });
  }catch{partial=true;}
  const likes=postRecords.every(p=>p.likes!==null)&&postRecords.length?
   postRecords.reduce((a,p)=>a+(p.likes||0),0):null;
