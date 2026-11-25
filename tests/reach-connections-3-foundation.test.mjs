@@ -18,7 +18,9 @@ test("Connections 3.0 health cannot assert live health from stale, missing or ex
  assert.equal(assessConnectionHealth({expiresAt:iso(now+15*day),lastVerifiedAt:null},now),"verification_due");
  assert.equal(assessConnectionHealth({expiresAt:iso(now+15*day),lastVerifiedAt:iso(now-8*day)},now),"verification_due");
  assert.equal(assessConnectionHealth({expiresAt:iso(now+15*day),lastVerifiedAt:iso(now+60_000)},now),"verified_recently");
- assert.equal(assessConnectionHealth({expiresAt:null,lastVerifiedAt:iso(now-60_000)},now),"expiry_unknown");
+ assert.equal(assessConnectionHealth({expiresAt:null,lastVerifiedAt:iso(now-60_000)},now),"verified_recently");
+ assert.equal(assessConnectionHealth({expiresAt:null,lastVerifiedAt:iso(now-8*day)},now),"expiry_unknown");
+ assert.equal(assessConnectionHealth({expiresAt:null,lastVerifiedAt:null},now),"expiry_unknown");
  assert.equal(assessConnectionHealth({expiresAt:"bad",lastVerifiedAt:iso(now-60_000)},now),"expiry_unknown");
  assert.equal(assessConnectionHealth({expiresAt:iso(now+15*day),lastVerifiedAt:iso(now+2*day)},now),"verification_due");
  assert.equal(healthLabel("verified_recently"),"Verified recently");
