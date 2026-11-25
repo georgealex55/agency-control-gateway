@@ -109,5 +109,9 @@ test("user-facing login, registration and invite acceptance are separate from pl
  assert.match(accept,/\/api\/reach\/customer\/invitations\/accept/);
  assert.match(owner,/\/api\/reach\/customer\/invitations/);
  assert.match(console,/OwnerCustomerInvitations/);
- for(const s of [login,register,accept])assert.doesNotMatch(s,/AGENCY_PORTAL_|SOCIAL_META_TOKEN_KEY|clientSecret|localStorage/);
+ const workspaces=read("app/customer/workspaces/page.tsx");
+ assert.match(workspaces,/customerAuthClient\.signOut\(\)/);
+ assert.match(workspaces,/\/api\/reach\/customer\/session/);
+ assert.match(workspaces,/method:"DELETE"/);
+ for(const s of [login,register,accept,workspaces])assert.doesNotMatch(s,/AGENCY_PORTAL_|SOCIAL_META_TOKEN_KEY|clientSecret|localStorage/);
 });
