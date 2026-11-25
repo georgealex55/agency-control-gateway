@@ -41,3 +41,74 @@
 .reach-health-status.attention{color:#ffd1ac!important}
 .reach-conn-overview span{font-variant-numeric:tabular-nums}
 @media(max-width:660px){.reach-health-toolbar{align-items:stretch;flex-direction:column}.reach-health-toolbar button{width:100%}}
+
+
+/* REACH Connections 3.1 — readable, accessible, always-evidenced traffic lights */
+.reach-simple-header{max-width:850px}
+.reach-simple-header h1{font-size:clamp(30px,4vw,42px);line-height:1.15}
+.reach-simple-header p{font-size:15px;line-height:1.65;color:#c7d3e7}
+.reach-light-legend{display:flex;gap:12px 23px;flex-wrap:wrap;margin:20px 0 6px;font-size:13px;color:#c9d6e8}
+.reach-light-legend>span{display:inline-flex;align-items:center;gap:9px}
+.reach-light-dot{display:inline-block;flex:none;width:12px;height:12px;border-radius:50%;border:2px solid transparent;box-shadow:0 0 0 3px #ffffff0c}
+.reach-light-dot.green{background:#37de98;border-color:#b5ffe0;box-shadow:0 0 0 3px #2cd18e28}
+.reach-light-dot.yellow{background:#f9cb4c;border-color:#ffe9a6;box-shadow:0 0 0 3px #f9cb4c33}
+.reach-light-dot.red{background:#ff6b7e;border-color:#ffc8cf;box-shadow:0 0 0 3px #ff6b7e33}
+.reach-light{display:inline-flex;gap:9px;align-items:center;white-space:nowrap;font-size:13px;font-weight:800;line-height:1.4;border-radius:24px;padding:7px 12px}
+.reach-light-green{color:#b8ffe1;background:#0b3c2f;border:1px solid #328d69}
+.reach-light-yellow{color:#ffebad;background:#42351a;border:1px solid #ab8341}
+.reach-light-red{color:#ffd2d9;background:#49202e;border:1px solid #a75a6b}
+.reach-conn-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.reach-conn-card{gap:13px;padding:22px 23px;border-width:1px}
+.reach-conn-card-green{border-color:#287f63}
+.reach-conn-card-yellow{border-color:#a27b39}
+.reach-conn-card-red{border-color:#9b5363}
+.reach-conn-card-head{gap:12px}
+.reach-conn-card-head h2{font-size:20px;line-height:1.25}
+.reach-conn-card-head .reach-light{font-size:12px}
+.reach-conn-card .reach-conn-account-name{font-size:15px;color:#f4f7ff;font-weight:700;overflow-wrap:anywhere}
+.reach-conn-card .reach-conn-status-help{font-size:14px;color:#cfdbed;line-height:1.6}
+.reach-conn .reach-conn-workspace{margin-top:22px}
+.reach-conn-workspace label{font-size:15px}
+.reach-conn-workspace select{font-size:15px}
+.reach-conn button,.reach-conn-button,.reach-conn-card button{font-size:14px;min-height:42px}
+.reach-conn-card .reach-conn-primary{width:100%;margin-top:4px}
+.reach-conn-details{border-top:1px solid #45516c;margin-top:9px;padding-top:12px}
+.reach-conn-details>summary,.reach-technical-details>summary{display:flex;align-items:center;justify-content:space-between;gap:10px;list-style:none;font-size:14px;font-weight:800;cursor:pointer;padding:10px 3px;color:#d7d1ff;min-height:40px}
+.reach-conn-details>summary::-webkit-details-marker,.reach-technical-details>summary::-webkit-details-marker{display:none}
+.reach-conn-details>summary::after,.reach-technical-details>summary::after{content:"⌄";font-size:24px;line-height:1;transition:transform .15s ease}
+.reach-conn-details[open]>summary::after,.reach-technical-details[open]>summary::after{transform:rotate(180deg)}
+.reach-conn-details>summary:focus-visible,.reach-technical-details>summary:focus-visible{outline:3px solid #ded7ff;outline-offset:3px;border-radius:6px}
+.reach-conn-detail-body{padding:13px 0 3px;display:grid;gap:13px}
+.reach-conn-detail-body>p{font-size:14px}
+.reach-conn-linked{gap:10px;padding:15px}
+.reach-linked-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.reach-linked-head strong{font-size:15px;overflow-wrap:anywhere}
+.reach-linked-head .reach-light{font-size:11px}
+.reach-linked-head .reach-light-dot{width:10px;height:10px}
+.reach-conn-card .reach-conn-small{font-size:13px;line-height:1.5}
+.reach-linked-actions{display:flex;gap:9px;flex-wrap:wrap}
+.reach-technical-details{margin-top:4px;border-top:1px solid #394863}
+.reach-technical-details>summary{font-size:12px;min-height:36px;font-weight:650;color:#b8c4df}
+.reach-technical-details p{font-size:12px;color:#aebddd;line-height:1.6;overflow-wrap:anywhere;margin:10px 0}
+.reach-conn-pending{gap:10px;background:#3d341f;border-color:#9d7c32}
+.reach-conn-pending strong{font-size:15px}
+.reach-conn-pending p{font-size:13px}
+.reach-conn-overview>div{padding:17px 20px}
+.reach-conn-overview strong{font-size:14px;color:#c7d6ea}
+.reach-conn-overview span{font-size:27px;line-height:1.25;margin-top:5px}
+.reach-health-toolbar p{font-size:13px;line-height:1.5}
+.reach-health-toolbar button{font-size:13px}
+.reach-conn-disclaimer{font-size:13px;line-height:1.65}
+@media(max-width:760px){.reach-conn-grid{grid-template-columns:1fr}}
+@media(max-width:660px){.reach-conn{padding:18px 15px 55px}.reach-conn-overview{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.reach-conn-overview>div{padding:12px 10px}.reach-conn-overview strong{font-size:11px}.reach-conn-overview span{font-size:24px}
+.reach-conn-card{padding:18px}.reach-conn-card-head{align-items:flex-start}
+.reach-conn-card-head h2{font-size:18px}.reach-conn-card-head .reach-light{font-size:11px;padding:6px 9px}
+.reach-light-legend{font-size:12px;gap:10px 16px}
+}
+
+/* Override legacy badge styles so the actual light keeps its status color. */
+.reach-conn-card-head .reach-light-green{background:#0b3c2f;color:#b8ffe1;border-color:#328d69}
+.reach-conn-card-head .reach-light-yellow{background:#42351a;color:#ffebad;border-color:#ab8341}
+.reach-conn-card-head .reach-light-red{background:#49202e;color:#ffd2d9;border-color:#a75a6b}
+.reach-conn-card-head .reach-light>span{background:none!important;color:inherit!important;font-size:inherit;padding:0;border-radius:0}
