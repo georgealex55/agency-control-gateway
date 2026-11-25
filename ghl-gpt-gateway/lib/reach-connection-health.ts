@@ -15,9 +15,14 @@ export function assessConnectionHealth(input:HealthInput,now:number=Date.now()):
  if(input.expiresAt&&exp===null)return "expiry_unknown";
  if(exp!==null&&exp<=now)return "expired";
  if(exp!==null&&exp-now<=7*DAY)return "expires_soon";
+ // A provider can report a successful verification without a token-expiry date.
+ // Recently verified access may display green, but this is only a saved snapshot,
+ // never a claim that the provider is online right now.
+ if(exp===null){
+  if(verified===null||verified>now+60_000||now-verified>7*DAY)return "expiry_unknown";
+  return "verified_recently";
+ }
  if(verified===null||verified>now+60_000||now-verified>7*DAY)return "verification_due";
- // An unknown provider expiration must never be represented as confirmed healthy.
- if(exp===null)return "expiry_unknown";
  return "verified_recently";
 }
 export function healthLabel(status:ConnectionHealthStatus):string{
