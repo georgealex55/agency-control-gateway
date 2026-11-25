@@ -106,3 +106,9 @@
 .reach-conn-card-head h2{font-size:18px}.reach-conn-card-head .reach-light{font-size:11px;padding:6px 9px}
 .reach-light-legend{font-size:12px;gap:10px 16px}
 }
+
+/* Override legacy badge styles so the actual light keeps its status color. */
+.reach-conn-card-head .reach-light-green{background:#0b3c2f;color:#b8ffe1;border-color:#328d69}
+.reach-conn-card-head .reach-light-yellow{background:#42351a;color:#ffebad;border-color:#ab8341}
+.reach-conn-card-head .reach-light-red{background:#49202e;color:#ffd2d9;border-color:#a75a6b}
+.reach-conn-card-head .reach-light>span{background:none!important;color:inherit!important;font-size:inherit;padding:0;border-radius:0}
