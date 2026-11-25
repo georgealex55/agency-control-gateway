@@ -5,6 +5,7 @@ const object=(v:unknown):Obj|null=>v!==null&&typeof v==="object"&&!Array.isArray
 const nonnegative=(v:unknown):number|null=>typeof v==="number"&&Number.isSafeInteger(v)&&v>=0?v:null;
 const text=(v:unknown,limit:number):string|null=>typeof v==="string"&&v.length<=limit?v:null;
 const idValid=(v:unknown):v is string=>typeof v==="string"&&/^[0-9]{2,40}$/.test(v);
+const postIdValid=(v:unknown):v is string=>typeof v==="string"&&/^[0-9]{2,40}(?:_[0-9]{2,40})?$/.test(v);
 const countSummary=(v:unknown):number|null=>nonnegative(object(object(v)?.summary)?.total_count);
 export type MetaPostMetric={id:string;createdAt:string|null;caption:string|null;
  likes:number|null;comments:number|null;shares:number|null;link:string|null};
@@ -69,7 +70,7 @@ export async function fetchMetaAnalytics(input:{mode:MetaLoginMode;accountId:str
    params:postParams,fetcher});
   if(!Array.isArray(body.data)||body.data.length>10)throw Error("Invalid recent post data");
   postRecords=body.data.map(raw=>{
-   const o=object(raw);if(!o||!idValid(o.id))throw Error("Invalid provider post");
+   const o=object(raw);if(!o||!postIdValid(o.id))throw Error("Invalid provider post");
    return{id:o.id,createdAt:text(facebook?o.created_time:o.timestamp,64),
     caption:text(facebook?o.message:o.caption,2000),
     likes:facebook?countSummary(o.reactions):nonnegative(o.like_count),

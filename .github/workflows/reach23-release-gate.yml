@@ -14,6 +14,7 @@ on:
       - feature/reach-meta-social-capabilities-20261125
       - feature/reach-meta-social-ready-20261125
       - feature/reach-meta-social-verified-20261125
+      - "feature/reach-meta-social-fix-*"
       - feature/reach-managed-social-onboarding-20261122
       - feature/reach-23-meta-app-onboarding-20261119
       - feature/reach-23-meta-owner-staging-20261120
