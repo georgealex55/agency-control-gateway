@@ -3,6 +3,7 @@ import {sameOrigin} from "@/lib/portal-auth";
 import {customerAuthConfig,customerCookieLifetime,customerCookieName,
  createCustomerSession,customerIdentityFromRequest,verifyCustomerAssertion} from "@/lib/reach-customer-auth";
 import {customerDatabaseConfigured,listCustomerWorkspaces} from "@/lib/reach-customer-access";
+import {customerNeonAuth} from "@/lib/reach-customer-neon-auth";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 const reply=(body:unknown,status=200)=>NextResponse.json(body,{status,headers:{"Cache-Control":"private, no-store"}});
@@ -18,18 +19,23 @@ export async function GET(req:NextRequest){
   return reply({authenticated:true,configured:true,workspaceCount:workspaces.length,readOnly:true});
  }catch{return reply({authenticated:false,configured:false},503);}
 }
-/** Neon Auth issues the asserted JWT. Neither the owner session cookie nor
- * client-supplied role/workspace ID can create a customer session.
+/** Exchange a *server-resolved* Neon Auth session for a separate short-lived
+ * REACH customer cookie. No browser-provided assertion, user ID, workspace
+ * claim or role is ever accepted here.
  */
 export async function POST(req:NextRequest){
  if(!sameOrigin(req))return reply({error:"Invalid request origin"},403);
  const config=customerAuthConfig();
- if(!config||!customerDatabaseConfigured())return reply({error:"Customer sign-in not configured"},503);
- if(Number(req.headers.get("content-length")||"0")>9000)return reply({error:"Invalid authentication request"},413);
- let raw:unknown;try{raw=await req.json();}catch{return reply({error:"Invalid authentication request"},400);}
- const assertion=raw&&typeof raw==="object"&&!Array.isArray(raw)&&"assertion" in raw?(raw as {assertion:unknown}).assertion:null;
- if(typeof assertion!=="string"||assertion.length>8192)return reply({error:"Invalid authentication request"},400);
+ if(!config||!customerDatabaseConfigured()||!customerNeonAuth)return reply({error:"Customer sign-in not configured"},503);
+ if(Number(req.headers.get("content-length")||"0")>256)return reply({error:"Invalid authentication request"},413);
  try{
+  // Neon Auth's getSession().session.token is an opaque cookie identifier.
+  // The token() JWT plugin instead signs an EdDSA assertion for the current
+  // managed session, resolving its cookies on the server.
+  const result=await customerNeonAuth.token();
+  const assertion=result?.data?.token;
+  if(typeof assertion!=="string"||assertion.split(".").length!==3)
+   return reply({error:"Verified Neon Auth session required"},401);
   const identity=await verifyCustomerAssertion(assertion,config);
   const membership=await listCustomerWorkspaces(identity);
   const response=reply({authenticated:true,workspaceCount:membership.length,readOnly:true});
