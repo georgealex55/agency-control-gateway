@@ -3,7 +3,7 @@ import {useEffect,useState} from "react";
 import Link from "next/link";
 import "./connections.css";
 import {healthLabel,type ConnectionHealthStatus} from "@/lib/reach-connection-health";
-import {connectionTrafficLight,type ConnectionDisplay} from "@/lib/reach-connection-traffic-light";
+import {connectionTrafficLight} from "@/lib/reach-connection-traffic-light";
 
 type Workspace={id:string;name:string;slug:string};
 type MetaSetup={provider:"facebook_pages"|"instagram_professional";launchEnabled:boolean;readOnly:true;publishingEnabled:false};
@@ -227,7 +227,7 @@ export default function Connections(){
       {linked.length===0&&pending.length===0&&<button className="reach-conn-primary" type="button" disabled={busy!==""} onClick={action}>
        {busy===p.id?"Opening secure sign-in…":"Connect "+p.name}
       </button>}
-      <details className="reach-conn-details" key={workspace+":"+p.id+":"+(linked.length?"linked":"new")}>
+      <details className="reach-conn-details" key={workspace+":"+p.id+":"+(linked.length?"linked":"new")+":"+check}>
        <summary>{linked.length?"Manage connection":"More information"}</summary>
        <div className="reach-conn-detail-body">
         <p>{p.accounts}</p>
