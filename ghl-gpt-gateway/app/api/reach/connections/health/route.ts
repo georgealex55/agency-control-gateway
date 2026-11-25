@@ -28,7 +28,7 @@ export async function GET(req:NextRequest){
   const db=await socialMetaWorkspaceDb(workspaceId);
   const raw=parseRows(await db.query(
    "SELECT id,provider,provider_account_id,provider_display_name,connected_at,last_verified_at,expires_at "+
-   "FROM agency_social_meta_connections WHERE workspace_id=$1::uuid ORDER BY connected_at DESC LIMIT 100",
+   "FROM agency_social_meta_connections WHERE workspace_id=$1::uuid AND revoked_at IS NULL ORDER BY connected_at DESC LIMIT 100",
    [workspaceId]));
   const now=Date.now();
   const connections=raw.filter(v=>META_PROVIDERS.some(p=>p===v.provider)).map(v=>{
