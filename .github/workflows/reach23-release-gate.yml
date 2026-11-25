@@ -11,6 +11,10 @@ on:
       - feature/reach-connections-3-foundation-20261123
       - feature/reach-connections-traffic-lights-20261124
       - release/reach-connections-31-production-20261124
+      - feature/reach-meta-social-capabilities-20261125
+      - feature/reach-meta-social-ready-20261125
+      - feature/reach-meta-social-verified-20261125
+      - "feature/reach-meta-social-fix-*"
       - feature/reach-managed-social-onboarding-20261122
       - feature/reach-23-meta-app-onboarding-20261119
       - feature/reach-23-meta-owner-staging-20261120
@@ -46,7 +50,7 @@ jobs:
         working-directory: ghl-gpt-gateway
         run: npm install --ignore-scripts --no-audit --no-fund
       - name: Test owner login and production connection security
-        run: node --test tests/reach-owner-connections.test.mjs tests/reach-23-ui-contract.test.mjs tests/reach-command-center.test.mjs tests/reach-command-runtime.test.mjs tests/reach-owner-origin.test.mjs tests/reach-owner-config.test.mjs tests/reach-neon-customer-config.test.mjs tests/reach-neon-live-session.test.mjs tests/reach-neon-vault.test.mjs tests/reach-social-owner-storage.test.mjs tests/reach-social-readiness.test.mjs tests/reach-meta-app-vault.test.mjs tests/reach-connections-3-foundation.test.mjs tests/reach-connections-traffic-lights.test.mjs
+        run: node --test tests/reach-owner-connections.test.mjs tests/reach-23-ui-contract.test.mjs tests/reach-command-center.test.mjs tests/reach-command-runtime.test.mjs tests/reach-owner-origin.test.mjs tests/reach-owner-config.test.mjs tests/reach-neon-customer-config.test.mjs tests/reach-neon-live-session.test.mjs tests/reach-neon-vault.test.mjs tests/reach-social-owner-storage.test.mjs tests/reach-social-readiness.test.mjs tests/reach-meta-app-vault.test.mjs tests/reach-connections-3-foundation.test.mjs tests/reach-connections-traffic-lights.test.mjs tests/reach-meta-social-capabilities.test.mjs
       - name: Typecheck Next.js REACH app
         working-directory: ghl-gpt-gateway
         run: npx tsc --noEmit
