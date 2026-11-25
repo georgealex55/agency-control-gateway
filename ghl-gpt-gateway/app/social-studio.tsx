@@ -14,6 +14,12 @@ type MetaCandidate={id:string;name:string;tasks?:string[];accountType?:string};
 type MetaPending={id:string;provider:"facebook_pages"|"instagram_professional";candidates:MetaCandidate[];expiresAt:string};
 type MetaConnection={id:string;provider:"facebook_pages"|"instagram_professional";accountId:string;name:string;connectedAt:string;expiresAt:string|null;lastVerifiedAt:string|null;expired:boolean};
 type MetaInventory={connections:MetaConnection[];pending:MetaPending[];readOnly:true;publishingEnabled:false};
+type MetaCapability={connectionId:string;permissionsVerified:boolean;permissionCheck:string;grantedPermissions:string[];
+ features:{id:string;name:string;status:"available"|"permission_required"|"not_activated"|"unverified";missingPermissions:string[]}[]};
+type MetaSnapshot={accountId:string;accountName:string|null;checkedAt:string;followers:number|null;totalPosts:number|null;
+ recentLikes:number|null;recentComments:number|null;reach:number|null;partial:boolean;period:string;
+ recentPosts:{id:string;caption:string|null;likes:number|null;comments:number|null;link:string|null}[]};
+
 type ProviderReadiness={id:string;name:string;auth:string;accounts:string;scopes:string[];publishScopes:string[];appSetup:string;connectionStatus:"disconnected"|"missing_config"|"authorization_pending"|"read_only"|"expired"|"revoked"|"error";connectedAccounts:number;permissionMode:"disconnected"|"read_only";oauthEnabled:boolean;publishingEnabled:false;};
 type InternalInsights={drafts:Record<SocialState,number>;dispatch:Record<"pending"|"queued"|"simulated"|"canceled",number>;retryExhausted:number;scheduledNextSevenDays:number;overdueApproved:number;channelPlans:{channel:string;count:number}[];externalReach:null;externalEngagement:null;metricsAvailable:false;};
 const networkNames:Record<string,string>={instagram:"Instagram",facebook:"Facebook",linkedin:"LinkedIn",threads:"Threads",tiktok:"TikTok",youtube:"YouTube",x:"X",pinterest:"Pinterest"};
@@ -44,6 +50,10 @@ export default function SocialStudio(){
  const [metaReadiness,setMetaReadiness]=useState<MetaReadiness[]>([]);
  const [metaInventory,setMetaInventory]=useState<MetaInventory|null>(null);
  const [metaMessage,setMetaMessage]=useState("");
+ const [metaCapabilities,setMetaCapabilities]=useState<Record<string,MetaCapability>>({});
+ const [metaAnalytics,setMetaAnalytics]=useState<Record<string,MetaSnapshot>>({});
+ const [metaChecking,setMetaChecking]=useState<string|null>(null);
+
  const [mediaAssets,setMediaAssets]=useState<MediaAsset[]>([]);
  const [linkTargetPost,setLinkTargetPost]=useState("");
  const [linkedMedia,setLinkedMedia]=useState<MediaAsset[]>([]);
@@ -67,7 +77,7 @@ export default function SocialStudio(){
  useEffect(()=>{
   fetch("/api/platform/workspaces",{credentials:"same-origin",cache:"no-store"}).then(async r=>{const j=await r.json();if(!r.ok)throw Error(j.error||"Workspaces unavailable");return j;}).then(j=>{const list=Array.isArray(j.workspaces)?j.workspaces:[];setWorkspaces(list);setWorkspaceId(list[0]?.id||"");}).catch(e=>setMessage(e.message)).finally(()=>setLoading(false));
  },[]);
- useEffect(()=>{setLinkTargetPost("");setLinkedMedia([]);if(workspaceId){setSelectedMedia(null);void refresh(workspaceId);void refreshJobs(workspaceId);void refreshInsights(workspaceId);void refreshProviders(workspaceId);void refreshMedia(workspaceId);void refreshMeta(workspaceId);void refreshQueueProbes(workspaceId);setBlobDiagnostic(null);}else {setQueueProbes([]);setBlobDiagnostic(null);setPosts([]);setJobs([]);setInternalInsights(null);setProviders([]);setMediaAssets([]);setMetaReadiness([]);setMetaInventory(null);}},[workspaceId]);
+ useEffect(()=>{setLinkTargetPost("");setLinkedMedia([]);if(workspaceId){setSelectedMedia(null);void refresh(workspaceId);void refreshJobs(workspaceId);void refreshInsights(workspaceId);void refreshProviders(workspaceId);void refreshMedia(workspaceId);void refreshMeta(workspaceId);void refreshQueueProbes(workspaceId);setBlobDiagnostic(null);}else {setQueueProbes([]);setBlobDiagnostic(null);setPosts([]);setJobs([]);setInternalInsights(null);setProviders([]);setMediaAssets([]);setMetaReadiness([]);setMetaInventory(null);setMetaCapabilities({});setMetaAnalytics({});}},[workspaceId]);
  useEffect(()=>{if(workspaceId&&linkTargetPost){void refreshLinkedMedia(workspaceId,linkTargetPost);}else setLinkedMedia([]);},[workspaceId,linkTargetPost]);
  useEffect(()=>{if(workspaceId){void refreshCalendar(workspaceId,calendarMonth);void refreshMonitor(workspaceId);}else {setCalendarPosts([]);setMonitor(null);}},[workspaceId,calendarMonth]);
  async function refresh(id=workspaceId){
@@ -170,14 +180,38 @@ export default function SocialStudio(){
    setMetaInventory(j as MetaInventory);
   }catch(e){setMetaMessage(e instanceof Error?e.message:"Meta account listing unavailable");}
  }
- async function connectMeta(provider:"facebook_pages"|"instagram_professional"){
+ async function connectMeta(provider:"facebook_pages"|"instagram_professional",permissionPreset:"basic"|"social_tools"="basic"){
   if(!workspaceId||busy)return;setBusy(true);setMetaMessage("Starting read-only authorization…");
   try{
-   const r=await fetch("/api/platform/social/meta/start",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",body:JSON.stringify({workspaceId,provider})});
+   const r=await fetch("/api/platform/social/meta/start",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",body:JSON.stringify({workspaceId,provider,permissionPreset})});
    const j=await r.json();if(!r.ok)throw Error(j.error||"Meta authorization unavailable");
    if(typeof j.authorizeUrl!=="string")throw Error("Invalid authorization link");
    window.location.assign(j.authorizeUrl);
   }catch(e){setMetaMessage(e instanceof Error?e.message:"Meta connection unavailable");setBusy(false);}
+ }
+ async function checkMetaPermissions(connectionId:string){
+  if(!workspaceId||metaChecking)return;setMetaChecking(connectionId);setMetaMessage("");
+  try{
+   const q=new URLSearchParams({workspaceId,connectionId});
+   const r=await fetch("/api/platform/social/meta/capabilities?"+q.toString(),{credentials:"same-origin",cache:"no-store"});
+   const data=await r.json() as MetaCapability&{error?:string};
+   if(!r.ok)throw Error(data.error||"Unable to verify Meta permissions");
+   setMetaCapabilities(prev=>({...prev,[connectionId]:data}));
+   setMetaMessage(data.permissionsVerified?"Meta permissions checked. Features marked ready are limited to approved access.":"Meta permissions could not be confirmed. Reconnect or retry.");
+  }catch(e){setMetaMessage(e instanceof Error?e.message:"Permission check unavailable");}
+  finally{setMetaChecking(null);}
+ }
+ async function loadMetaAnalytics(connectionId:string){
+  if(!workspaceId||metaChecking)return;setMetaChecking(connectionId);setMetaMessage("");
+  try{
+   const q=new URLSearchParams({workspaceId,connectionId});
+   const r=await fetch("/api/platform/social/meta/analytics?"+q.toString(),{credentials:"same-origin",cache:"no-store"});
+   const data=await r.json() as {error?:string;snapshot?:MetaSnapshot;metricsAreReal?:boolean};
+   if(!r.ok||!data.snapshot||data.metricsAreReal!==true)throw Error(data.error||"Real Meta insights unavailable");
+   setMetaAnalytics(prev=>({...prev,[connectionId]:data.snapshot!}));
+   setMetaMessage("Live Meta numbers loaded for the selected account. Missing metrics are not estimated.");
+  }catch(e){setMetaMessage(e instanceof Error?e.message:"Could not load Meta analytics");}
+  finally{setMetaChecking(null);}
  }
  async function selectMetaAccount(pendingId:string,accountId:string){
   if(!workspaceId||busy)return;setBusy(true);setMetaMessage("");
@@ -391,6 +425,22 @@ export default function SocialStudio(){
         <div className="ag-ws-note">Engine: Vercel Functions + Queues. Schedule storage: Neon. No separate Postiz host.</div></div>
     </div>
    </section>}
+{tab==="metrics"&&<section className="ag-card" aria-label="Real Meta social analytics">
+   <div className="ag-platform-bar"><div><h2>Facebook and Instagram analytics</h2>
+    <p>Real numbers from Meta for your connected business accounts. No estimated reach or engagement.</p></div>
+    <button className="ag-secondary" disabled={busy} onClick={()=>void refreshMetaInventory()}>Refresh accounts</button></div>
+   {metaMessage&&<p role="status" className="ag-ws-note">{metaMessage}</p>}
+   {!metaInventory?.connections.length&&<div className="ag-social-empty">Connect a Facebook Page or Instagram business account to view performance.</div>}
+   <div className="ag-modulegrid">{metaInventory?.connections.map(account=><div className="ag-card" key={account.id}>
+    <h3>{account.name}</h3><p>{account.provider==="facebook_pages"?"Facebook Page":"Instagram Professional"}</p>
+    <button className="ag-secondary" disabled={busy||metaChecking===account.id} onClick={()=>void loadMetaAnalytics(account.id)}>{metaChecking===account.id?"Checking Meta…":"Load real analytics"}</button>
+    {metaAnalytics[account.id]?<div className="ag-social-stats">
+     {([["Followers",metaAnalytics[account.id].followers],["Recent likes",metaAnalytics[account.id].recentLikes],["Recent comments",metaAnalytics[account.id].recentComments],["Reach",metaAnalytics[account.id].reach]] as [string,number|null][]).map(([label,v])=>
+      <div className="ag-metric" key={label}><span>{label}</span><strong>{v??"—"}</strong></div>)}
+     <small>Checked {new Date(metaAnalytics[account.id].checkedAt).toLocaleString()}. Recent figures are from up to 10 posts; reach is shown only if Meta supplies it.</small>
+    </div>:<p>Check this account to load live performance, including any unavailable metrics.</p>}
+   </div>)}</div>
+  </section>}
 {tab==="metrics"&&<section className="ag-card">
     <div className="ag-platform-bar"><div><h2>Content and queue performance</h2><p>Based only on the selected workspace's own staging records, not social-network analytics.</p></div><button className="ag-secondary" onClick={()=>void refreshInsights()} disabled={busy}>Refresh insights</button></div>
     {!internalInsights?<div className="ag-social-empty">No internal insights available. Check the staging database connection.</div>:<>
@@ -404,16 +454,13 @@ export default function SocialStudio(){
     </>}
    </section>}
 {tab==="providers"&&<section className="ag-card">
-    <div className="ag-platform-bar"><div><h2>Social Connections</h2><p>Connect selected Facebook Pages or Instagram Professional accounts for read-only account discovery. No publishing permissions are requested.</p></div>
+    <div className="ag-platform-bar"><div><h2>Social Connections</h2><p>See connected accounts, check permissions, and prepare analytics and approved posting. Automatic publishing is not switched on yet.</p></div>
       <button className="ag-secondary" disabled={busy} onClick={()=>{void refreshMeta();void refreshProviders();}}>Refresh connections</button></div>
-    <div className="ag-ws-note"><b>Single-administrator mode.</b> Developer credentials must be set in this staging preview before connecting. All tokens stay encrypted in Neon, and publishing remains disabled.</div>
-    <div className="ag-ws-note">
-      <b>Meta Developer App setup</b>
-      <p>Configure Facebook Login for Business and Instagram Login separately. Provide their app IDs and app secrets as staging-only Vercel secrets; keep the app in the appropriate testing mode until review requirements are met.</p>
-      <p>Register the <b>exact branch-specific callback URL</b> shown below in each Meta app. Never register a unique commit URL or the production site.</p>
-      <p><b>Important:</b> Deployment-specific preview addresses change after code updates. Set up a stable, staging-only HTTPS hostname and register its exact callback URL in Meta before enabling OAuth. Do not use the production domain.</p>
-      <p>Only after app approval, exact redirect, and staging-only environment settings are verified should the feature flag be enabled.</p>
-    </div>
+    <div className="ag-ws-note"><b>Simple account setup.</b> Your social login connects through Meta. REACH keeps credentials private. Check permissions below to see which Social tools are ready.</div>
+    <details className="ag-ws-note"><summary>For your REACH administrator: Meta app setup</summary>
+     <p>Meta may require Advanced Access and App Review before analytics, publishing, comments or messaging can work for customer accounts. Instagram Unified Login permissions are controlled by its Meta Business Login configuration.</p>
+     <p>When a permission is missing, check Meta Business settings and reconnect through the approved account.</p>
+    </details>
     {metaMessage&&<div className="ag-ws-note" role="status">{metaMessage}</div>}
     <div className="ag-modulegrid">
       {metaReadiness.map(m=><div className="ag-card" key={m.provider}>
@@ -433,7 +480,11 @@ export default function SocialStudio(){
        <button className="ag-primary" disabled={!m.launchEnabled||busy} onClick={()=>void connectMeta(m.provider)}>
          {m.launchEnabled?"Authorize and select account":"Connection not configured"}
        </button>
-       <small>Account access only. Posts, messages, comments and publishing are not enabled.</small>
+       <button className="ag-secondary" disabled={!m.launchEnabled||busy} onClick={()=>void connectMeta(m.provider,"social_tools")}>
+        Request Social analytics and posting permissions
+       </button>
+       <small>Meta must approve the requested access. Instagram Unified Login uses the permissions configured in Meta; selecting this option does not override them.</small>
+       <small>Posts, messages and automatic publishing remain disabled until separately approved and tested.</small>
       </div>)}
     </div>
     <h3>Choose from newly authorized accounts</h3>
@@ -454,8 +505,21 @@ export default function SocialStudio(){
       <div><small>{account.expired?"Token expired":account.expiresAt?"Token expires "+new Date(account.expiresAt).toLocaleDateString():"Token expiry not supplied"} · {account.lastVerifiedAt?"Verified "+new Date(account.lastVerifiedAt).toLocaleDateString():"Not reverified"}</small></div>
       <div className="ag-social-actions">
        <button className="ag-secondary" disabled={busy||account.expired} onClick={()=>void verifyMetaAccount(account.id)}>Verify read access</button>
+       <button className="ag-secondary" disabled={busy||metaChecking===account.id} onClick={()=>void checkMetaPermissions(account.id)}>Check permissions</button>
+       <button className="ag-secondary" disabled={busy||metaChecking===account.id} onClick={()=>void loadMetaAnalytics(account.id)}>Load live analytics</button>
        <button className="ag-secondary" disabled={busy} onClick={()=>void disconnectMetaAccount(account.id)}>Disconnect</button>
       </div>
+      {metaCapabilities[account.id]&&<div className="ag-ws-note" role="status">
+       <b>{metaCapabilities[account.id].permissionsVerified?"Meta permissions verified":"Permissions need verification"}</b>
+       <div className="ag-social-list">{metaCapabilities[account.id].features.map(f=><div key={f.id} className="ag-status">
+        <span>{f.name}</span><b>{f.status==="available"?"Ready":f.status==="permission_required"?"Needs permission":f.status==="not_activated"?"Not enabled yet":"Not verified"}</b>
+       </div>)}</div>
+       <details><summary>Technical permissions</summary><p>{metaCapabilities[account.id].grantedPermissions.join(", ")||"No permissions confirmed"}</p></details>
+      </div>}
+      {metaAnalytics[account.id]&&<div className="ag-ws-note" role="status"><b>Real Meta analytics · {new Date(metaAnalytics[account.id].checkedAt).toLocaleString()}</b>
+       <p>Followers: {metaAnalytics[account.id].followers??"Unavailable"} · Recent post likes: {metaAnalytics[account.id].recentLikes??"Unavailable"} · Comments: {metaAnalytics[account.id].recentComments??"Unavailable"} · Reach: {metaAnalytics[account.id].reach??"Unavailable"}</p>
+       {metaAnalytics[account.id].partial&&<p>Some post metrics could not be retrieved from Meta.</p>}
+      </div>}
     </div>)}
     <div className="ag-platform-bar"><div><h3>Provider connection readiness</h3><p>Workspace-specific status. Read-only discovery does not grant publishing.</p></div>
       <button className="ag-secondary" disabled={busy||!workspaceId} onClick={()=>void refreshProviders()}>Refresh provider status</button></div>
