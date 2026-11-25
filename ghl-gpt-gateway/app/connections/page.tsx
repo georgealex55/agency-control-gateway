@@ -264,6 +264,7 @@ export default function Connections(){
     </div>
     {attentionOnly&&visibleCards.length===0&&cards.length>0&&<p className="reach-conn-info" role="status">No connections need attention based on the last saved check.</p>}
     {cards.length===0&&inventory&&<section className="reach-conn-alert"><h2>No available integrations yet</h2><p>Only available connections or accounts already linked to this business appear here. REACH will add new services as they become ready.</p></section>}
+    <section className="reach-conn-alert"><h2>More connections</h2><p>YouTube and TikTok are in setup. Account authorization is not available yet.</p><Link className="reach-conn-button" href="/developer/video">Set up YouTube and TikTok</Link></section>
     <p className="reach-conn-disclaimer">Status lights reflect saved connection and verification records, not continuous live monitoring. A green light means access was verified recently, not that a provider was contacted right now. Read-only access remains in place; publishing and messaging stay disabled.</p>
    </>}
   </div>
