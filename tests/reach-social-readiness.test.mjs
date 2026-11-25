@@ -7,12 +7,12 @@ const read=p=>readFileSync(new URL("../ghl-gpt-gateway/"+p,import.meta.url),"utf
 test("customer Connections offers direct social OAuth without any developer app controls",()=>{
  const page=read("app/connections/page.tsx");
  assert.match(page,/Connect "\+p\.name/);
- assert.match(page,/Reconnect "\+p\.name/);
+ assert.match(page,/Reconnect or add account/);
  assert.match(page,/start\(p\.id as "facebook"\|"instagram"\)/);
- assert.match(page,/Verify/);
+ assert.match(page,/onClick=\{\(\)=>void verify\(c\.id\)\}/);
  assert.match(page,/Disconnect/);
  assert.match(page,/Only a successfully completed provider OAuth and verified stored account record/);
- assert.match(page,/No developer app credentials are required/);
+ assert.match(page,/Posting and messaging stay disabled/);
  for(const hidden of [
   "SocialReadiness","meta-app-id-","meta-app-secret-","clientSecret:","missingSettings",
   "callbackUrl","duplicateAppId","Developer settings needed","Developer settings required",
