@@ -28,12 +28,10 @@ export default function CustomerSignIn(){
   try{
    const result=await customerAuthClient.signIn.email({email:email.trim().toLowerCase(),password});
    if(result.error)throw Error("Credentials could not be verified; check email verification and try again.");
-   // The opaque Better Auth session token must NEVER be used as a JWT.
-   // Neon Auth's SDK obtains the signed EdDSA JWT from the session.
-   const assertion=await customerAuthClient.getJWTToken();
-   if(!assertion||assertion.split(".").length!==3)throw Error("Signed Neon Auth JWT unavailable. Confirm your email is verified.");
+   // The server retrieves the signed JWT from the managed Neon session.
+   // Never send an opaque Better Auth session identifier as a JWT.
    const r=await fetch("/api/reach/customer/session",{method:"POST",credentials:"same-origin",
-    headers:{"Content-Type":"application/json"},body:JSON.stringify({assertion}),cache:"no-store"});
+    headers:{"Content-Type":"application/json"},body:"{}",cache:"no-store"});
    if(!r.ok)throw Error(r.status===403?"This verified identity is not assigned to a REACH workspace.":"Customer access not yet approved.");
    setPassword("");window.location.assign(destination());
   }catch(e){setStatus(e instanceof Error?e.message:"Sign-in unavailable.");}
