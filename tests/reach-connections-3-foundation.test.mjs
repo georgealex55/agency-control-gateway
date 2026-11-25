@@ -46,13 +46,13 @@ test("health endpoint is owner-gated, selected workspace scoped, read-only and c
 });
 test("customer page shows only operational or previously linked providers, no future catalog",()=>{
  const page=read("app/connections/page.tsx");
- assert.match(page,/hub\.providers\.filter\(p=>/);
+ assert.match(page,/hub\?\.providers\.filter\(p=>/);
  assert.match(page,/m\.launchEnabled\|\|inventory\?\.connections\.some/);
  assert.match(page,/inventory\?\.pending\.some/);
  assert.match(page,/No available integrations yet/);
- assert.match(page,/Show accounts needing attention/);
+ assert.match(page,/Show only connections needing attention/);
  assert.match(page,/healthLabel\(h\.status\)/);
- assert.match(page,/Token expiry:/);
+ assert.match(page,/Access expires:/);
  assert.match(page,/Provider was not contacted/);
  assert.match(page,/Status unavailable/);
  assert.match(page,/\/api\/reach\/connections\/health\?workspaceId=/);
