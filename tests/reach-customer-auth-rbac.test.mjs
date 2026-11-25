@@ -131,7 +131,9 @@ test("customer endpoints never reuse owner cookie and customer auth cannot acces
  const owner=read("lib/portal-auth.ts");
  const guard=read("lib/social-api.ts");
  const health=read("app/api/reach/connections/health/route.ts");
+ assert.match(login,/customerNeonAuth\.token\(\)/);
  assert.match(login,/verifyCustomerAssertion\(assertion,config\)/);
+ assert.doesNotMatch(login,/req\.json\(\)|assertion:raw|req\.headers\.get\("authorization"\)/);
  assert.match(login,/listCustomerWorkspaces\(identity\)/);
  assert.match(login,/sameOrigin\(req\)/);
  assert.match(login,/httpOnly:true/);
