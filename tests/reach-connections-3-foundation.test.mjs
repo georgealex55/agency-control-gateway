@@ -18,7 +18,9 @@ test("Connections 3.0 health cannot assert live health from stale, missing or ex
  assert.equal(assessConnectionHealth({expiresAt:iso(now+15*day),lastVerifiedAt:null},now),"verification_due");
  assert.equal(assessConnectionHealth({expiresAt:iso(now+15*day),lastVerifiedAt:iso(now-8*day)},now),"verification_due");
  assert.equal(assessConnectionHealth({expiresAt:iso(now+15*day),lastVerifiedAt:iso(now+60_000)},now),"verified_recently");
- assert.equal(assessConnectionHealth({expiresAt:null,lastVerifiedAt:iso(now-60_000)},now),"expiry_unknown");
+ assert.equal(assessConnectionHealth({expiresAt:null,lastVerifiedAt:iso(now-60_000)},now),"verified_recently");
+ assert.equal(assessConnectionHealth({expiresAt:null,lastVerifiedAt:iso(now-8*day)},now),"expiry_unknown");
+ assert.equal(assessConnectionHealth({expiresAt:null,lastVerifiedAt:null},now),"expiry_unknown");
  assert.equal(assessConnectionHealth({expiresAt:"bad",lastVerifiedAt:iso(now-60_000)},now),"expiry_unknown");
  assert.equal(assessConnectionHealth({expiresAt:iso(now+15*day),lastVerifiedAt:iso(now+2*day)},now),"verification_due");
  assert.equal(healthLabel("verified_recently"),"Verified recently");
@@ -46,13 +48,13 @@ test("health endpoint is owner-gated, selected workspace scoped, read-only and c
 });
 test("customer page shows only operational or previously linked providers, no future catalog",()=>{
  const page=read("app/connections/page.tsx");
- assert.match(page,/hub\.providers\.filter\(p=>/);
+ assert.match(page,/hub\?\.providers\.filter\(p=>/);
  assert.match(page,/m\.launchEnabled\|\|inventory\?\.connections\.some/);
  assert.match(page,/inventory\?\.pending\.some/);
  assert.match(page,/No available integrations yet/);
- assert.match(page,/Show accounts needing attention/);
+ assert.match(page,/Show only connections needing attention/);
  assert.match(page,/healthLabel\(h\.status\)/);
- assert.match(page,/Token expiry:/);
+ assert.match(page,/Access expires:/);
  assert.match(page,/Provider was not contacted/);
  assert.match(page,/Status unavailable/);
  assert.match(page,/\/api\/reach\/connections\/health\?workspaceId=/);
