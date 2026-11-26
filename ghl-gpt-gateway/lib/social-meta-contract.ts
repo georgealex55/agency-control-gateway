@@ -6,7 +6,7 @@ export const META_READ_PERMISSIONS={
 } as const;
 export const META_SOCIAL_PERMISSIONS={
  facebook_pages:["pages_show_list","pages_read_engagement","read_insights","pages_manage_posts","pages_manage_engagement","pages_manage_metadata","pages_messaging"],
- instagram_professional:["instagram_business_basic","instagram_business_manage_insights","instagram_business_content_publishing","instagram_business_manage_comments","instagram_business_manage_messages"]
+ instagram_professional:["instagram_business_basic","instagram_business_manage_insights","instagram_business_content_publish","instagram_business_manage_comments","instagram_business_manage_messages"]
 } as const;
 export type MetaPermissionPreset="basic"|"social_tools";
 export function isMetaProvider(value:unknown):value is MetaProvider{

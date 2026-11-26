@@ -25,7 +25,7 @@ test("permission matrix reports implementation separately from granted Meta scop
  assert.equal(permitted.find(x=>x.id==="publishing").status,"not_activated");
  assert.equal(permitted.find(x=>x.id==="scheduling").status,"not_activated");
  assert.equal(cap.metaFeatureReadiness("instagram_unified",null)[0].status,"unverified");
- assert.equal(cap.metaFeatureRequirements("instagram_direct").publishing[0],"instagram_business_content_publishing");
+ assert.equal(cap.metaFeatureRequirements("instagram_direct").publishing[0],"instagram_business_content_publish");
 });
 test("Meta token scope inspection verifies app and respects granular asset-level access",async()=>{
  const seen=[];
