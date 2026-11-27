@@ -279,7 +279,7 @@ function boundedList(body:Obj,limit:number):Obj[]{
 function money(v:unknown){return typeof v==="string"&&/^\d{1,14}(?:\.\d{1,8})?$/.test(v)?v:null;}
 function numericCount(v:unknown){return nonnegative(v)??(typeof v==="string"&&/^\d{1,15}$/.test(v)?nonnegative(Number(v)):null);}
 function timestamp(v:unknown){return typeof v==="string"&&v.length<=64&&Number.isFinite(Date.parse(v))?new Date(v).toISOString():null;}
-export async function fetchMetaExpansion(input:{feature:ExpansionFeature;mode:MetaLoginMode;accountId:string;version:string;token:string;appSecret:string;grantedPermissions:string[];assetId?:string;fetcher?:typeof fetch}){
+export async function fetchMetaExpansion(input:{feature:ExpansionFeature;mode:MetaLoginMode;accountId:string;version:string;token:string;appSecret:string;grantedPermissions:string[];assetId?:string;includeContacts?:boolean;fetcher?:typeof fetch}){
  const {feature,mode,accountId,version,appSecret}=input;
  if(!expansionFeatures.includes(feature)||!expansionAllowed(feature,mode)||!idValid(accountId)||!validGraphVersion(version)||typeof input.token!=="string"||input.token.length<10||input.token.length>4096||appSecret.length<8||appSecret.length>1024)throw Error("Invalid Meta expansion request");
  if(!META_EXPANSION_SCOPES[feature].every(s=>input.grantedPermissions.includes(s)))throw Error("Missing required permissions");
@@ -307,8 +307,8 @@ export async function fetchMetaExpansion(input:{feature:ExpansionFeature;mode:Me
   const discovered=boundedList(forms,25).filter(o=>idValid(o.id));
   if(input.assetId){
    if(!discovered.some(o=>o.id===input.assetId))throw Error("Form not in selected Page inventory");
-   const body=await get(input.assetId+"/leads",{fields:"id,created_time",limit:"25"},pageToken);
-   return result(boundedList(body,25).filter(o=>idValid(o.id)).map(o=>({id:o.id,createdAt:timestamp(o.created_time)})),body);
+   const body=await get(input.assetId+"/leads",{fields:input.includeContacts?"id,created_time,field_data":"id,created_time",limit:"25"},pageToken);
+   return result(boundedList(body,25).filter(o=>idValid(o.id)).map(o=>({id:o.id,createdAt:timestamp(o.created_time),...(input.includeContacts?{contacts:(Array.isArray(o.field_data)?o.field_data:[]).slice(0,50).map(object).filter(v=>v&&["full_name","first_name","last_name","email","phone_number"].includes(String(v.name))).flatMap(v=>Array.isArray(v?.values)?v.values.slice(0,3).filter(x=>typeof x==="string"&&x.length<=320).map(value=>({name:v!.name,value})):[])}:{})})),body);
   }
   return result(discovered.map(o=>({id:o.id,name:text(o.name,200),status:text(o.status,40)})),forms);
  }
