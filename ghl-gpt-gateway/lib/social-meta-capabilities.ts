@@ -95,3 +95,10 @@ export async function inspectMetaToken(input:{
 export function appSecretProof(token:string,secret:string):string{
  return createHmac("sha256",secret).update(token).digest("hex");
 }
+
+/** Never replace a working Page grant with a narrower or unverifiable grant. */
+export function canReplaceFacebookGrant(prior:MetaTokenInspection,next:MetaTokenInspection):boolean{
+ if(!next.verified||!["pages_show_list","pages_read_engagement"].every(s=>next.grantedScopes.includes(s)))return false;
+ if(prior.verified)return prior.grantedScopes.every(s=>next.grantedScopes.includes(s));
+ return prior.reason==="invalid";
+}
