@@ -7,7 +7,7 @@ type Event={id:string;connectionId:string;type:string;occurredAt:string};
 const dateKey=(d:Date)=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
 const first=(d:Date)=>new Date(d.getFullYear(),d.getMonth(),1);
 const statusLabel=(s:string)=>({draft:"Draft",approved:"Approved",sending:"Sending",sent:"Delivered",uncertain:"Needs review",blocked:"Blocked",canceled:"Canceled"} as Record<string,string>)[s]||s;
-export default function MetaSocialCalendar({accounts,items,events,refresh,busy,loaded}:{accounts:Account[];items:Item[];events:Event[];refresh:()=>void;busy:boolean;loaded:boolean}){
+export default function MetaSocialCalendar({accounts,items,events,refresh,busy,loaded,onPlan}:{accounts:Account[];items:Item[];events:Event[];refresh:()=>void;busy:boolean;loaded:boolean;onPlan?:(day:string,account:string)=>void}){
  const [month,setMonth]=useState(()=>first(new Date()));
  const [day,setDay]=useState(()=>dateKey(new Date()));
  const [account,setAccount]=useState("all");
@@ -26,7 +26,7 @@ export default function MetaSocialCalendar({accounts,items,events,refresh,busy,l
   <div className={styles.scroll}><div className={styles.grid}>{["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d=><div className={styles.weekday} key={d}>{d}</div>)}
    {dates.map(d=>{const key=dateKey(d),matches=entries.filter(e=>dateKey(new Date(e.at))===key);return <button type="button" key={key} className={styles.day+(d.getMonth()!==month.getMonth()?" "+styles.other:"")} aria-pressed={day===key} aria-label={d.toLocaleDateString()+" · "+matches.length+" entries"} onClick={()=>setDay(key)}><strong>{d.getDate()}</strong>{matches.slice(0,2).map(e=><span key={e.id} className={styles.chip} data-event={e.event}>{e.status} · {accounts.find(a=>a.id===e.accountId)?.name||"Account"}</span>)}{matches.length>2&&<small>+{matches.length-2} more</small>}</button>;})}
   </div></div>
-  <section><h3>{new Date(day+"T12:00:00").toLocaleDateString(undefined,{dateStyle:"full"})}</h3>{!loaded?<p>Calendar data is not available yet.</p>:!active.length?<p>No saved entries for this day.</p>:active.map(e=><article className={styles.entry} key={e.id}><b>{new Date(e.at).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"})} · {accounts.find(a=>a.id===e.accountId)?.name} · {e.status}</b><small>{e.kind}</small><p>{e.title}</p></article>)}</section>
+  <section><div className={styles.tools}><h3>{new Date(day+"T12:00:00").toLocaleDateString(undefined,{dateStyle:"full"})}</h3>{onPlan&&<button className="ag-primary" disabled={busy||day<dateKey(new Date())||!accounts.length} onClick={()=>onPlan(day,account)}>Plan a post for this day</button>}</div>{!loaded?<p>Calendar data is not available yet.</p>:!active.length?<p>No saved entries for this day.</p>:active.map(e=><article className={styles.entry} key={e.id}><b>{new Date(e.at).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"})} · {accounts.find(a=>a.id===e.accountId)?.name} · {e.status}</b><small>{e.kind}</small><p>{e.title}</p></article>)}</section>
   <small>Calendar covers the latest 100 saved actions and 30 verified inbound events returned by REACH. Drafts are not approved posts. Provider-native scheduled posts and Facebook Events are not yet imported.</small>
  </div>;
 }
