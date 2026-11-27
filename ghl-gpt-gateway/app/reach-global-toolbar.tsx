@@ -25,7 +25,7 @@ export default function ReachGlobalToolbar(){
   window.addEventListener("keydown",close);return()=>window.removeEventListener("keydown",close);
  },[]);
  if(!authenticated||pathname==="/login")return null;
- const groups=REACH_GROUPS.filter(g=>g!=="Workspace");
+ const groups=REACH_GROUPS;
  return <header className={styles.bar} data-reach-global-toolbar="true">
   <a className={styles.brand} href="/" aria-label="REACH command center"><span>R</span><strong>REACH</strong></a>
   <button type="button" className={styles.mobileToggle} onClick={()=>{setMobile(v=>!v);setOpen(null);}} aria-expanded={mobile} aria-controls="reach-global-menu">Menu {mobile?"−":"☰"}</button>
