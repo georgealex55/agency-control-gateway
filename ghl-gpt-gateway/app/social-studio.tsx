@@ -3,6 +3,8 @@ import {useEffect,useState,type FormEvent} from "react";
 import {SOCIAL_CHANNELS,type SocialChannel,type SocialState} from "@/lib/social-contract";
 import {localMonthBounds,localDayKey,shiftMonth} from "@/lib/social-calendar-contract";
 import MetaAutomationPanel from "./meta-automation-panel";
+import MetaAnalyticsPanel from "./meta-analytics-panel";
+import type {MetaAnalyticsSnapshot as MetaSnapshot} from "@/lib/social-meta-analytics";
 type Post={id:string;workspaceId:string;content:string;state:SocialState;channels:string[];scheduledAt:string|null;createdAt:string};
 type Workspace={id:string;name:string;slug:string};
 type DispatchJob={id:string;postId:string;channel:string;status:string;attempts:number;nextAttemptAt:string|null;lastErrorCode:string|null;createdAt:string;completedAt:string|null};
@@ -17,12 +19,6 @@ type MetaConnection={id:string;provider:"facebook_pages"|"instagram_professional
 type MetaInventory={connections:MetaConnection[];pending:MetaPending[];readOnly:true;publishingEnabled:false};
 type MetaCapability={connectionId:string;permissionsVerified:boolean;permissionCheck:string;grantedPermissions:string[];
  features:{id:string;name:string;status:"available"|"permission_required"|"not_activated"|"unverified";missingPermissions:string[]}[]};
-type MetaSnapshot={accountId:string;accountName:string|null;checkedAt:string;followers:number|null;totalPosts:number|null;
- recentLikes:number|null;recentComments:number|null;reach:number|null;partial:boolean;period:string;
- requestedPosts:number;detailCoverage:number;recentShares:number|null;
- recentPosts:{id:string;caption:string|null;createdAt:string|null;likes:number|null;comments:number|null;shares:number|null;link:string|null;
- format:string|null;views:number|null;uniqueViewers:number|null;reach:number|null;saves:number|null;interactions:number|null;insightsStatus:string}[]};
-
 type ProviderReadiness={id:string;name:string;auth:string;accounts:string;scopes:string[];publishScopes:string[];appSetup:string;connectionStatus:"disconnected"|"missing_config"|"authorization_pending"|"read_only"|"expired"|"revoked"|"error";connectedAccounts:number;permissionMode:"disconnected"|"read_only";oauthEnabled:boolean;publishingEnabled:false;};
 type InternalInsights={drafts:Record<SocialState,number>;dispatch:Record<"pending"|"queued"|"simulated"|"canceled",number>;retryExhausted:number;scheduledNextSevenDays:number;overdueApproved:number;channelPlans:{channel:string;count:number}[];externalReach:null;externalEngagement:null;metricsAvailable:false;};
 const networkNames:Record<string,string>={instagram:"Instagram",facebook:"Facebook",linkedin:"LinkedIn",threads:"Threads",tiktok:"TikTok",youtube:"YouTube",x:"X",pinterest:"Pinterest"};
@@ -57,8 +53,6 @@ export default function SocialStudio(){
  const [metaAnalytics,setMetaAnalytics]=useState<Record<string,MetaSnapshot>>({});
  const [metaChecking,setMetaChecking]=useState<string|null>(null);
  const [analyticsLimit,setAnalyticsLimit]=useState("25");
- const [analyticsSort,setAnalyticsSort]=useState<"newest"|"likes"|"comments"|"shares"|"views">("newest");
- const [analyticsFormat,setAnalyticsFormat]=useState("all");
 
  const [mediaAssets,setMediaAssets]=useState<MediaAsset[]>([]);
  const [linkTargetPost,setLinkTargetPost]=useState("");
@@ -461,34 +455,7 @@ export default function SocialStudio(){
         <div className="ag-ws-note">Engine: Vercel Functions + Queues. Schedule storage: Neon. No separate Postiz host.</div></div>
     </div>
    </section>}
-{tab==="metrics"&&<section className="ag-card" aria-label="Real Meta social analytics">
-   <div className="ag-platform-bar"><div><h2>Facebook and Instagram analytics</h2>
-    <p>Real Meta account and post metrics, including published formats, shares, views and detailed insights when available.</p></div>
-    <button className="ag-secondary" disabled={busy} onClick={()=>void refreshMetaInventory()}>Refresh accounts</button></div>
-   {metaMessage&&<p role="status" className="ag-ws-note">{metaMessage}</p>}
-   <div className="ag-social-actions"><label>Recent posts <select value={analyticsLimit} onChange={e=>setAnalyticsLimit(e.target.value)}><option value="10">10</option><option value="25">25</option><option value="50">50</option></select></label>
-    <label>Sort by <select value={analyticsSort} onChange={e=>setAnalyticsSort(e.target.value as typeof analyticsSort)}><option value="newest">Newest</option><option value="likes">Likes / reactions</option><option value="comments">Comments</option><option value="shares">Shares</option><option value="views">Views</option></select></label>
-    <label>Post format <select value={analyticsFormat} onChange={e=>setAnalyticsFormat(e.target.value)}><option value="all">All formats</option>{[...new Set(Object.values(metaAnalytics).flatMap(a=>a.recentPosts.map(p=>p.format)).filter((v):v is string=>Boolean(v)))].sort().map(v=><option key={v} value={v}>{v.replaceAll("_"," ")}</option>)}</select></label></div>
-   <small>Choose a post count and reload an account. Deep insights are requested for its latest 10 posts. Unavailable is not zero; account reach is not the sum of post reach.</small>
-   {!metaInventory?.connections.length&&<div className="ag-social-empty">Connect a Facebook Page or Instagram business account to view performance.</div>}
-   <div className="ag-modulegrid">{metaInventory?.connections.map(account=><div className="ag-card" key={account.id}>
-    <h3>{account.name}</h3><p>{account.provider==="facebook_pages"?"Facebook Page":"Instagram Professional"}</p>
-    <button className="ag-secondary" disabled={busy||Boolean(metaChecking)} onClick={()=>void loadMetaAnalytics(account.id)}>{metaChecking===account.id?"Checking Meta…":"Load real analytics"}</button>
-    {metaAnalytics[account.id]?<div className="ag-social-stats">
-     {([["Followers",metaAnalytics[account.id].followers],["Total media",metaAnalytics[account.id].totalPosts],[account.provider==="facebook_pages"?"Recent reactions":"Recent likes",metaAnalytics[account.id].recentLikes],["Recent comments",metaAnalytics[account.id].recentComments],["Recent shares",metaAnalytics[account.id].recentShares],["Posts loaded",metaAnalytics[account.id].recentPosts.length]] as [string,number|null][]).map(([label,v])=>
-      <div className="ag-metric" key={label}><span>{label}</span><strong>{typeof v==="number"?v.toLocaleString():"—"}</strong></div>)}
-     <small>Checked {new Date(metaAnalytics[account.id].checkedAt).toLocaleString()}. {metaAnalytics[account.id].recentPosts.length} of up to {metaAnalytics[account.id].requestedPosts} posts loaded; detailed insights on {metaAnalytics[account.id].detailCoverage} posts. {metaAnalytics[account.id].partial?"Some metrics are unavailable.":""}</small>
-    </div>:<p>Check this account to load live performance, including any unavailable metrics.</p>}
-    {metaAnalytics[account.id]&&<details open className="ag-ws-note"><summary>Individual post performance</summary>
-      {[...metaAnalytics[account.id].recentPosts].filter(p=>analyticsFormat==="all"||p.format===analyticsFormat).sort((a,b)=>analyticsSort==="newest"?(Date.parse(b.createdAt||"")||0)-(Date.parse(a.createdAt||"")||0):(b[analyticsSort]??-1)-(a[analyticsSort]??-1)).map(p=><div className="ag-social-calendar" key={p.id}><div>
-       <b>{p.format?.replaceAll("_"," ")||"Post"} · {dateHuman(p.createdAt)}</b><p style={{overflowWrap:"anywhere"}}>{p.caption||"No caption supplied"}</p>
-       {p.link&&<a href={p.link} target="_blank" rel="noopener noreferrer">View original post</a>}
-       <div className="ag-social-stats">{([[account.provider==="facebook_pages"?"Reactions":"Likes",p.likes],["Comments",p.comments],["Shares",p.shares],["Views",p.views],...(account.provider==="facebook_pages"?[["Unique viewers",p.uniqueViewers]]:[["Reach",p.reach],["Saves",p.saves],["Interactions",p.interactions]])] as [string,number|null][]).map(([label,v])=><div className="ag-metric" key={label}><span>{label}</span><strong>{typeof v==="number"?v.toLocaleString():"—"}</strong></div>)}</div>
-       <small>Detailed insights: {p.insightsStatus.replaceAll("_"," ")}. Lifetime figures for this post; not a date-range total.</small>
-      </div></div>)}
-    </details>}
-   </div>)}</div>
-  </section>}
+{tab==="metrics"&&<MetaAnalyticsPanel key={workspaceId} accounts={metaInventory?.connections||[]} snapshots={metaAnalytics} checking={metaChecking} busy={busy} limit={analyticsLimit} setLimit={setAnalyticsLimit} load={loadMetaAnalytics} refresh={()=>void refreshMetaInventory()} message={metaMessage}/>}
 {tab==="metrics"&&!productionSocial&&<section className="ag-card">
     <div className="ag-platform-bar"><div><h2>Content and queue performance</h2><p>Based only on the selected workspace's own staging records, not social-network analytics.</p></div><button className="ag-secondary" onClick={()=>void refreshInsights()} disabled={busy}>Refresh insights</button></div>
     {!internalInsights?<div className="ag-social-empty">No internal insights available. Check the staging database connection.</div>:<>
