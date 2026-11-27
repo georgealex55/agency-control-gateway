@@ -166,8 +166,8 @@ export default function Connections(){
   <div className="reach-conn-wrap">
    <nav aria-label="Connections navigation"><Link href="/">← Command Center</Link><Link href="/login?next=%2Fconnections">Owner login</Link></nav>
    <header className="reach-simple-header">
-    <div className="reach-conn-eyebrow">REACH · CONNECTIONS</div>
-    <h1>Your business connections</h1>
+    <div className="reach-conn-eyebrow">REACH · CONNECTIONS CENTER</div>
+    <h1>Connections Center</h1>
     <p>See which business accounts are working and which ones need your attention. Open a connection only when you want to make a change. Posting and messaging stay disabled.</p>
    </header>
    {loading&&<p role="status">Loading your connections…</p>}
