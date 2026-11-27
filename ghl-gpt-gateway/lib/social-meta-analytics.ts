@@ -9,7 +9,7 @@ const postIdValid=(v:unknown):v is string=>typeof v==="string"&&/^[0-9]{2,40}(?:
 const countSummary=(v:unknown):number|null=>nonnegative(object(object(v)?.summary)?.total_count);
 export type MetaPostMetric={id:string;createdAt:string|null;caption:string|null;
  likes:number|null;comments:number|null;shares:number|null;link:string|null;
- format:string|null;views:number|null;uniqueViewers:number|null;reach:number|null;saves:number|null;interactions:number|null;insightsStatus:"not_requested"|"available"|"partial"|"unavailable"};
+ format:string|null;previewImages:string[];views:number|null;uniqueViewers:number|null;reach:number|null;saves:number|null;interactions:number|null;insightsStatus:"not_requested"|"available"|"partial"|"unavailable"};
 export type MetaAnalyticsSnapshot={
  source:"meta_graph_api";accountId:string;accountName:string|null;checkedAt:string;
  followers:number|null;totalPosts:number|null;recentPosts:MetaPostMetric[];
@@ -67,22 +67,28 @@ export async function fetchMetaAnalytics(input:{mode:MetaLoginMode;accountId:str
  const postPath=input.accountId+(facebook?"/published_posts":"/media");
  const baseFields=facebook?"id,created_time,message,permalink_url,comments.summary(true),reactions.summary(true),shares":
   "id,timestamp,caption,permalink,media_type,like_count,comments_count";
- const postParams={fields:baseFields+(detailed?(facebook?",attachments{media_type,type}":",media_product_type"):""),limit:String(postLimit)};
+ const formatFields=facebook?",attachments{media_type,type}":",media_product_type";
+ const previewFields=facebook?",attachments{media_type,type,media,subattachments{media_type,type,media}}":",media_product_type,media_url,thumbnail_url,children{media_type,media_url,thumbnail_url}";
+ const postParams={fields:baseFields+(detailed?previewFields:""),limit:String(postLimit)};
  let postRecords:MetaPostMetric[]=[],partial=false;
  try{
   const args={mode,version:input.version,token,appSecret:input.appSecret,path:postPath,fetcher};
   let body:Obj;
   try{body=await graphGet({...args,params:postParams});}
-  catch(e){if(!detailed)throw e;partial=true;body=await graphGet({...args,params:{fields:baseFields,limit:String(postLimit)}});}
+  catch(e){
+   if(!detailed)throw e;partial=true;
+   try{body=await graphGet({...args,params:{fields:baseFields+formatFields,limit:String(postLimit)}});}
+   catch{body=await graphGet({...args,params:{fields:baseFields,limit:String(postLimit)}});}
+  }
   if(!Array.isArray(body.data)||body.data.length>postLimit)throw Error("Invalid recent post data");
   postRecords=body.data.map((raw):MetaPostMetric=>{
    const o=object(raw);if(!o||!postIdValid(o.id))throw Error("Invalid provider post");
    return{id:o.id,createdAt:text(facebook?o.created_time:o.timestamp,64),
-    caption:text(facebook?o.message:o.caption,2000),
+    caption:typeof (facebook?o.message:o.caption)==="string"?String(facebook?o.message:o.caption).slice(0,20000):null,
     likes:facebook?countSummary(o.reactions):nonnegative(o.like_count),
     comments:facebook?countSummary(o.comments):nonnegative(o.comments_count),
     shares:facebook?nonnegative(object(o.shares)?.count):null,
-    format:facebook?facebookFormat(o):text(o.media_product_type==="REELS"?"REEL":o.media_type,40),
+    format:metaPostFormat(o,facebook),previewImages:postPreviewImages(o,facebook),
     views:null,uniqueViewers:null,reach:null,saves:null,interactions:null,insightsStatus:"not_requested",
     link:(()=>{
      const candidate=text(facebook?o.permalink_url:o.permalink,500);
@@ -131,11 +137,56 @@ export async function fetchMetaAnalytics(input:{mode:MetaLoginMode;accountId:str
   requestedPosts:postLimit,detailCoverage:detailPosts.filter(p=>p.insightsStatus==="available"||p.insightsStatus==="partial").length,recentShares:shares};
 }
 
-function facebookFormat(o:Obj):string|null{
+/** Normalize provider-specific values without guessing unknown formats. */
+export function metaPostFormat(o:Obj,facebook:boolean):string|null{
+ if(!facebook){
+  if(o.media_product_type==="REELS")return "REEL";
+  if(o.media_product_type==="STORY")return "STORY";
+  const m=o.media_type;
+  return m==="IMAGE"?"PHOTO":m==="CAROUSEL_ALBUM"?"CAROUSEL":m==="VIDEO"?"VIDEO":null;
+ }
  const items=object(o.attachments)?.data;
  if(!Array.isArray(items))return null;
- if(items.length>1)return "MULTI_ATTACHMENT";
- const a=object(items[0]);return text(a?.media_type??a?.type,40);
+ if(items.length===0)return typeof o.message==="string"&&o.message.trim()?"TEXT":null;
+ const a=object(items[0]),sub=object(a?.subattachments)?.data;
+ if(items.length>1||Array.isArray(sub)&&sub.length>1)return "CAROUSEL";
+ const type=String(a?.type??"").toLowerCase(),media=String(a?.media_type??"").toLowerCase();
+ if(type==="album"||type==="multi_share")return "CAROUSEL";
+ if(type==="reel"||type==="video_reel")return "REEL";
+ if(type==="share"||type==="link"||media==="link")return "LINK";
+ if(media==="video"||type.startsWith("video"))return "VIDEO";
+ if(media==="photo"||media==="image"||type==="photo")return "PHOTO";
+ return null;
+}
+/** Only allow Meta CDN image URLs. Never expose access tokens or fetch arbitrary URLs. */
+export function safeMetaPreview(v:unknown):string|null{
+ if(typeof v!=="string"||v.length>4096)return null;
+ try{
+  const u=new URL(v),host=u.hostname.toLowerCase();
+  if(u.protocol!=="https:"||u.username||u.password||u.port||u.hash||
+   !["fbcdn.net","cdninstagram.com"].some(d=>host===d||host.endsWith("."+d)))return null;
+  for(const key of u.searchParams.keys())if(/access.?token|appsecret|authorization|client.?secret/i.test(key))return null;
+  return u.href;
+ }catch{return null;}
+}
+export function postPreviewImages(o:Obj,facebook:boolean):string[]{
+ const images:string[]=[];
+ const add=(v:unknown)=>{const url=safeMetaPreview(v);if(url&&!images.includes(url)&&images.length<4)images.push(url);};
+ if(facebook){
+  const list=object(o.attachments)?.data;
+  if(Array.isArray(list))for(const raw of list.slice(0,4)){
+   const a=object(raw),sub=object(a?.subattachments)?.data;
+   if(Array.isArray(sub)&&sub.length)for(const child of sub.slice(0,4))add(object(object(object(child)?.media)?.image)?.src);
+   else add(object(object(a?.media)?.image)?.src);
+  }
+ }else{
+  const list=object(o.children)?.data;
+  if(Array.isArray(list)&&list.length)for(const raw of list.slice(0,4)){
+   const child=object(raw);add(child?.media_type==="VIDEO"?child?.thumbnail_url:child?.media_url);
+  }
+  else add(o.media_type==="VIDEO"?o.thumbnail_url:o.media_type==="IMAGE"?o.media_url:null);
+ }
+ return images;
 }
 /** Never sum time-series or breakdowns as if they were a lifetime total. */
 export function readLifetimeInsights(body:Obj,allowed:readonly string[]):Record<string,number>{

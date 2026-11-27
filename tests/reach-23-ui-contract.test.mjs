@@ -8,17 +8,12 @@ const app=read("ghl-gpt-gateway/app/page.tsx");
 const css=read("ghl-gpt-gateway/app/reach-ui-23.css");
 const layout=read("ghl-gpt-gateway/app/layout.tsx");
 const social=read("ghl-gpt-gateway/app/social-studio.tsx");
-const paths=[
- "command","directory","workspaces","contacts","inbox","calls","pipelines","social",
- "social-connections","social-calendar","media","website","funnels","reviews","automations",
- "tasks","calendar","courses","ai","insights","reporting","neon","integrations","features",
- "settings","migration"
-];
-test("feature directory includes all 26 unique capabilities and six owner groups",()=>{
+const paths=["command","directory","workspaces","contacts","inbox","calls","pipelines","social","social-analytics","social-inbox","social-connections","social-calendar","media","web-home","website","web-domains","web-analytics","web-seo","web-publishing","marketing-home","funnels","social-ads","search-ads","email-campaigns","campaign-reporting","reviews","automations","tasks","calendar","courses","ai","insights","reporting","neon","integrations","features","settings","migration"];
+test("feature directory includes all 38 unique capabilities and eight owner groups",()=>{
  const entries=[...catalog.matchAll(/\{id:"([^"]+)",title:/g)].map(x=>x[1]);
  assert.deepEqual(entries,paths);
- assert.equal(new Set(entries).size,26);
- for(const group of ["Workspace","Customers","Marketing","Operations","Intelligence","Platform"]){
+ assert.equal(new Set(entries).size,38);
+ for(const group of ["Workspace","Customers","Social Media","Web Design","Marketing","Operations","Intelligence","Platform"]){
   assert.match(catalog,new RegExp('group:"'+group+'"'));
  }
 });
@@ -56,14 +51,14 @@ test("theme and accent controls are presentation-only",()=>{
  assert.doesNotMatch(app,/localStorage|sessionStorage/);
 });
 test("social deep links route only to existing internal tabs",()=>{
- for(const kind of ["connections","calendar","media","insights"]){
+ for(const kind of ["connections","calendar","media","insights","posting","metrics","content"]){
   assert.match(app,new RegExp('"'+kind+'"'));
   assert.match(social,new RegExp('"'+kind+'"'));
  }
  assert.match(social,/setTab\(socialView==="connections"\?"providers"/);
  assert.match(catalog,/href:"\/connections"/);
  assert.match(catalog,/href:"\/\?social=calendar"/);
- assert.match(catalog,/href:"\/\?social=media"/);
+ assert.match(catalog,/href:"\/\?social=content"/);
  assert.match(catalog,/href:"\/\?social=insights"/);
 });
 test("dashboard personalization uses a validated owner-only staging layout endpoint",()=>{
@@ -100,4 +95,25 @@ test("responsive shell supports reduced motion, focus indication and mobile navi
 test("layout imports redesign last and offline shell mirror remains byte-identical",()=>{
  assert.match(layout,/import "\.\/portal\.css";[\s\S]+import "\.\/social\.css";[\s\S]+import "\.\/reach-ui-23\.css";/);
  assert.equal(readFileSync(new URL("../reach-shell/index.html",import.meta.url)).compare(readFileSync(new URL("../ghl-gpt-gateway/public/reach-demo/index.html",import.meta.url))),0);
+});
+
+test("global toolbar is mounted once, authenticated and collapsible on business routes",()=>{
+ const toolbar=read("ghl-gpt-gateway/app/reach-global-toolbar.tsx");
+ assert.match(layout,/<ReachGlobalToolbar\/>\{children\}/);
+ assert.match(toolbar,/fetch\("\/api\/portal\/session"/);
+ assert.match(toolbar,/if\(!authenticated\|\|pathname==="\/login"\)return null/);
+ assert.match(toolbar,/aria-expanded=\{open===group\}/);
+ assert.match(toolbar,/aria-controls="reach-global-menu"/);
+ assert.match(app,/aria-expanded=\{!collapsed.includes\(group\)\}/);
+ assert.match(app,/reach-session-change/);
+});
+test("marketing contains campaign tools rather than ordinary website or social navigation",()=>{
+ const rows=[...catalog.matchAll(/\{id:"([^"]+)",title:"[^"]+",group:"([^"]+)"/g)];
+ const groups=Object.fromEntries(rows.map(x=>[x[1],x[2]]));
+ for(const id of ["social","social-calendar","social-analytics","media","social-connections","social-inbox","insights"])assert.equal(groups[id],"Social Media");
+ for(const id of ["website","web-domains","web-analytics","web-seo","web-publishing"])assert.equal(groups[id],"Web Design");
+ for(const id of ["funnels","social-ads","search-ads","email-campaigns","campaign-reporting","reviews"])assert.equal(groups[id],"Marketing");
+ assert.match(app,/view==="web"\|\|view==="marketing"/);
+ assert.match(app,/session.authenticated\?<ReachBusinessArea/);
+ assert.match(social,/socialView==="metrics"\|\|socialView==="content"\?"metrics"/);
 });

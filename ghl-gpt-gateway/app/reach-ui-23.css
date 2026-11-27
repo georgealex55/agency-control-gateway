@@ -199,3 +199,9 @@
 .reach-root .reach-login-nav{display:inline-flex;align-items:center;justify-content:center;min-height:35px;padding:8px 11px;border:1px solid var(--reach-border);border-radius:9px;background:var(--reach-surface-raised);color:var(--reach-text);text-decoration:none;font-size:11px;font-weight:750}
 .reach-root .reach-login-nav:hover{border-color:var(--reach-accent)}
 @media(max-width:700px){.reach-root .reach-login-nav{padding:7px 8px;font-size:10px}.reach-root .reach-topright{gap:4px!important}}
+
+/* Collapsible navigation groups remain keyboard accessible. */
+.reach-group-toggle{width:100%;border:0;background:transparent;text-align:left;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+.reach-group-toggle:hover{color:#fff;background:#1b2943;border-radius:8px}
+.reach-group-toggle span{font-size:12px;letter-spacing:0}
+@media(min-width:701px){[data-reach-global-toolbar=true]+.reach-root .ag-side.reach-side{top:56px;height:calc(100dvh - 56px)}}
