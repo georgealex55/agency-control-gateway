@@ -25,7 +25,7 @@ export async function GET(req:NextRequest){
   if(!proof.verified)return reply({error:"Meta could not verify this account's permissions"},424);
   const missing=META_EXPANSION_SCOPES[feature].filter(s=>!proof.grantedScopes.includes(s));
   if(missing.length)return reply({error:"Missing verified permissions: "+missing.join(", "),missingPermissions:missing},403);
-  const snapshot=await fetchMetaExpansion({feature,mode,accountId:credential.accountId,version,token:credential.token,appSecret,grantedPermissions:proof.grantedScopes,assetId});
+  const snapshot=await fetchMetaExpansion({feature,mode,accountId:credential.accountId,version,token:credential.token,appSecret,grantedPermissions:proof.grantedScopes,assetId,includeContacts:feature==="leads"&&req.nextUrl.searchParams.get("contacts")==="1"});
   return reply({workspaceId,connectionId,snapshot,publishingEnabled:false,readOnly:true});
  }catch{return reply({error:"Meta report unavailable. Verify asset access, account tasks and app permissions. No records were changed."},503);}
 }
