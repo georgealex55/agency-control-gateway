@@ -75,7 +75,7 @@ export async function fetchMetaAnalytics(input:{mode:MetaLoginMode;accountId:str
   try{body=await graphGet({...args,params:postParams});}
   catch(e){if(!detailed)throw e;partial=true;body=await graphGet({...args,params:{fields:baseFields,limit:String(postLimit)}});}
   if(!Array.isArray(body.data)||body.data.length>postLimit)throw Error("Invalid recent post data");
-  postRecords=body.data.map(raw=>{
+  postRecords=body.data.map((raw):MetaPostMetric=>{
    const o=object(raw);if(!o||!postIdValid(o.id))throw Error("Invalid provider post");
    return{id:o.id,createdAt:text(facebook?o.created_time:o.timestamp,64),
     caption:text(facebook?o.message:o.caption,2000),
