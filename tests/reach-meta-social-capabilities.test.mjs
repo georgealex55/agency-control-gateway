@@ -169,3 +169,20 @@ test("analytics UI isolates platform and account selection from the content card
  assert.match(studio,/<MetaAnalyticsPanel key=\{workspaceId\}/);
  assert.doesNotMatch(ui,/dangerouslySetInnerHTML/);
 });
+
+const report=await import("data:text/javascript;base64,"+Buffer.from(transpile(read("lib/social-report-summary.ts"))).toString("base64"));
+test("format analytics distinguish missing values from real zeros and expose denominators",()=>{
+ const p=(format,likes,views)=>({format,likes,views,comments:null,shares:null,reach:null,saves:null,interactions:null,uniqueViewers:null,createdAt:null});
+ const posts=[p("PHOTO",0,20),p("PHOTO",null,null),p("REEL",5,100),p(null,null,null)];
+ const groups=report.groupPostFormats(posts);
+ assert.deepEqual(groups.map(g=>g.format),["PHOTO","REEL","unknown"]);
+ assert.deepEqual(groups[0].metrics.likes,{sum:0,known:1,total:2,average:0});
+ assert.deepEqual(groups[0].metrics.views,{sum:20,known:1,total:2,average:20});
+ assert.deepEqual(groups[2].metrics.likes,{sum:null,known:0,total:1,average:null});
+ assert.deepEqual(report.metricSummary(posts,"views"),{sum:120,known:2,total:4,average:60});
+ assert.equal(report.postActivity(posts).reduce((a,d)=>a+d.count,0),0);
+ const ui=read("app/meta-analytics-panel.tsx");
+ assert.match(ui,/groupPostFormats\(posts\)/);
+ assert.match(ui,/m.known\}\/\{m.total\} reported/);
+ assert.match(ui,/not deduplicated/);
+});
