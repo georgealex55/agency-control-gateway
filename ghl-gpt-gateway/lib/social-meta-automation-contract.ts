@@ -1,7 +1,7 @@
 import {createHash,timingSafeEqual} from "node:crypto";
-export type MetaActionKind="facebook_post"|"instagram_photo"|"facebook_comment_reply"|"instagram_comment_reply"|"facebook_message_reply"|"instagram_message_reply";
+export type MetaActionKind="facebook_post"|"facebook_photo"|"facebook_link"|"instagram_photo"|"facebook_comment_reply"|"instagram_comment_reply"|"facebook_message_reply"|"instagram_message_reply";
 export type MetaActionStatus="draft"|"approved"|"sending"|"sent"|"uncertain"|"blocked"|"canceled";
-export const actionableKinds=["facebook_post","instagram_photo","facebook_comment_reply","instagram_comment_reply","facebook_message_reply","instagram_message_reply"] as const;
+export const actionableKinds=["facebook_post","facebook_photo","facebook_link","instagram_photo","facebook_comment_reply","instagram_comment_reply","facebook_message_reply","instagram_message_reply"] as const;
 export function validKind(v:unknown):v is MetaActionKind{return actionableKinds.some(k=>k===v);}
 export const validUUID=(v:unknown):v is string=>typeof v==="string"&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 export const validMetaId=(v:unknown):v is string=>typeof v==="string"&&v.length<=100&&/^[0-9]{2,40}(?:_[0-9]{2,40}){0,2}$/.test(v);
@@ -31,7 +31,7 @@ export function parseActionDraft(raw:unknown,now=Date.now()):MetaActionDraft|nul
   typeof x.scheduledAt!=="string"||!Number.isFinite(Date.parse(x.scheduledAt)))return null;
  const when=Date.parse(x.scheduledAt);
  if(when<now-60_000||when>now+90*86_400_000)return null;
- const image=x.kind==="instagram_photo",reply=x.kind.endsWith("_reply");
+ const image=x.kind==="instagram_photo"||x.kind==="facebook_photo"||x.kind==="facebook_link",reply=x.kind.endsWith("_reply");
  if(image?!validPublicMediaURL(x.mediaUrl):x.mediaUrl!==undefined&&x.mediaUrl!==null)return null;
  if(reply?!validMetaId(x.targetId):x.targetId!==undefined&&x.targetId!==null)return null;
  return {workspaceId:x.workspaceId,connectionId:x.connectionId,idempotencyKey:x.idempotencyKey,kind:x.kind,
@@ -42,7 +42,7 @@ export function validForProvider(kind:MetaActionKind,provider:string):boolean{
  return kind.startsWith("facebook_")?provider==="facebook_pages":provider==="instagram_professional";
 }
 export function outboundFeature(kind:MetaActionKind):"publishing"|"comments"|"messages"{
- return kind.endsWith("_post")||kind.endsWith("_photo")?"publishing":kind.endsWith("comment_reply")?"comments":"messages";
+ return kind.endsWith("_post")||kind.endsWith("_photo")||kind==="facebook_link"?"publishing":kind.endsWith("comment_reply")?"comments":"messages";
 }
 export function secureEqual(a:string,b:string):boolean{
  const left=createHash("sha256").update(a).digest(),right=createHash("sha256").update(b).digest();
