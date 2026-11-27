@@ -305,4 +305,6 @@ test("Meta expansion restricts reports to verified scopes, exact discovered asse
  const route=read("app/api/platform/social/meta/expansion/route.ts");
  assert.match(route,/connectionGate\(req\)/);assert.match(route,/inspectMetaToken/);assert.match(route,/publishingEnabled:false/);
  assert.doesNotMatch(route,/export async function (POST|PATCH|DELETE)/);
+ const credentials=read("lib/social-meta-connection-store.ts").split("export async function metaConnectionCredential")[1].split("export async function markMetaVerified")[0];
+ assert.match(credentials,/workspace_id=\$1::uuid AND id=\$2::uuid AND revoked_at IS NULL/);
 });
