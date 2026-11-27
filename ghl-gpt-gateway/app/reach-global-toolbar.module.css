@@ -1,0 +1,16 @@
+.bar{position:sticky;top:0;z-index:100;display:flex;align-items:center;gap:14px;min-height:56px;padding:8px 16px;background:#111b30;color:#f0f4ff;border-bottom:1px solid #33415d;font-size:13px}
+.brand{display:flex;align-items:center;gap:7px;color:inherit;text-decoration:none;flex-shrink:0}
+.brand span{display:grid;place-items:center;width:28px;height:28px;border-radius:8px;background:#4566df;font-weight:800}
+.brand strong{letter-spacing:.7px;font-size:13px}
+.nav{display:flex;align-items:center;gap:3px;flex-wrap:wrap;min-width:0}
+.group{position:relative}
+.direct,.trigger{display:flex;align-items:center;gap:7px;padding:9px 8px;border:0;background:none;color:#e4eaf9;text-decoration:none;font-size:12px;font-weight:650;border-radius:7px;white-space:nowrap}
+.trigger:hover,.direct:hover,.trigger[aria-expanded=true]{background:#2c3b58;color:white}
+.trigger span{opacity:.7;font-size:10px}
+.menu{position:absolute;top:100%;left:0;min-width:230px;max-width:min(310px,95vw);max-height:calc(100dvh - 80px);overflow:auto;padding:6px;background:#17243b;border:1px solid #3a4a68;border-radius:10px;box-shadow:0 10px 30px #0005;display:grid;gap:2px}
+.group:nth-last-of-type(-n+2) .menu{left:auto;right:0}
+.menu a,.unavailable{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 10px;color:#e6edfb;border-radius:6px;text-decoration:none;line-height:1.35}
+.menu a:hover{background:#31415e}.menu small{font-size:10px;color:#a9b8d3}.unavailable{opacity:.65}
+.mobileToggle{display:none;color:inherit;background:#24334e;border:1px solid #53637f;border-radius:7px;padding:8px 12px}
+.bar a:focus-visible,.bar button:focus-visible{outline:2px solid #8db8ff;outline-offset:2px}
+@media(max-width:1150px){.bar{justify-content:space-between}.mobileToggle{display:block}.nav{display:none;position:absolute;top:100%;left:0;right:0;max-height:calc(100dvh - 56px);overflow:auto;background:#111b30;padding:10px 16px;border-bottom:1px solid #33415d}.nav.mobileOpen{display:grid;align-items:stretch}.trigger,.direct{width:100%;justify-content:space-between;padding:12px}.menu,.group:nth-last-of-type(-n+2) .menu{position:static;max-width:none;max-height:none;box-shadow:none;margin:0 6px 6px}}
