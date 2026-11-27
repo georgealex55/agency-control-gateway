@@ -2,7 +2,8 @@ import {createHash,createHmac,timingSafeEqual} from "node:crypto";
 import {NextRequest,NextResponse} from "next/server";
 import {resolvedMetaEnv} from "@/lib/reach-meta-app-vault";
 import {metaWebhookConnection,recordMetaInbound} from "@/lib/social-meta-automation-store";
-import {validMetaId,secureEqual} from "@/lib/social-meta-automation-contract";
+import {validMetaId,secureEqual,metaEventTimestamp,metaCommentTarget,validMetaSender} from "@/lib/social-meta-automation-contract";
+import {ownerSocialStorageConfigured} from "@/lib/reach-social-owner-db";
 export const runtime="nodejs";export const dynamic="force-dynamic";export const maxDuration=60;
 const json=(x:unknown,s=200)=>NextResponse.json(x,{status:s,headers:{"Cache-Control":"no-store"}});
 function validSignature(body:Buffer,signature:string,secret:string){
@@ -11,13 +12,23 @@ function validSignature(body:Buffer,signature:string,secret:string){
  return timingSafeEqual(Buffer.from(want,"hex"),Buffer.from(signature.slice(7),"hex"));
 }
 const dict=(v:unknown):Record<string,unknown>|null=>v!==null&&typeof v==="object"&&!Array.isArray(v)?v as Record<string,unknown>:null;
-const stamp=(v:unknown):string=>{
- const millis=typeof v==="number"&&v>0?(v>1e12?v:v*1000):Date.now();
- return new Date(Math.min(Date.now()+60000,Math.max(Date.now()-48*3600*1000,millis))).toISOString();
-};
+/** Bound the actual stream, not just a caller-controlled Content-Length header. */
+async function boundedBody(req:NextRequest,max:number):Promise<Buffer|null>{
+ const reader=req.body?.getReader();if(!reader)return null;
+ const chunks:Buffer[]=[];let total=0;
+ try{
+  while(true){
+   const {done,value}=await reader.read();if(done)break;
+   total+=value.byteLength;
+   if(total>max){await reader.cancel();return null;}
+   chunks.push(Buffer.from(value));
+  }
+  return total?Buffer.concat(chunks,total):null;
+ }finally{reader.releaseLock();}
+}
 export async function GET(req:NextRequest){
  const env=process.env,verify=env.SOCIAL_META_WEBHOOK_VERIFY_TOKEN||"";
- if(verify.length<24)return json({error:"Webhook verification not configured"},503);
+ if(!ownerSocialStorageConfigured(env)||verify.length<24)return json({error:"Webhook verification not configured"},503);
  const mode=req.nextUrl.searchParams.get("hub.mode"),token=req.nextUrl.searchParams.get("hub.verify_token")||"";
  const challenge=req.nextUrl.searchParams.get("hub.challenge")||"";
  if(mode!=="subscribe"||!secureEqual(token,verify)||!/^[-_A-Za-z0-9]{1,256}$/.test(challenge))
@@ -28,12 +39,12 @@ export async function GET(req:NextRequest){
  * events or persist the raw message body. Unknown accounts are discarded. */
 export async function POST(req:NextRequest){
  const env=process.env;
- if(env.VERCEL_ENV!=="production"||!env.REACH_SOCIAL_OWNER_WORKSPACE_ID||
+ if(!ownerSocialStorageConfigured(env)||!env.REACH_SOCIAL_OWNER_WORKSPACE_ID||
   env.SOCIAL_META_WEBHOOKS_ENABLED!=="true")return json({error:"Webhooks not enabled"},503);
  const max=96*1024,len=Number(req.headers.get("content-length")||"0");
- if(len>max)return json({error:"Payload too large"},413);
- const bytes=Buffer.from(await req.arrayBuffer());
- if(bytes.length>max||bytes.length===0)return json({error:"Invalid webhook payload"},413);
+ if(!Number.isSafeInteger(len)||len<0||len>max)return json({error:"Invalid payload length"},413);
+ let bytes:Buffer|null;try{bytes=await boundedBody(req,max);}catch{return json({error:"Invalid webhook payload"},400);}
+ if(!bytes)return json({error:"Invalid webhook payload"},413);
  // Select the configured signing app from the event object, then verify that
  // specific app's signature. Never accept a Facebook secret for Instagram events.
  let raw:unknown;try{raw=JSON.parse(bytes.toString("utf8"));}catch{return json({error:"Invalid JSON"},400);}
@@ -60,19 +71,18 @@ export async function POST(req:NextRequest){
    const events:{type:"comment"|"message";target:string|null;sender:string|null;time:string;key:string}[]=[];
    for(const c of changes){
     const v=dict(c),value=dict(v?.value),field=v?.field;
-    if(field!=="comments"&&field!=="feed")continue;
-    const id=value?.comment_id??(value?.item==="comment"?value?.post_id:null)??value?.id;
-    if(!validMetaId(id))continue;
+    const id=metaCommentTarget(field,value),time=metaEventTimestamp(entry?.time);
+    if(!id||!time)continue;
     const sender=dict(value?.from)?.id??null;
-    events.push({type:"comment",target:id,sender:validMetaId(sender)?sender:null,time:stamp(entry?.time),
-     key:String(id)+":"+String(entry?.time||"")});
+    if(sender===accountId)continue;
+    events.push({type:"comment",target:id,sender:validMetaSender(sender)?sender:null,time,key:id});
    }
    for(const e of messaging){
-    const v=dict(e),m=dict(v?.message),sender=dict(v?.sender)?.id;
-    if(m?.is_echo===true||!validMetaId(sender)||sender===accountId)continue;
-    const msgId=m?.mid;
-    if(typeof msgId!=="string"||msgId.length<8||msgId.length>240)continue;
-    events.push({type:"message",target:null,sender,time:stamp(v?.timestamp??entry?.time),key:msgId});
+    const v=dict(e),m=dict(v?.message),sender=dict(v?.sender)?.id,recipient=dict(v?.recipient)?.id;
+    if(m?.is_echo===true||!validMetaSender(sender)||sender===accountId||recipient!==accountId)continue;
+    const msgId=m?.mid,time=metaEventTimestamp(v?.timestamp);
+    if(typeof msgId!=="string"||msgId.length<8||msgId.length>240||!time)continue;
+    events.push({type:"message",target:null,sender,time,key:msgId});
    }
    for(const event of events.slice(0,30)){
     const hash=createHash("sha256").update(provider+":"+accountId+":"+event.type+":"+event.key).digest("hex");
