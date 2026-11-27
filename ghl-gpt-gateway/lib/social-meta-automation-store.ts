@@ -91,14 +91,14 @@ export async function authorizedReplyTarget(workspaceId:string,connectionId:stri
   "SELECT id FROM public.agency_social_meta_webhook_events "+
   "WHERE workspace_id=$1::uuid AND connection_id=$2::uuid AND event_type=$3 "+
   "AND "+(msg?"sender_id":"target_id")+"=$4 "+
-  "AND occurred_at>now()-"+(msg?"interval '24 hours'":"interval '30 days'")+" LIMIT 1",
+  "AND occurred_at<=now() AND occurred_at>now()-"+(msg?"interval '24 hours'":"interval '30 days'")+" LIMIT 1",
   [workspaceId,connectionId,msg?"message":"comment",targetId]));
  return r.length>0;
 }
 export async function metaWebhookConnection(workspaceId:string,provider:"facebook_pages"|"instagram_professional",accountId:string){
  const db=await socialMetaWorkspaceDb(workspaceId);
  const r=rows(await db.query("SELECT id FROM public.agency_social_meta_connections "+
- "WHERE workspace_id=$1::uuid AND provider=$2 AND provider_account_id=$3 AND revoked_at IS NULL LIMIT 1",
+ "WHERE workspace_id=$1::uuid AND provider=$2 AND provider_account_id=$3 AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at>now()) LIMIT 1",
  [workspaceId,provider,accountId]));
  return r[0]?String(r[0].id):null;
 }
