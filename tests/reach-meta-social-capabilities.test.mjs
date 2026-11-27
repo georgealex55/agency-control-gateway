@@ -186,3 +186,23 @@ test("format analytics distinguish missing values from real zeros and expose den
  assert.match(ui,/m.known\}\/\{m.total\} reported/);
  assert.match(ui,/not deduplicated/);
 });
+
+test("account insights retain a provider window and never sum overlapping unique viewers",async()=>{
+ const common={mode:"facebook",version:"v27.0",token:pageToken,appSecret:secret,accountId};
+ const now=Date.parse("2026-11-26T12:00:00Z");
+ const res=await analytics.fetchAccountInsights({...common,fetcher:async(url,init)=>{
+  const u=new URL(url);assert.equal(init.method,"GET");assert.equal(u.origin,"https://graph.facebook.com");assert.equal(u.searchParams.get("period"),"days_28");
+  const name=u.searchParams.get("metric");
+  if(name==="page_total_actions")return new Response("denied",{status:403});
+  return new Response(JSON.stringify({data:[{name,period:"days_28",values:[{end_time:"2026-11-24T00:00:00Z",value:10},{end_time:"2026-11-25T00:00:00Z",value:15},{end_time:"2026-11-27T00:00:00Z",value:999}]}]}));
+ }},true,now);
+ assert.equal(res.status,"partial");assert.equal(res.metrics.length,2);assert.equal(res.metrics[0].value,15);
+ const ig=await analytics.fetchAccountInsights({...common,mode:"instagram_direct",fetcher:async(url)=>{
+  const u=new URL(url);assert.equal(u.origin,"https://graph.instagram.com");assert.equal(u.searchParams.get("metric_type"),"total_value");
+  assert.equal(Number(u.searchParams.get("until"))-Number(u.searchParams.get("since")),28*86400);
+  return new Response(JSON.stringify({data:[{name:u.searchParams.get("metric"),period:"day",total_value:{value:0}}]}));
+ }},true,now);
+ assert.equal(ig.status,"available");assert.equal(ig.metrics.length,6);assert.equal(ig.metrics[0].value,0);
+ const denied=await analytics.fetchAccountInsights({...common,fetcher:async()=>{throw Error("Unexpected request");}},false,now);
+ assert.equal(denied.status,"unavailable");assert.deepEqual(denied.metrics,[]);
+});
