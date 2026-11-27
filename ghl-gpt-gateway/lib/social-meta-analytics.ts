@@ -17,6 +17,7 @@ export type MetaAnalyticsSnapshot={
  reach:number|null;reachStatus:"not_requested"|"unavailable"|"available";
  partial:boolean;period:"recent_10_posts"|"recent_25_posts"|"recent_50_posts";liveProviderRead:true;
  requestedPosts:number;detailCoverage:number;recentShares:number|null;
+ accountInsights?:{period:string;status:"available"|"partial"|"unavailable";metrics:{name:string;value:number;endAt:string|null}[]};
 };
 async function graphGet(input:{mode:MetaLoginMode;version:string;token:string;appSecret:string;
  path:string;params:Record<string,string>;fetcher:typeof fetch}):Promise<Obj>{
@@ -47,7 +48,7 @@ async function facebookPageToken(input:{version:string;token:string;appSecret:st
  * do not infer reach, views, impressions or engagement rates.
  */
 export async function fetchMetaAnalytics(input:{mode:MetaLoginMode;accountId:string;version:string;
- token:string;appSecret:string;grantedPermissions:string[];fetcher?:typeof fetch;postLimit?:number;detailed?:boolean
+ token:string;appSecret:string;grantedPermissions:string[];fetcher?:typeof fetch;postLimit?:number;detailed?:boolean;accountDetails?:boolean
 }):Promise<MetaAnalyticsSnapshot>{
  if(!idValid(input.accountId)||!validGraphVersion(input.version)||typeof input.token!=="string"||
   input.token.length<10||input.token.length>4096||input.appSecret.length<8||input.appSecret.length>1024)
@@ -103,6 +104,7 @@ export async function fetchMetaAnalytics(input:{mode:MetaLoginMode;accountId:str
  // deny some metric combinations; preserve real basic data and mark missing values.
  const detailPosts=detailed?postRecords.slice(0,10):[];
  const canReadInsights=input.grantedPermissions.includes(facebook?"read_insights":mode==="instagram_direct"?"instagram_business_manage_insights":"instagram_manage_insights");
+ const accountPromise=input.accountDetails?fetchAccountInsights({mode,version:input.version,token,appSecret:input.appSecret,accountId:input.accountId,fetcher},canReadInsights):Promise.resolve(undefined);
  for(let i=0;i<detailPosts.length;i+=5){
   await Promise.all(detailPosts.slice(i,i+5).map(async p=>{
    if(!canReadInsights){p.insightsStatus="unavailable";return;}
@@ -120,6 +122,7 @@ export async function fetchMetaAnalytics(input:{mode:MetaLoginMode;accountId:str
   }));
  }
  if(detailPosts.some(p=>p.insightsStatus!=="available"))partial=true;
+ const accountInsights=await accountPromise;
  const shares=postRecords.length&&postRecords.every(p=>p.shares!==null)?postRecords.reduce((a,p)=>a+(p.shares??0),0):null;
  const likes=postRecords.every(p=>p.likes!==null)&&postRecords.length?
   postRecords.reduce((a,p)=>a+(p.likes||0),0):null;
@@ -134,7 +137,7 @@ export async function fetchMetaAnalytics(input:{mode:MetaLoginMode;accountId:str
   totalPosts:facebook?null:nonnegative(profile.media_count),
   recentPosts:postRecords,recentLikes:likes,recentComments:comments,
   reach:null,reachStatus:"not_requested",partial,period:postLimit===25?"recent_25_posts":postLimit===50?"recent_50_posts":"recent_10_posts",liveProviderRead:true,
-  requestedPosts:postLimit,detailCoverage:detailPosts.filter(p=>p.insightsStatus==="available"||p.insightsStatus==="partial").length,recentShares:shares};
+  accountInsights,requestedPosts:postLimit,detailCoverage:detailPosts.filter(p=>p.insightsStatus==="available"||p.insightsStatus==="partial").length,recentShares:shares};
 }
 
 /** Normalize provider-specific values without guessing unknown formats. */
@@ -201,4 +204,34 @@ export function readLifetimeInsights(body:Obj,allowed:readonly string[]):Record<
   if(n!==null)out[name]=n;
  }
  return out;
+}
+
+type AccountInsightInput={mode:MetaLoginMode;version:string;token:string;appSecret:string;accountId:string;fetcher:typeof fetch};
+type AccountInsights=NonNullable<MetaAnalyticsSnapshot["accountInsights"]>;
+/** Read a real account-level reporting period separately from lifetime post metrics. */
+export async function fetchAccountInsights(input:AccountInsightInput,allowed:boolean,now=Date.now()):Promise<AccountInsights>{
+ const facebook=input.mode==="facebook";
+ const keys=facebook?["page_media_view","page_total_media_view_unique","page_total_actions"]:["reach","views","accounts_engaged","total_interactions","profile_views","profile_links_taps"];
+ const until=Math.floor(now/86400000)*86400,since=until-28*86400;
+ const result:AccountInsights={period:facebook?"Latest provider-reported 28-day window":"Previous 28 complete UTC days ("+new Date(since*1000).toISOString().slice(0,10)+" to "+new Date((until-86400)*1000).toISOString().slice(0,10)+")",status:"unavailable",metrics:[]};
+ if(!allowed||!idValid(input.accountId))return result;
+ const requests=keys.map(async name=>{
+  try{
+   const body=await graphGet({...input,path:input.accountId+"/insights",params:facebook?{metric:name,period:"days_28"}:{metric:name,period:"day",metric_type:"total_value",since:String(since),until:String(until)}});
+   const item=Array.isArray(body.data)?body.data.map(object).find(v=>v?.name===name):null;
+   if(!item)return null;
+   if(!facebook){
+    if(item.period!=="day")return null;
+    const value=nonnegative(object(item.total_value)?.value);
+    return value===null?null:{name,value,endAt:new Date(until*1000).toISOString()};
+   }
+   if(item.period!=="days_28"||!Array.isArray(item.values))return null;
+   const latest=item.values.map(object).filter(v=>typeof v?.end_time==="string"&&Number.isFinite(Date.parse(v.end_time))&&Date.parse(v.end_time)<=now).sort((a,b)=>Date.parse(String(b?.end_time))-Date.parse(String(a?.end_time)))[0];
+   const value=nonnegative(latest?.value);
+   return value===null?null:{name,value,endAt:String(latest?.end_time)};
+  }catch{return null;}
+ });
+ result.metrics=(await Promise.all(requests)).filter((v):v is AccountInsights["metrics"][number]=>v!==null);
+ result.status=result.metrics.length===keys.length?"available":result.metrics.length?"partial":"unavailable";
+ return result;
 }
