@@ -455,7 +455,7 @@ export default function SocialStudio(){
         <div className="ag-ws-note">Engine: Vercel Functions + Queues. Schedule storage: Neon. No separate Postiz host.</div></div>
     </div>
    </section>}
-{tab==="metrics"&&<MetaAnalyticsPanel initialView={typeof window!=="undefined"&&new URLSearchParams(window.location.search).get("social")==="content"?"posts":"overview"} key={workspaceId} accounts={metaInventory?.connections||[]} snapshots={metaAnalytics} checking={metaChecking} busy={busy} limit={analyticsLimit} setLimit={setAnalyticsLimit} load={loadMetaAnalytics} refresh={()=>void refreshMetaInventory()} message={metaMessage}/>}
+{tab==="metrics"&&<MetaAnalyticsPanel key={workspaceId} initialView={typeof window!=="undefined"&&new URLSearchParams(window.location.search).get("social")==="content"?"posts":"overview"} accounts={metaInventory?.connections||[]} snapshots={metaAnalytics} checking={metaChecking} busy={busy} limit={analyticsLimit} setLimit={setAnalyticsLimit} load={loadMetaAnalytics} refresh={()=>void refreshMetaInventory()} message={metaMessage}/>}
 {tab==="metrics"&&!productionSocial&&<section className="ag-card">
     <div className="ag-platform-bar"><div><h2>Content and queue performance</h2><p>Based only on the selected workspace's own staging records, not social-network analytics.</p></div><button className="ag-secondary" onClick={()=>void refreshInsights()} disabled={busy}>Refresh insights</button></div>
     {!internalInsights?<div className="ag-social-empty">No internal insights available. Check the staging database connection.</div>:<>
