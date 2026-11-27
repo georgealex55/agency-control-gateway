@@ -29,6 +29,7 @@ CREATE POLICY reach_runtime_scope ON public.agency_social_meta_actions TO reach_
  USING (workspace_id = nullif(current_setting('reach.workspace_id',true),'')::uuid)
  WITH CHECK (workspace_id = nullif(current_setting('reach.workspace_id',true),'')::uuid);
 REVOKE ALL ON public.agency_social_meta_actions FROM PUBLIC;
+REVOKE ALL ON public.agency_social_meta_actions FROM reach_app_runtime;
 GRANT SELECT,INSERT,UPDATE ON public.agency_social_meta_actions TO reach_app_runtime;
 CREATE TABLE IF NOT EXISTS public.agency_social_meta_webhook_events (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -49,4 +50,5 @@ CREATE POLICY reach_runtime_scope ON public.agency_social_meta_webhook_events TO
  USING (workspace_id = nullif(current_setting('reach.workspace_id',true),'')::uuid)
  WITH CHECK (workspace_id = nullif(current_setting('reach.workspace_id',true),'')::uuid);
 REVOKE ALL ON public.agency_social_meta_webhook_events FROM PUBLIC;
+REVOKE ALL ON public.agency_social_meta_webhook_events FROM reach_app_runtime;
 GRANT SELECT,INSERT,DELETE ON public.agency_social_meta_webhook_events TO reach_app_runtime;

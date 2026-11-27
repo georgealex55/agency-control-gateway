@@ -56,6 +56,9 @@ test("database migration applies per-workspace RLS and strict delivery states",(
  assert.match(sql,/UNIQUE \(workspace_id,idempotency_key\)/);
  assert.match(sql,/status IN \('draft','approved','sending','sent','uncertain','blocked','canceled'\)/);
  assert.match(sql,/GRANT SELECT,INSERT,UPDATE ON public.agency_social_meta_actions TO reach_app_runtime/);
+ assert.match(sql,/REVOKE ALL ON public.agency_social_meta_actions FROM reach_app_runtime/);
+ assert.match(sql,/REVOKE ALL ON public.agency_social_meta_webhook_events FROM reach_app_runtime/);
+ assert.match(sql,/GRANT SELECT,INSERT,DELETE ON public.agency_social_meta_webhook_events TO reach_app_runtime/);
  assert.doesNotMatch(sql,/GRANT ALL|GRANT .* TO PUBLIC|encrypted_access_token/);
 });
 test("owner API separates draft creation, explicit approval, and confirmed live execution",()=>{
@@ -92,6 +95,8 @@ test("Meta webhook verifies challenge and HMAC signature, maps saved account, an
  assert.match(h,/metaWebhookConnection/);
  assert.match(h,/recordMetaInbound/);
  assert.match(h,/m\?\.is_echo===true/);
+ assert.match(h,/resolvedMetaEnv\(provider\)/);
+ assert.match(h,/signingSecret/);
  assert.doesNotMatch(h,/deliverMetaAction|sendMessage|\/media_publish|\/feed/);
 });
 test("Social Studio includes manual approval, simulation and webhook readiness",()=>{
@@ -106,4 +111,8 @@ test("Social Studio includes manual approval, simulation and webhook readiness",
  assert.match(ui,/webhook/i);
  assert.match(studio,/\["automations","Automations"\]/);
  assert.match(studio,/<MetaAutomationPanel/);
+ assert.match(studio,/\/api\/reach\/connection-hub/);
+ assert.match(studio,/setProductionSocial\(live\)/);
+ assert.match(studio,/productionSocial\?\[\["automations"/);
+ assert.match(studio,/!productionSocial&&/);
 });

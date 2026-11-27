@@ -34,18 +34,17 @@ export async function POST(req:NextRequest){
  if(len>max)return json({error:"Payload too large"},413);
  const bytes=Buffer.from(await req.arrayBuffer());
  if(bytes.length>max||bytes.length===0)return json({error:"Invalid webhook payload"},413);
- const signature=req.headers.get("x-hub-signature-256")||"";
- const providers=["facebook_pages","instagram_professional"] as const;
- const envs=await Promise.all(providers.map(x=>resolvedMetaEnv(x)));
- const valid=envs.some((x,i)=>{
-  const key=i===0?x.SOCIAL_META_FACEBOOK_CLIENT_SECRET:x.SOCIAL_META_INSTAGRAM_CLIENT_SECRET;
-  return typeof key==="string"&&validSignature(bytes,signature,key);
- });
- if(!valid)return json({error:"Invalid signature"},401);
+ // Select the configured signing app from the event object, then verify that
+ // specific app's signature. Never accept a Facebook secret for Instagram events.
  let raw:unknown;try{raw=JSON.parse(bytes.toString("utf8"));}catch{return json({error:"Invalid JSON"},400);}
  const body=dict(raw),object=body?.object;
- if(object!=="page"&&object!=="instagram")return json({accepted:true,matched:0});
+ if(object!=="page"&&object!=="instagram")return json({error:"Unsupported webhook event"},400);
  const provider=object==="page"?"facebook_pages":"instagram_professional";
+ const metaEnv=await resolvedMetaEnv(provider);
+ const signingSecret=provider==="facebook_pages"?metaEnv.SOCIAL_META_FACEBOOK_CLIENT_SECRET:metaEnv.SOCIAL_META_INSTAGRAM_CLIENT_SECRET;
+ const signature=req.headers.get("x-hub-signature-256")||"";
+ if(typeof signingSecret!=="string"||!validSignature(bytes,signature,signingSecret))
+  return json({error:"Invalid signature"},401);
  const list=body?.entry;
  if(!Array.isArray(list)||list.length>20)return json({error:"Invalid webhook entries"},400);
  const workspaceId=env.REACH_SOCIAL_OWNER_WORKSPACE_ID;
