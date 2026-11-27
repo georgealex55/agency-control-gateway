@@ -52,3 +52,23 @@ export function metaAutomationFlags(env:Record<string,string|undefined>=process.
  return {liveWrites:env.SOCIAL_META_LIVE_DELIVERY_ENABLED==="true",scheduled:env.SOCIAL_META_AUTO_POST_ENABLED==="true",
   webhook:env.SOCIAL_META_WEBHOOKS_ENABLED==="true"&&typeof env.SOCIAL_META_WEBHOOK_VERIFY_TOKEN==="string"&&env.SOCIAL_META_WEBHOOK_VERIFY_TOKEN.length>=24};
 }
+
+/** Preserve provider timestamps; never turn a stale or malformed event into a fresh reply window. */
+export function metaEventTimestamp(value:unknown,now=Date.now()):string|null{
+ if(typeof value!=="number"||!Number.isSafeInteger(value)||value<=0)return null;
+ const millis=value>=1e12?value:value*1000;
+ if(!Number.isSafeInteger(millis)||millis>now||millis<now-48*3600*1000)return null;
+ return new Date(millis).toISOString();
+}
+export function metaCommentTarget(field:unknown,value:Record<string,unknown>|null):string|null{
+ if(!value)return null;
+ if(field==="feed"){
+  if(value.item!=="comment"||value.verb!=="add")return null;
+  return validMetaId(value.comment_id)?value.comment_id:null;
+ }
+ if(field==="comments")return validMetaId(value.id)?value.id:null;
+ return null;
+}
+export function validMetaSender(v:unknown):v is string{
+ return typeof v==="string"&&/^[0-9]{2,40}$/.test(v);
+}
