@@ -21,7 +21,9 @@ test("permission matrix reports implementation separately from granted Meta scop
  const none=cap.metaFeatureReadiness("facebook",[]);
  assert.equal(none.find(x=>x.id==="analytics").status,"permission_required");
  const permitted=cap.metaFeatureReadiness("facebook",["pages_show_list","pages_read_engagement","pages_manage_posts"]);
- assert.equal(permitted.find(x=>x.id==="analytics").status,"available");
+ assert.equal(permitted.find(x=>x.id==="analytics").status,"permission_required");
+ assert.deepEqual(permitted.find(x=>x.id==="analytics").missingPermissions,["read_insights"]);
+ assert.equal(cap.metaFeatureReadiness("facebook",["pages_show_list","pages_read_engagement","read_insights"]).find(x=>x.id==="analytics").status,"available");
  assert.equal(permitted.find(x=>x.id==="publishing").status,"not_activated");
  assert.equal(permitted.find(x=>x.id==="scheduling").status,"not_activated");
  assert.equal(cap.metaFeatureReadiness("instagram_unified",null)[0].status,"unverified");
@@ -205,4 +207,47 @@ test("account insights retain a provider window and never sum overlapping unique
  assert.equal(ig.status,"available");assert.equal(ig.metrics.length,6);assert.equal(ig.metrics[0].value,0);
  const denied=await analytics.fetchAccountInsights({...common,fetcher:async()=>{throw Error("Unexpected request");}},false,now);
  assert.equal(denied.status,"unavailable");assert.deepEqual(denied.metrics,[]);
+});
+
+const permissionContract=await import("data:text/javascript;base64,"+Buffer.from(transpile(read("lib/social-meta-contract.ts"))).toString("base64"));
+test("Facebook requests only basic access plus the selected feature, never other optional scopes",()=>{
+ const basic=["pages_show_list","pages_read_engagement"];
+ const options={analytics:"read_insights",publishing:"pages_manage_posts",comments:"pages_manage_engagement",messages:"pages_messaging",webhooks:"pages_manage_metadata"};
+ const common={clientId:appId,redirectUri:"https://agency-control-gateway.vercel.app/api/platform/social/meta/callback",state:"a".repeat(64),graphVersion:"v27.0"};
+ for(const [preset,scope] of Object.entries(options)){
+  assert.deepEqual(permissionContract.metaRequestedPermissions("facebook_pages",preset),[...basic,scope]);
+  const url=new URL(permissionContract.buildMetaAuthorizeURL({...common,provider:"facebook_pages",permissionPreset:preset}));
+  assert.equal(url.origin,"https://www.facebook.com");
+  assert.deepEqual(url.searchParams.get("scope").split(","),[...basic,scope]);
+  assert.equal(url.searchParams.get("auth_type"),"rerequest");
+  assert.equal(permissionContract.validMetaPermissionPreset("instagram_professional",preset),false);
+ }
+ assert.equal(permissionContract.validMetaPermissionPreset("facebook_pages","arbitrary_scope"),false);
+ assert.throws(()=>permissionContract.metaRequestedPermissions("facebook_pages","arbitrary_scope"));
+ assert.deepEqual(permissionContract.metaRequestedPermissions("facebook_pages","basic"),basic);
+ assert.deepEqual(permissionContract.metaRequestedPermissions("instagram_professional","basic"),["instagram_business_basic"]);
+ assert.equal(permissionContract.metaRequestedPermissions("instagram_professional","social_tools").length,5);
+ const route=read("app/api/platform/social/meta/start/route.ts"),ui=read("app/connections/page.tsx");
+ assert.match(route,/validMetaPermissionPreset\(input.provider,requested\)/);
+ assert.match(route,/metaRequestedPermissions\(input.provider,preset\)/);
+ assert.match(ui,/start\("facebook",option.id\)/);
+ assert.match(ui,/checkPermissions\(c.id\)/);
+ assert.match(ui,/trustedMetaAuth\(result.authorizeUrl,provider\)/);
+});
+test("Facebook reauthorization rejects unverifiable grants, lost scopes and missing baseline permission",()=>{
+ const grant=(scopes,verified=true,reason="verified")=>({verified,reason,grantedScopes:scopes,expiresAt:null});
+ const basic=["pages_show_list","pages_read_engagement"],old=grant([...basic,"pages_manage_posts"]);
+ assert.equal(cap.canReplaceFacebookGrant(old,grant([...basic,"pages_manage_posts","read_insights"])),true);
+ assert.equal(cap.canReplaceFacebookGrant(old,grant([...basic,"read_insights"])),false);
+ assert.equal(cap.canReplaceFacebookGrant(old,grant([],false,"unavailable")),false);
+ assert.equal(cap.canReplaceFacebookGrant(grant([],false,"unavailable"),grant(basic)),false);
+ assert.equal(cap.canReplaceFacebookGrant(grant([],false,"invalid"),grant(basic)),true);
+ assert.equal(cap.canReplaceFacebookGrant(grant([],false,"invalid"),grant(["read_insights"])),false);
+ const store=read("lib/social-meta-connection-store.ts");
+ assert.match(store,/canReplaceFacebookGrant\(prior,next\)/);
+ assert.match(store,/agency_social_meta_connections.encrypted_access_token=\$9/);
+ assert.match(store,/ON CONFLICT\(workspace_id,provider,provider_account_id\) DO UPDATE/);
+ const callback=read("app/api/platform/social/meta/callback/route.ts");
+ assert.match(callback,/permission_denied/);
+ assert.doesNotMatch(callback,/searchParams.get\("error_description"\)/);
 });
