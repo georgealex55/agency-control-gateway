@@ -135,3 +135,37 @@ test("lifetime metric parser rejects unrelated names, time series and breakdown 
   {name:"unrequested",period:"lifetime",values:[{value:99}]}
  ]},["views","reach","saved","shares"]),{views:0});
 });
+
+test("Meta post presentation normalizes formats without inventing unsupported metadata",()=>{
+ const fb=(type,media_type,extra={})=>({attachments:{data:[{type,media_type,...extra}]}});
+ assert.equal(analytics.metaPostFormat({media_type:"IMAGE"},false),"PHOTO");
+ assert.equal(analytics.metaPostFormat({media_type:"CAROUSEL_ALBUM"},false),"CAROUSEL");
+ assert.equal(analytics.metaPostFormat({media_type:"VIDEO",media_product_type:"REELS"},false),"REEL");
+ assert.equal(analytics.metaPostFormat(fb("share","link"),true),"LINK");
+ assert.equal(analytics.metaPostFormat(fb("video_inline","video"),true),"VIDEO");
+ assert.equal(analytics.metaPostFormat(fb("album","photo"),true),"CAROUSEL");
+ assert.equal(analytics.metaPostFormat({message:"hello",attachments:{data:[]}},true),"TEXT");
+ assert.equal(analytics.metaPostFormat({message:"hello"},true),null);
+ assert.equal(analytics.metaPostFormat({media_type:"unknown"},false),null);
+});
+test("media preview URLs are restricted to Meta image hosts, never token-bearing or arbitrary URLs",()=>{
+ const good="https://scontent.example.fbcdn.net/photo.jpg";
+ const thumb="https://scontent.cdninstagram.com/thumb.jpg";
+ assert.equal(analytics.safeMetaPreview(good),good);
+ for(const bad of ["https://fbcdn.net.evil.example/a","https://evil.example/a","http://fbcdn.net/a","https://fbcdn.net/a?access_token=secret","https://user@fbcdn.net/a","https://fbcdn.net:8443/a"])
+  assert.equal(analytics.safeMetaPreview(bad),null);
+ assert.deepEqual(analytics.postPreviewImages({media_type:"VIDEO",media_url:"https://fbcdn.net/video.mp4",thumbnail_url:thumb},false),[thumb]);
+ assert.deepEqual(analytics.postPreviewImages({children:{data:[{media_type:"IMAGE",media_url:good},{media_type:"VIDEO",thumbnail_url:thumb},{media_type:"IMAGE",media_url:good}]}},false),[good,thumb]);
+ assert.deepEqual(analytics.postPreviewImages({attachments:{data:[{media:{image:{src:good}}}]}},true),[good]);
+});
+test("analytics UI isolates platform and account selection from the content cards",()=>{
+ const ui=read("app/meta-analytics-panel.tsx"),studio=read("app/social-studio.tsx");
+ assert.match(ui,/accounts\.filter\(a=>a\.provider===activePlatform\)/);
+ assert.match(ui,/snapshots\[account\.id\]/);
+ assert.match(ui,/load\(account\.id\)/);
+ assert.match(ui,/account\.id\+"\:"\+p\.id/);
+ assert.match(ui,/referrerPolicy="no-referrer"/);
+ assert.match(ui,/Read full caption/);
+ assert.match(studio,/<MetaAnalyticsPanel key=\{workspaceId\}/);
+ assert.doesNotMatch(ui,/dangerouslySetInnerHTML/);
+});
