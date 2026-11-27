@@ -28,12 +28,12 @@ function PostCard({post,facebook}:{post:MetaPostMetric;facebook:boolean}){
   </div>
  </article>;
 }
-export default function MetaAnalyticsPanel({accounts,snapshots,checking,busy,limit,setLimit,load,refresh,message}:{accounts:Account[];snapshots:Record<string,MetaAnalyticsSnapshot>;checking:string|null;busy:boolean;limit:string;setLimit:(v:string)=>void;load:(id:string)=>Promise<void>;refresh:()=>void;message:string}){
+export default function MetaAnalyticsPanel({initialView="overview",accounts,snapshots,checking,busy,limit,setLimit,load,refresh,message}:{initialView?:"overview"|"posts";accounts:Account[];snapshots:Record<string,MetaAnalyticsSnapshot>;checking:string|null;busy:boolean;limit:string;setLimit:(v:string)=>void;load:(id:string)=>Promise<void>;refresh:()=>void;message:string}){
  const [platform,setPlatform]=useState<Account["provider"]>("facebook_pages");
  const [selected,setSelected]=useState<Record<string,string>>({});
  const [sort,setSort]=useState<Sort>("newest");
  const [format,setFormat]=useState("all");
- const [view,setView]=useState<"overview"|"posts">("overview");
+ const [view,setView]=useState<"overview"|"posts">(initialView);
  const activePlatform=accounts.some(a=>a.provider===platform)?platform:accounts[0]?.provider||platform;
  const platformAccounts=accounts.filter(a=>a.provider===activePlatform);
  const account=platformAccounts.find(a=>a.id===selected[activePlatform])||platformAccounts[0];
