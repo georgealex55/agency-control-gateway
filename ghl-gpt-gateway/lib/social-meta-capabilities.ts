@@ -18,7 +18,7 @@ const catalog:ReadonlyArray<{key:MetaFeature;title:string;implemented:boolean}>=
 ];
 export const metaFeatureRequirements=(mode:MetaLoginMode):Record<MetaFeature,string[]>=>{
  if(mode==="facebook")return {
-  profile:["pages_show_list","pages_read_engagement"],analytics:["pages_read_engagement"],
+  profile:["pages_show_list","pages_read_engagement"],analytics:["pages_read_engagement","read_insights"],
   publishing:["pages_manage_posts"],scheduling:["pages_manage_posts"],
   comments:["pages_manage_engagement"],messages:["pages_messaging"],webhooks:["pages_manage_metadata"]
  };
