@@ -274,3 +274,35 @@ test("Messenger activity uses only the selected Page token and bounded read-only
  assert.match(ui,/Do not approve it for automatic delivery/);
  assert.match(ui,/Load Messenger activity/);
 });
+
+test("Meta expansion restricts reports to verified scopes, exact discovered assets and GET requests",async()=>{
+ const seen=[];const fetcher=async(url,init)=>{
+  const u=new URL(url);seen.push(u.pathname);assert.equal(init.method,"GET");assert.equal(init.redirect,"error");
+  if(u.pathname.endsWith("/me/adaccounts"))return new Response(JSON.stringify({data:[{id:"act_12345",name:"Demo",currency:"USD"}]}));
+  if(u.pathname.endsWith("/act_12345/insights"))return new Response(JSON.stringify({data:[{spend:"0",impressions:"0",clicks:"2",account_currency:"USD"}]}));
+  if(u.pathname.endsWith("/me/businesses"))return new Response(JSON.stringify({data:[{id:"12345",name:"Demo"}]}));
+  if(u.pathname.endsWith("/me/accounts"))return new Response(JSON.stringify({data:[{id:accountId,access_token:pageToken}]}));
+  if(u.pathname.endsWith("/leadgen_forms"))return new Response(JSON.stringify({data:[{id:"45678",name:"Form"}]}));
+  if(u.pathname.endsWith("/45678/leads"))return new Response(JSON.stringify({data:[{id:"98765",created_time:"2026-11-20T00:00:00Z",field_data:[{name:"email",values:["synthetic@example.invalid"]},{name:"custom_question",values:["private"]}]}]}));
+  if(u.pathname.endsWith("/media"))return new Response(JSON.stringify({data:[{id:"88888",comments_count:1}]}));
+  if(u.pathname.endsWith("/88888/comments"))return new Response(JSON.stringify({data:[{id:"33333",timestamp:"2026-11-20T00:00:00Z",text:"private comment"}]}));
+  throw Error("Unexpected request "+u.pathname);
+ };
+ const common={mode:"facebook",accountId,version:"v27.0",token:userToken,appSecret:secret,fetcher};
+ const ads=await analytics.fetchMetaExpansion({...common,feature:"ads",grantedPermissions:["ads_read"],assetId:"act_12345"});
+ assert.equal(ads.rows[0].spend,"0");assert.equal(ads.rows[0].impressions,0);
+ await assert.rejects(()=>analytics.fetchMetaExpansion({...common,feature:"ads",grantedPermissions:["ads_read"],assetId:"act_99999"}),/not in verified inventory/);
+ await assert.rejects(()=>analytics.fetchMetaExpansion({...common,feature:"ads",grantedPermissions:[]}),/Missing required permissions/);
+ assert.equal((await analytics.fetchMetaExpansion({...common,feature:"businesses",grantedPermissions:["business_management"]})).rows.length,1);
+ const leads={...common,feature:"leads",grantedPermissions:["ads_management","leads_retrieval","pages_show_list","pages_read_engagement","pages_manage_ads"],assetId:"45678"};
+ assert.doesNotMatch(JSON.stringify(await analytics.fetchMetaExpansion(leads)),/synthetic@example|private/);
+ const contacts=await analytics.fetchMetaExpansion({...leads,includeContacts:true});
+ assert.equal(contacts.rows[0].contacts[0].value,"synthetic@example.invalid");assert.doesNotMatch(JSON.stringify(contacts),/private|custom_question/);
+ await assert.rejects(()=>analytics.fetchMetaExpansion({...leads,assetId:"99999"}),/not in selected Page inventory/);
+ const ig=await analytics.fetchMetaExpansion({...common,mode:"instagram_unified",feature:"instagram_comments",grantedPermissions:["instagram_basic","instagram_manage_comments"],assetId:"88888"});
+ assert.equal(ig.rows.length,1);assert.doesNotMatch(JSON.stringify(ig),/private comment|33333/);
+ await assert.rejects(()=>analytics.fetchMetaExpansion({...common,mode:"instagram_unified",feature:"ads",grantedPermissions:["ads_read"]}),/Invalid Meta expansion request/);
+ const route=read("app/api/platform/social/meta/expansion/route.ts");
+ assert.match(route,/connectionGate\(req\)/);assert.match(route,/inspectMetaToken/);assert.match(route,/publishingEnabled:false/);
+ assert.doesNotMatch(route,/export async function (POST|PATCH|DELETE)/);
+});
