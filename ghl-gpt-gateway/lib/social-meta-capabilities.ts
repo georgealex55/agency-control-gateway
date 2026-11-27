@@ -30,17 +30,17 @@ export const metaFeatureRequirements=(mode:MetaLoginMode):Record<MetaFeature,str
  };
  return {
   profile:["instagram_business_basic"],analytics:["instagram_business_manage_insights"],
-  publishing:["instagram_business_content_publishing"],scheduling:["instagram_business_content_publishing"],
+  publishing:["instagram_business_content_publish"],scheduling:["instagram_business_content_publishing"],
   comments:["instagram_business_manage_comments"],messages:["instagram_business_manage_messages"],
   webhooks:["instagram_business_manage_comments"]
  };
 };
-export function metaFeatureReadiness(mode:MetaLoginMode,granted:readonly string[]|null){
+export function metaFeatureReadiness(mode:MetaLoginMode,granted:readonly string[]|null,activated:Partial<Record<MetaFeature,boolean>>={}){
  const needs=metaFeatureRequirements(mode);
  return catalog.map(item=>{
   const missing=needs[item.key].filter(scope=>!granted?.includes(scope));
   const status:MetaFeatureStatus=granted===null?"unverified":missing.length?"permission_required":
-   item.implemented?"available":"not_activated";
+   (item.implemented||activated[item.key]===true)?"available":"not_activated";
   return {id:item.key,name:item.title,status,missingPermissions:granted===null?[]:missing,
    integrationReady:item.implemented};
  });

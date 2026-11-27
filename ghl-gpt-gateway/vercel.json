@@ -16,5 +16,13 @@
         }
       ]
     }
+  },
+  "schedules": {
+    "reach-meta-automation": {
+      "schedule": "*/15 * * * *",
+      "path": "/api/platform/social/meta/automation/cron",
+      "requestMethod": "GET",
+      "timezone": "UTC"
+    }
   }
 }

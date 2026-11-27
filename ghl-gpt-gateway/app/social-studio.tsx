@@ -2,6 +2,7 @@
 import {useEffect,useState,type FormEvent} from "react";
 import {SOCIAL_CHANNELS,type SocialChannel,type SocialState} from "@/lib/social-contract";
 import {localMonthBounds,localDayKey,shiftMonth} from "@/lib/social-calendar-contract";
+import MetaAutomationPanel from "./meta-automation-panel";
 type Post={id:string;workspaceId:string;content:string;state:SocialState;channels:string[];scheduledAt:string|null;createdAt:string};
 type Workspace={id:string;name:string;slug:string};
 type DispatchJob={id:string;postId:string;channel:string;status:string;attempts:number;nextAttemptAt:string|null;lastErrorCode:string|null;createdAt:string;completedAt:string|null};
@@ -66,7 +67,8 @@ export default function SocialStudio(){
  const [queueProbes,setQueueProbes]=useState<QueueProbe[]>([]);
  const [probeMessage,setProbeMessage]=useState("Queue delivery has not been tested from this browser.");
  const [blobDiagnostic,setBlobDiagnostic]=useState<BlobDiagnostic|null>(null);
- const [tab,setTab]=useState<"composer"|"calendar"|"insights"|"metrics"|"providers"|"media">("composer");
+ const [tab,setTab]=useState<"composer"|"calendar"|"insights"|"metrics"|"providers"|"media"|"automations">("composer");
+ const [productionSocial,setProductionSocial]=useState(false);
  useEffect(()=>{const socialView=new URLSearchParams(window.location.search).get("social");if(["connections","calendar","media","insights"].includes(socialView||"")){
   setTab(socialView==="connections"?"providers":socialView==="calendar"?"calendar":socialView==="media"?"media":"insights");
   const status=new URLSearchParams(window.location.search).get("meta");
@@ -75,11 +77,38 @@ export default function SocialStudio(){
   if(status==="canceled")setMetaMessage("Authorization canceled. No account was connected.");
  }},[]);
  useEffect(()=>{
-  fetch("/api/platform/workspaces",{credentials:"same-origin",cache:"no-store"}).then(async r=>{const j=await r.json();if(!r.ok)throw Error(j.error||"Workspaces unavailable");return j;}).then(j=>{const list=Array.isArray(j.workspaces)?j.workspaces:[];setWorkspaces(list);setWorkspaceId(list[0]?.id||"");}).catch(e=>setMessage(e.message)).finally(()=>setLoading(false));
+  // Production Meta accounts live under the Connections owner workspace.
+  // Legacy social drafts and queue remain isolated to staging.
+  (async()=>{
+   let reason="Business workspace unavailable";
+   for(const path of ["/api/reach/connection-hub","/api/platform/workspaces"]){
+    try{
+     const r=await fetch(path,{credentials:"same-origin",cache:"no-store"});
+     const j=await r.json();
+     if(!r.ok||j.storageApproved===false){reason=j.error||"Business setup is incomplete";continue;}
+     const list=Array.isArray(j.workspaces)?j.workspaces:[];
+     if(!list.length){reason="No business workspace is connected";continue;}
+     const live=path==="/api/reach/connection-hub";
+     setProductionSocial(live);setWorkspaces(list);setWorkspaceId(list[0].id);
+     if(live)setTab(v=>v==="composer"?"automations":v);
+     return;
+    }catch(e){reason=e instanceof Error?e.message:reason;}
+   }
+   setMessage(reason);
+  })().finally(()=>setLoading(false));
  },[]);
- useEffect(()=>{setLinkTargetPost("");setLinkedMedia([]);if(workspaceId){setSelectedMedia(null);void refresh(workspaceId);void refreshJobs(workspaceId);void refreshInsights(workspaceId);void refreshProviders(workspaceId);void refreshMedia(workspaceId);void refreshMeta(workspaceId);void refreshQueueProbes(workspaceId);setBlobDiagnostic(null);}else {setQueueProbes([]);setBlobDiagnostic(null);setPosts([]);setJobs([]);setInternalInsights(null);setProviders([]);setMediaAssets([]);setMetaReadiness([]);setMetaInventory(null);setMetaCapabilities({});setMetaAnalytics({});}},[workspaceId]);
- useEffect(()=>{if(workspaceId&&linkTargetPost){void refreshLinkedMedia(workspaceId,linkTargetPost);}else setLinkedMedia([]);},[workspaceId,linkTargetPost]);
- useEffect(()=>{if(workspaceId){void refreshCalendar(workspaceId,calendarMonth);void refreshMonitor(workspaceId);}else {setCalendarPosts([]);setMonitor(null);}},[workspaceId,calendarMonth]);
+ useEffect(()=>{setLinkTargetPost("");setLinkedMedia([]);if(workspaceId){
+   setSelectedMedia(null);void refreshMeta(workspaceId);
+   if(!productionSocial){
+    void refresh(workspaceId);void refreshJobs(workspaceId);void refreshInsights(workspaceId);
+    void refreshProviders(workspaceId);void refreshMedia(workspaceId);void refreshQueueProbes(workspaceId);
+   }else{
+    setPosts([]);setJobs([]);setInternalInsights(null);setMediaAssets([]);setQueueProbes([]);
+   }
+   setBlobDiagnostic(null);
+  }else {setQueueProbes([]);setBlobDiagnostic(null);setPosts([]);setJobs([]);setInternalInsights(null);setProviders([]);setMediaAssets([]);setMetaReadiness([]);setMetaInventory(null);setMetaCapabilities({});setMetaAnalytics({});}},[workspaceId,productionSocial]);
+ useEffect(()=>{if(workspaceId&&linkTargetPost&&!productionSocial){void refreshLinkedMedia(workspaceId,linkTargetPost);}else setLinkedMedia([]);},[workspaceId,linkTargetPost,productionSocial]);
+ useEffect(()=>{if(workspaceId&&!productionSocial){void refreshCalendar(workspaceId,calendarMonth);void refreshMonitor(workspaceId);}else {setCalendarPosts([]);setMonitor(null);}},[workspaceId,calendarMonth,productionSocial]);
  async function refresh(id=workspaceId){
   if(!id)return;
   try{
@@ -342,16 +371,18 @@ export default function SocialStudio(){
  const selected=workspaces.find(w=>w.id===workspaceId);
  const counts={draft:posts.filter(p=>p.state==="draft").length,planned:posts.filter(p=>p.state==="planned").length,approved:posts.filter(p=>p.state==="approved").length};
  return <div className="ag-social-root">
-  <div className="ag-social-top"><div><div className="ag-eyebrow">SOCIAL INTELLIGENCE · ISOLATED STAGING</div><h1>Build better social content.</h1><p>Draft, approve and simulate scheduled content using Vercel Queues and Neon.</p></div><span className="ag-social-safe">● No publishing enabled</span></div>
-  <div className="ag-social-toolbar"><label htmlFor="social-workspace">Workspace</label><select id="social-workspace" value={workspaceId} onChange={e=>{setWorkspaceId(e.target.value);reset();}} disabled={busy||loading}>{workspaces.length===0?<option value="">No workspaces created</option>:workspaces.map(w=><option value={w.id} key={w.id}>{w.name}</option>)}</select><span className="ag-social-workspace">{selected?.slug||"Staging setup"}</span><button className="ag-secondary" disabled={busy||!workspaceId} onClick={()=>void refresh()}>Refresh</button></div>
+  <div className="ag-social-top"><div><div className="ag-eyebrow">{productionSocial?"SOCIAL STUDIO · YOUR BUSINESS":"SOCIAL INTELLIGENCE · ISOLATED STAGING"}</div><h1>Build better social content.</h1><p>{productionSocial?"Manage connected accounts, approved posts, customer replies and live analytics.":"Draft, approve and simulate scheduled content using Vercel Queues and Neon."}</p></div><span className="ag-social-safe">● {productionSocial?"Controlled approval required":"No publishing enabled"}</span></div>
+  <div className="ag-social-toolbar"><label htmlFor="social-workspace">Workspace</label><select id="social-workspace" value={workspaceId} onChange={e=>{setWorkspaceId(e.target.value);reset();}} disabled={busy||loading}>{workspaces.length===0?<option value="">No workspaces created</option>:workspaces.map(w=><option value={w.id} key={w.id}>{w.name}</option>)}</select><span className="ag-social-workspace">{selected?.slug||(productionSocial?"Business setup":"Staging setup")}</span><button className="ag-secondary" disabled={busy||!workspaceId} onClick={()=>productionSocial?void refreshMetaInventory():void refresh()}>Refresh</button></div>
   {message&&<p className="ag-ws-note" role="status">{message}</p>}
-  {!workspaceId?<section className="ag-card"><h2>No client workspace exists yet</h2><p>Create a synthetic workspace using the Workspaces menu. Social content will be stored there, not in a GHL account.</p></section>:<>
-   <div className="ag-social-stats">{[["Draft content",counts.draft,"Edit anytime"],["Planned posts",counts.planned,"Not queued to publish"],["Approved internally",counts.approved,"Not sent"],["Dry-run deliveries",jobs.filter(j=>j.status==="simulated").length,"No external sends"]].map(([label,count,sub])=><div className="ag-metric" key={String(label)}><div><span>{label}</span><i>◈</i></div><strong>{count}</strong><small>{sub}</small></div>)}</div>
-   <div className="ag-social-tabs">{[["composer","Content Studio"],["calendar","Publishing Calendar"],["insights","Delivery Operations"],["metrics","Internal Insights"],["providers","Social Connections"],["media","Media Library"]].map(([key,label])=><button key={key} className={tab===key?"active":""} onClick={()=>setTab(key as typeof tab)}>{label}</button>)}</div>
-   {tab==="composer"&&<div className="ag-social-columns"><section className="ag-card"><h2>{editing?"Edit content":"Create content"}</h2><p>Draft and plan content without connecting a social account.</p>
+  {!workspaceId?<section className="ag-card"><h2>No business workspace available</h2><p>{productionSocial?"Open Connections to authorize your business accounts.":"Create a synthetic workspace in the staging Workspaces menu."}</p></section>:<>
+   {!productionSocial&&<div className="ag-social-stats">{[["Draft content",counts.draft,"Edit anytime"],["Planned posts",counts.planned,"Not queued to publish"],["Approved internally",counts.approved,"Not sent"],["Dry-run deliveries",jobs.filter(j=>j.status==="simulated").length,"No external sends"]].map(([label,count,sub])=><div className="ag-metric" key={String(label)}><div><span>{label}</span><i>◈</i></div><strong>{count}</strong><small>{sub}</small></div>)}</div>}
+   <div className="ag-social-tabs">{[...(productionSocial?[["automations","Automations"],["metrics","Analytics"],["providers","Social Connections"]]:
+   [["composer","Content Studio"],["calendar","Publishing Calendar"],["insights","Delivery Operations"],["metrics","Internal Insights"],["providers","Social Connections"],["automations","Automations"],["media","Media Library"]])].map(([key,label])=><button key={key} className={tab===key?"active":""} onClick={()=>setTab(key as typeof tab)}>{label}</button>)}</div>
+   {tab==="automations"&&<MetaAutomationPanel workspaceId={workspaceId} accounts={metaInventory?.connections||[]}/>}
+   {tab==="composer"&&!productionSocial&&<div className="ag-social-columns"><section className="ag-card"><h2>{editing?"Edit content":"Create content"}</h2><p>Draft and plan content without connecting a social account.</p>
     <form onSubmit={save} className="ag-social-form"><label>Post content<textarea rows={7} maxLength={3000} required value={content} onChange={e=>setContent(e.target.value)} placeholder="Write a post or start with a clear campaign idea…"/></label><div className="ag-social-count">{content.length}/3000</div><label>Stage<select value={state} onChange={e=>setState(e.target.value as SocialState)}><option value="draft">Draft</option><option value="planned">Planned (not published)</option><option value="approved">Approved for later integration</option></select></label><label>Target date (local time)<input type="datetime-local" value={schedule} onChange={e=>setSchedule(e.target.value)}/></label><fieldset><legend>Channel targets (planning only)</legend><div className="ag-social-channels">{SOCIAL_CHANNELS.map(c=><label key={c}><input type="checkbox" checked={channels.includes(c)} onChange={e=>setChannels(v=>e.target.checked?[...v,c]:v.filter(x=>x!==c))}/>{networkNames[c]}</label>)}</div></fieldset><div className="ag-social-actions"><button className="ag-primary" disabled={busy||!content.trim()}>{busy?"Saving…":editing?"Save changes":"Save in staging"}</button>{editing&&<button type="button" className="ag-secondary" onClick={reset}>Cancel edit</button>}</div></form></section>
    <section className="ag-card"><h2>Content library</h2><p>Everything here remains inside staging.</p><div className="ag-social-list">{posts.length===0?<div className="ag-social-empty">No content yet. Draft your first social post.</div>:posts.map(p=><article key={p.id} className="ag-social-post"><div className="ag-social-post-meta"><span className={"ag-social-post-badge "+p.state}>{p.state}</span><span>{dateHuman(p.scheduledAt)}</span></div><p>{p.content}</p><div className="ag-social-targets">{p.channels.map(c=><span key={c}>{networkNames[c]||c}</span>)}</div><div className="ag-social-actions"><button className="ag-secondary" disabled={busy} onClick={()=>edit(p)}>Edit</button><button className="ag-secondary" disabled={busy} onClick={()=>void remove(p.id)}>Delete</button></div></article>)}</div></section></div>}
-   {tab==="calendar"&&<section className="ag-card">
+   {tab==="calendar"&&!productionSocial&&<section className="ag-card">
     <div className="ag-platform-bar"><div><h2>Monthly content calendar</h2><p>All dates represent internal plans in your browser's local time zone. Nothing here is published automatically.</p></div>
       <div className="ag-social-actions"><button className="ag-secondary" disabled={busy} onClick={()=>{setCalendarMonth(m=>shiftMonth(m,-1));setCalendarSelected("");}}>← Previous</button>
       <input aria-label="Calendar month" type="month" value={calendarMonth} min="2020-01" max="2100-12" onChange={e=>{if(localMonthBounds(e.target.value)){setCalendarMonth(e.target.value);setCalendarSelected("");}}}/>
@@ -388,7 +419,7 @@ export default function SocialStudio(){
        <div className="ag-social-empty">No content planned for this date and status.</div>}
     </div>
    </section>}
-      {tab==="insights"&&<section className="ag-card">
+      {tab==="insights"&&!productionSocial&&<section className="ag-card">
     <div className="ag-platform-bar"><div><h2>Vercel-native delivery simulator</h2><p>Approved due posts are dispatched to Vercel Queues, but the private worker only records simulated delivery in Neon.</p></div>
       <button className="ag-primary" disabled={busy} onClick={()=>void dryRun()}>{busy?"Checking…":"Run due-post simulation →"}</button></div>
     <div className="ag-ws-note"><b>External publishing disabled.</b> {dispatchNote}</div>
@@ -441,7 +472,7 @@ export default function SocialStudio(){
     </div>:<p>Check this account to load live performance, including any unavailable metrics.</p>}
    </div>)}</div>
   </section>}
-{tab==="metrics"&&<section className="ag-card">
+{tab==="metrics"&&!productionSocial&&<section className="ag-card">
     <div className="ag-platform-bar"><div><h2>Content and queue performance</h2><p>Based only on the selected workspace's own staging records, not social-network analytics.</p></div><button className="ag-secondary" onClick={()=>void refreshInsights()} disabled={busy}>Refresh insights</button></div>
     {!internalInsights?<div className="ag-social-empty">No internal insights available. Check the staging database connection.</div>:<>
      <div className="ag-social-stats">
@@ -538,7 +569,7 @@ export default function SocialStudio(){
       <p>LinkedIn, TikTok, YouTube, X, Threads and Pinterest require independent developer applications. Their OAuth connections are not active in this milestone.</p>
     </div>
    </section>}
-{tab==="media"&&<section className="ag-card">
+{tab==="media"&&!productionSocial&&<section className="ag-card">
     <div className="ag-platform-bar"><div><h2>Private media library</h2><p>Isolated, workspace-owned JPEG, PNG and WebP files. No media is public or sent to social channels.</p></div>
       <div className="ag-social-actions">
        <button className="ag-secondary" onClick={()=>void checkBlobStorage()} disabled={busy}>Verify private Blob access</button>

@@ -25,7 +25,7 @@ test("permission matrix reports implementation separately from granted Meta scop
  assert.equal(permitted.find(x=>x.id==="publishing").status,"not_activated");
  assert.equal(permitted.find(x=>x.id==="scheduling").status,"not_activated");
  assert.equal(cap.metaFeatureReadiness("instagram_unified",null)[0].status,"unverified");
- assert.equal(cap.metaFeatureRequirements("instagram_direct").publishing[0],"instagram_business_content_publishing");
+ assert.equal(cap.metaFeatureRequirements("instagram_direct").publishing[0],"instagram_business_content_publish");
 });
 test("Meta token scope inspection verifies app and respects granular asset-level access",async()=>{
  const seen=[];
@@ -89,7 +89,8 @@ test("Meta access and analytics GETs are owner-gated and do not expose tokens or
   assert.match(src,/connectionGate\(req\)/);
   assert.match(src,/metaConnectionCredential\(workspaceId,connectionId/);
   assert.match(src,/inspectMetaToken\(/);
-  assert.match(src,/publishingEnabled:false/);
+  if(path.includes("/analytics/"))assert.match(src,/publishingEnabled:false/);
+  else {assert.match(src,/publishingEnabled:flags.liveWrites/);assert.match(src,/metaAutomationFlags\(\)/);}
   assert.doesNotMatch(src,/export async function POST|export async function DELETE|console\.log/);
  }
  const ui=read("app/social-studio.tsx");
