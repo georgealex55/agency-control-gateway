@@ -251,3 +251,26 @@ test("Facebook reauthorization rejects unverifiable grants, lost scopes and miss
  assert.match(callback,/permission_denied/);
  assert.doesNotMatch(callback,/searchParams.get\("error_description"\)/);
 });
+
+test("Messenger activity uses only the selected Page token and bounded read-only metadata",async()=>{
+ const scopes=["pages_show_list","pages_read_engagement","pages_messaging","pages_manage_metadata"];
+ const seen=[];const fetcher=async(url,init)=>{
+  const u=new URL(url);seen.push({u,init});assert.equal(init.method,"GET");assert.equal(init.redirect,"error");assert.equal(u.origin,"https://graph.facebook.com");assert.equal(u.searchParams.has("access_token"),false);
+  if(u.pathname.endsWith("/me/accounts"))return new Response(JSON.stringify({data:[{id:"111111111111",access_token:"unrelated-page-token"},{id:accountId,access_token:pageToken}]}));
+  assert.equal(init.headers.Authorization,"Bearer "+pageToken);
+  if(u.pathname.endsWith("/conversations")){assert.equal(u.searchParams.get("fields"),"id,updated_time");assert.equal(u.searchParams.get("limit"),"25");return new Response(JSON.stringify({data:[{id:"t_123",updated_time:"2026-11-25T12:00:00Z",message:"private body"},{id:"t_123",updated_time:"2026-11-25T12:00:00Z"}],paging:{next:"secret-pagination-url"}}));}
+  return new Response(JSON.stringify({id:accountId,unread_message_count:0}));
+ };
+ const input={accountId,version:"v27.0",token:userToken,appSecret:secret,grantedPermissions:scopes,fetcher};
+ const result=await analytics.fetchFacebookInboxActivity(input);
+ assert.equal(result.recentConversationCount,1);assert.equal(result.unreadMessages,0);assert.equal(result.moreAvailable,true);
+ assert.equal(result.lastActivity.length,1);assert.equal(seen.length,3);
+ assert.doesNotMatch(JSON.stringify(result),/private body|t_123|secret-pagination-url|fb-page-synthetic-token/);
+ await assert.rejects(()=>analytics.fetchFacebookInboxActivity({...input,grantedPermissions:[],fetcher:async()=>{throw Error("should not call provider");}}),/Missing Messenger permissions/);
+ const route=read("app/api/platform/social/meta/inbox-activity/route.ts"),ui=read("app/meta-automation-panel.tsx");
+ assert.match(route,/connectionGate\(req\)/);assert.match(route,/inspectMetaToken/);assert.match(route,/publishingEnabled:false/);
+ assert.doesNotMatch(route,/export async function (POST|PATCH|DELETE)/);
+ assert.match(ui,/Schedule manually in Meta Business Suite/);
+ assert.match(ui,/Do not approve it for automatic delivery/);
+ assert.match(ui,/Load Messenger activity/);
+});

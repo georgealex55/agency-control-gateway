@@ -235,3 +235,27 @@ export async function fetchAccountInsights(input:AccountInsightInput,allowed:boo
  result.status=result.metrics.length===keys.length?"available":result.metrics.length?"partial":"unavailable";
  return result;
 }
+
+export const FACEBOOK_INBOX_READ_SCOPES=["pages_show_list","pages_read_engagement","pages_messaging","pages_manage_metadata"] as const;
+/** Fetch only the latest bounded Messenger conversation activity for one verified Page.
+ * No customer names, message bodies, participant IDs, or provider tokens leave the server.
+ */
+export async function fetchFacebookInboxActivity(input:{accountId:string;version:string;token:string;appSecret:string;grantedPermissions:string[];fetcher?:typeof fetch}){
+ if(!idValid(input.accountId)||!validGraphVersion(input.version)||typeof input.token!=="string"||input.token.length<10||input.token.length>4096||input.appSecret.length<8||input.appSecret.length>1024)throw Error("Invalid Page connection");
+ if(!FACEBOOK_INBOX_READ_SCOPES.every(scope=>input.grantedPermissions.includes(scope)))throw Error("Missing Messenger permissions");
+ const fetcher=input.fetcher||fetch;
+ const token=await facebookPageToken({...input,fetcher});
+ const args={mode:"facebook" as const,version:input.version,token,appSecret:input.appSecret,fetcher};
+ const body=await graphGet({...args,path:input.accountId+"/conversations",params:{fields:"id,updated_time",platform:"MESSENGER",limit:"25"}});
+ if(!Array.isArray(body.data)||body.data.length>25)throw Error("Invalid conversation response");
+ const unique=new Map<string,string|null>();
+ for(const raw of body.data){
+  const o=object(raw);if(!o||typeof o.id!=="string"||!/^[-_A-Za-z0-9]{1,160}$/.test(o.id))throw Error("Invalid conversation identifier");
+  const stamp=text(o.updated_time,64);
+  unique.set(o.id,stamp&&Number.isFinite(Date.parse(stamp))?new Date(stamp).toISOString():null);
+ }
+ const unread=await graphGet({...args,path:input.accountId,params:{fields:"id,unread_message_count"}}).then(v=>v.id===input.accountId?nonnegative(v.unread_message_count):null).catch(()=>null);
+ return {source:"meta_graph_api" as const,accountId:input.accountId,checkedAt:new Date().toISOString(),recentConversationCount:unique.size,
+  moreAvailable:Boolean(object(body.paging)?.next),lastActivity:[...unique.values()].filter((v):v is string=>v!==null).sort().reverse(),
+  unreadMessages:unread,readOnly:true as const};
+}
