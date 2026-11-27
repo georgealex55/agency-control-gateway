@@ -115,7 +115,7 @@ export async function metaConnectionCredential(workspaceId:string,connectionId:s
  const db=await socialMetaWorkspaceDb(workspaceId);
  const matched=rows<Row>(await db.query(
   "SELECT provider,provider_account_id,encrypted_access_token,expires_at FROM agency_social_meta_connections "+
-  "WHERE workspace_id=$1::uuid AND id=$2::uuid",[workspaceId,connectionId]
+  "WHERE workspace_id=$1::uuid AND id=$2::uuid AND revoked_at IS NULL",[workspaceId,connectionId]
  ))[0];
  if(!matched)return null;
  if(matched.expires_at&&new Date(String(matched.expires_at)).getTime()<=Date.now())throw Error("Provider authorization expired; reconnect needed");
