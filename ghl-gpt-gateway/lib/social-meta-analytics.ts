@@ -259,3 +259,65 @@ export async function fetchFacebookInboxActivity(input:{accountId:string;version
   moreAvailable:Boolean(object(body.paging)?.next),lastActivity:[...unique.values()].filter((v):v is string=>v!==null).sort().reverse(),
   unreadMessages:unread,readOnly:true as const};
 }
+
+export const META_EXPANSION_SCOPES={
+ ads:["ads_read"],
+ businesses:["business_management"],
+ leads:["ads_management","leads_retrieval","pages_show_list","pages_read_engagement","pages_manage_ads"],
+ instagram_comments:["instagram_basic","instagram_manage_comments"],
+ instagram_direct_comments:["instagram_business_basic","instagram_business_manage_comments"]
+} as const;
+export type ExpansionFeature=keyof typeof META_EXPANSION_SCOPES;
+export const expansionFeatures=Object.keys(META_EXPANSION_SCOPES) as ExpansionFeature[];
+export function expansionAllowed(feature:ExpansionFeature,mode:MetaLoginMode){
+ return mode==="facebook"?["ads","businesses","leads"].includes(feature):mode==="instagram_unified"?feature==="instagram_comments":feature==="instagram_direct_comments";
+}
+function boundedList(body:Obj,limit:number):Obj[]{
+ if(!Array.isArray(body.data)||body.data.length>limit)throw Error("Invalid Meta list");
+ return body.data.map(v=>{const o=object(v);if(!o)throw Error("Invalid Meta record");return o;});
+}
+function money(v:unknown){return typeof v==="string"&&/^\d{1,14}(?:\.\d{1,8})?$/.test(v)?v:null;}
+function numericCount(v:unknown){return nonnegative(v)??(typeof v==="string"&&/^\d{1,15}$/.test(v)?nonnegative(Number(v)):null);}
+function timestamp(v:unknown){return typeof v==="string"&&v.length<=64&&Number.isFinite(Date.parse(v))?new Date(v).toISOString():null;}
+export async function fetchMetaExpansion(input:{feature:ExpansionFeature;mode:MetaLoginMode;accountId:string;version:string;token:string;appSecret:string;grantedPermissions:string[];assetId?:string;includeContacts?:boolean;fetcher?:typeof fetch}){
+ const {feature,mode,accountId,version,appSecret}=input;
+ if(!expansionFeatures.includes(feature)||!expansionAllowed(feature,mode)||!idValid(accountId)||!validGraphVersion(version)||typeof input.token!=="string"||input.token.length<10||input.token.length>4096||appSecret.length<8||appSecret.length>1024)throw Error("Invalid Meta expansion request");
+ if(!META_EXPANSION_SCOPES[feature].every(s=>input.grantedPermissions.includes(s)))throw Error("Missing required permissions");
+ const fetcher=input.fetcher||fetch;
+ const args={mode,version,token:input.token,appSecret,fetcher};
+ const get=(path:string,params:Record<string,string>,token=input.token)=>graphGet({...args,path,params,token});
+ const result=(rows:unknown[],body:Obj)=>({feature,rows,moreAvailable:Boolean(object(body.paging)?.next),readOnly:true as const,source:"meta_graph_api" as const,checkedAt:new Date().toISOString()});
+ if(feature==="ads"){
+  const accounts=await get("me/adaccounts",{fields:"id,name,currency,account_status",limit:"25"});
+  const discovered=boundedList(accounts,25).filter(o=>typeof o.id==="string"&&/^act_[0-9]{2,40}$/.test(o.id));
+  if(input.assetId){
+   const selected=discovered.find(o=>o.id===input.assetId);if(!selected)throw Error("Ad account not in verified inventory");
+   const body=await get(input.assetId+"/insights",{fields:"account_id,account_currency,spend,impressions,clicks,reach,date_start,date_stop",date_preset:"last_30d",level:"account",limit:"5"});
+   return result(boundedList(body,5).map(o=>({currency:text(o.account_currency,8)??text(selected.currency,8),spend:money(o.spend),impressions:numericCount(o.impressions),clicks:numericCount(o.clicks),reach:numericCount(o.reach),start:text(o.date_start,10),end:text(o.date_stop,10)})),body);
+  }
+  return result(discovered.map(o=>({id:o.id,name:text(o.name,200),currency:text(o.currency,8),status:numericCount(o.account_status)})),accounts);
+ }
+ if(feature==="businesses"){
+  const body=await get("me/businesses",{fields:"id,name",limit:"25"});
+  return result(boundedList(body,25).filter(o=>idValid(o.id)).map(o=>({id:o.id,name:text(o.name,200)})),body);
+ }
+ if(feature==="leads"){
+  const pageToken=await facebookPageToken({version,token:input.token,appSecret,accountId,fetcher});
+  const forms=await get(accountId+"/leadgen_forms",{fields:"id,name,status",limit:"25"},pageToken);
+  const discovered=boundedList(forms,25).filter(o=>idValid(o.id));
+  if(input.assetId){
+   if(!discovered.some(o=>o.id===input.assetId))throw Error("Form not in selected Page inventory");
+   const body=await get(input.assetId+"/leads",{fields:input.includeContacts?"id,created_time,field_data":"id,created_time",limit:"25"},pageToken);
+   return result(boundedList(body,25).filter(o=>idValid(o.id)).map(o=>({id:o.id,createdAt:timestamp(o.created_time),...(input.includeContacts?{contacts:(Array.isArray(o.field_data)?o.field_data:[]).slice(0,50).map(object).filter(v=>v&&["full_name","first_name","last_name","email","phone_number"].includes(String(v.name))).flatMap(v=>Array.isArray(v?.values)?v.values.slice(0,3).filter(x=>typeof x==="string"&&x.length<=320).map(value=>({name:v!.name,value})):[])}:{})})),body);
+  }
+  return result(discovered.map(o=>({id:o.id,name:text(o.name,200),status:text(o.status,40)})),forms);
+ }
+ const media=await get(accountId+"/media",{fields:"id,media_type,timestamp,comments_count",limit:"25"});
+ const discovered=boundedList(media,25).filter(o=>idValid(o.id));
+ if(input.assetId){
+  if(!discovered.some(o=>o.id===input.assetId))throw Error("Media not in selected Instagram inventory");
+  const body=await get(input.assetId+"/comments",{fields:"id,timestamp",limit:"25"});
+  return result(boundedList(body,25).filter(o=>idValid(o.id)).map(o=>({createdAt:timestamp(o.timestamp)})),body);
+ }
+ return result(discovered.map(o=>({id:o.id,format:text(o.media_type,40),createdAt:timestamp(o.timestamp),comments:numericCount(o.comments_count)})),media);
+}
