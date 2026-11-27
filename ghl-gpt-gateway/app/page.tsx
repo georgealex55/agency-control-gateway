@@ -6,6 +6,7 @@ import ServiceCatalog from "./service-catalog";
 import SocialStudio from "./social-studio";
 import {REACH_FEATURES,REACH_GROUPS,ReachFeatureDirectory,featureLabel,featureOpenable,type ReachFeature,type ReachScreen} from "./reach-ui-23";
 import ReachCommandCenter from "./reach-command-center";
+import ReachBusinessArea from "./reach-business-area";
 
 type View=ReachScreen;
 type ScanLocation={id:string;name:string;locationId:string;features:Record<string,{status:string;count:number|null}>};
@@ -14,14 +15,23 @@ const NAV:{id:View;label:string;icon:string}[]=[
   {id:"directory",label:"All Features",icon:"▦"},
   {id:"clients",label:"Workspaces",icon:"▦"},
   {id:"services",label:"Platform Studios",icon:"◈"},
-  {id:"social",label:"Social Intelligence",icon:"↗"},
+  {id:"social",label:"Social Media",icon:"↗"},
+  {id:"web",label:"Web Design",icon:"⌂"},
+  {id:"marketing",label:"Marketing",icon:"◇"},
   {id:"features",label:"Feature Catalog",icon:"▧"},
   {id:"settings",label:"Settings",icon:"⚙"},
   {id:"discover",label:"GHL Migration (later)",icon:"◎"}
 ];
 export default function Home() {
   const [view,setView]=useState<View>("overview");
-  useEffect(()=>{if(["connections","calendar","media","insights"].includes(new URLSearchParams(window.location.search).get("social")||""))setView("social");},[]);
+  const [areaTool,setAreaTool]=useState("");
+  const [collapsed,setCollapsed]=useState<string[]>(REACH_GROUPS.filter(g=>g!=="Workspace"));
+  useEffect(()=>{
+   const q=new URLSearchParams(window.location.search);
+   const social=q.get("social"),requested=q.get("view");
+   const next=["connections","calendar","media","insights","posting","metrics","content"].includes(social||"")?"social":NAV.some(n=>n.id===requested)?requested as View:"overview";
+   setView(next);setAreaTool(q.get("tool")||"");
+  },[]);
   const [selected,setSelected]=useState("sample-web");
   const [session,setSession]=useState({configured:false,authenticated:false,loaded:false});
   const [password,setPassword]=useState("");
@@ -53,7 +63,8 @@ export default function Home() {
     if(f.href){window.location.assign(f.href);return;}
     if(f.screen){setView(f.screen);window.scrollTo({top:0,behavior:"smooth"});}
   }
-  const selectedNavId:Record<View,string>={overview:"command",directory:"directory",clients:"workspaces",features:"features",services:"integrations",social:"social",settings:"settings",discover:"migration"};
+  const selectedNavId:Record<View,string>={overview:"command",directory:"directory",clients:"workspaces",features:"features",services:"integrations",social:"social",settings:"settings",discover:"migration",web:"web-home",marketing:"marketing-home"};
+  useEffect(()=>{const group=REACH_FEATURES.find(f=>f.id===selectedNavId[view])?.group;if(group)setCollapsed(old=>old.filter(g=>g!==group));},[view]);
   const searchResults=REACH_FEATURES.filter(f=>(f.title+" "+f.description+" "+f.detail).toLowerCase().includes(featureQuery.trim().toLowerCase()));
 
   useEffect(()=>{
@@ -69,13 +80,13 @@ export default function Home() {
       const r=await fetch("/api/portal/session",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",body:JSON.stringify({password})});
       const v=await r.json();
       if(!r.ok)throw new Error(v.error||"Sign in failed");
-      setPassword("");setSession(s=>({...s,authenticated:true}));
+      setPassword("");setSession(s=>({...s,authenticated:true}));window.dispatchEvent(new Event("reach-session-change"));
     }catch(e){setError(e instanceof Error?e.message:"Sign in failed");}
     finally{setLoading(false);}
   }
   async function logout(){
     await fetch("/api/portal/session",{method:"DELETE",credentials:"same-origin"});
-    setSession(s=>({...s,authenticated:false}));setLocations(null);
+    setSession(s=>({...s,authenticated:false}));setLocations(null);window.dispatchEvent(new Event("reach-session-change"));
   }
   async function scan(){
     setError("");setScanLoading(true);
@@ -92,7 +103,7 @@ export default function Home() {
       <div className="ag-brand reach-brand"><span className="ag-logo reach-logo">R<span>•</span></span><div><b>REACH</b><small>BUSINESS OPERATING SYSTEM</small></div><button className="reach-close-menu" onClick={()=>setMobileNavOpen(false)} aria-label="Close navigation">×</button></div>
       <div className="reach-side-heading">YOUR WORKSPACE <span>2.3</span></div>
       <nav aria-label="All REACH features" className="reach-nav">
-        {REACH_GROUPS.map(group=><div className="reach-nav-group" key={group}><span className="reach-nav-caption">{group}</span>{REACH_FEATURES.filter(f=>f.group===group).map(f=>
+        {REACH_GROUPS.map(group=><div className="reach-nav-group" key={group}><button type="button" className="reach-nav-caption reach-group-toggle" aria-expanded={!collapsed.includes(group)} onClick={()=>setCollapsed(old=>old.includes(group)?old.filter(g=>g!==group):[...old,group])}>{group}<span aria-hidden="true">{collapsed.includes(group)?"▸":"▾"}</span></button>{!collapsed.includes(group)&&REACH_FEATURES.filter(f=>f.group===group).map(f=>
           <button key={f.id} className={"ag-nav reach-nav-item "+(f.id===selectedNavId[view]?"current":"")} onClick={()=>openFeature(f)} disabled={!featureOpenable(f)} title={f.detail} aria-label={f.title+": "+featureLabel(f)}>
             <span className="ag-nav-icon" aria-hidden="true">{f.icon}</span><span>{f.title}</span><i className={"reach-nav-dot "+f.status} aria-hidden="true"/>
           </button>)}</div>)}
@@ -144,9 +155,10 @@ export default function Home() {
            {error&&<p className="ag-error" role="alert">{error}</p>}
           </section>:<ServiceCatalog/>)} 
         {view==="social"&&(!session.authenticated?<section className="ag-card"><h2>Agency administrator access required</h2>
-          {!session.configured?<p>Configure administrator access in the staging Vercel environment before managing real social drafts.</p>:<form onSubmit={login} className="ag-login"><label htmlFor="social-adminpass">Administrator password</label><div><input id="social-adminpass" type="password" minLength={12} autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)} placeholder="Administrator password"/><button className="ag-primary" disabled={loading}>{loading?"Signing in…":"Unlock Social Intelligence"}</button></div></form>}
+          {!session.configured?<p>Configure administrator access in the staging Vercel environment before managing real social drafts.</p>:<form onSubmit={login} className="ag-login"><label htmlFor="social-adminpass">Administrator password</label><div><input id="social-adminpass" type="password" minLength={12} autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)} placeholder="Administrator password"/><button className="ag-primary" disabled={loading}>{loading?"Signing in…":"Unlock Social Media"}</button></div></form>}
           {error&&<p className="ag-error" role="alert">{error}</p>}
         </section>:<SocialStudio/>)}
+        {(view==="web"||view==="marketing")&&(session.authenticated?<ReachBusinessArea key={view+":"+areaTool} area={view} initialTool={areaTool}/>:<section className="ag-card"><h2>Sign in to your business workspace</h2><a href={"/login?next="+encodeURIComponent("/?view="+view)}>Owner sign-in</a></section>)}
         {view==="features"&&<>
           <div className="ag-eyebrow">FEATURE GOVERNANCE</div><h1>Give clients exactly what they need.</h1><p className="ag-subhead">Agency-approved modules, staged gradually. Requests below are previews—not billing or live activation.</p>
           <section className="ag-card"><Head title="Available modules" sub="Feature packages for your $30 entry-level model"/>{MODULES.map(m=><div key={m.key} className="ag-featurerow"><span className="ag-tenant-icon">{m.key==="lms"?"▤":m.key==="social"?"#":m.key==="automation"?"⚡":"◈"}</span><div><b>{m.title}</b><small>{m.description}</small></div>{m.upgrade?<button className={"ag-secondary "+(requests.includes(m.key)?"ag-selected":"")} onClick={()=>setRequests(v=>v.includes(m.key)?v.filter(x=>x!==m.key):[...v,m.key])}>{requests.includes(m.key)?"Staged ✓":"Preview request"}</button>:<span className="ag-included">Core package</span>}</div>)}<p className="ag-footnote">Preview requests remain in this browser screen. No GHL writes, payments or backend grants are performed.</p></section>
