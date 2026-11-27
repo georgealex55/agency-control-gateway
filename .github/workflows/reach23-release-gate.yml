@@ -31,6 +31,14 @@ on:
       - 'tests/reach-owner-session-http.mjs'
       - 'reach-shell/index.html'
       - '.github/workflows/reach23-release-gate.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'ghl-gpt-gateway/**'
+      - 'tests/reach-*.test.mjs'
+      - 'tests/reach-owner-session-http.mjs'
+      - 'reach-shell/index.html'
+      - '.github/workflows/reach23-release-gate.yml'
   workflow_dispatch:
 permissions:
   contents: read
