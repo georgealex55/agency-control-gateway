@@ -116,3 +116,38 @@ test("Social Studio includes manual approval, simulation and webhook readiness",
  assert.match(studio,/productionSocial\?\[\["automations"/);
  assert.match(studio,/!productionSocial&&/);
 });
+
+test("webhook timestamps are preserved and malformed, future, or stale timestamps fail closed",()=>{
+ const t=Date.parse("2026-11-26T18:00:00Z");
+ assert.equal(core.metaEventTimestamp(t-1000,t),new Date(t-1000).toISOString());
+ assert.equal(core.metaEventTimestamp((t-1000)/1000,t),new Date(t-1000).toISOString());
+ for(const v of [undefined,null,"1795716000",0,-1,NaN,Infinity,t+1,t-48*3600000-1,t+0.5])
+  assert.equal(core.metaEventTimestamp(v,t),null,String(v));
+});
+test("only explicit new Facebook comments and valid Instagram comment IDs are reply targets",()=>{
+ const comment={item:"comment",verb:"add",comment_id:"123456_654321",post_id:"111111_222222"};
+ assert.equal(core.metaCommentTarget("feed",comment),comment.comment_id);
+ for(const v of [{...comment,verb:"remove"},{...comment,verb:"edited"},{...comment,item:"post"},{...comment,comment_id:undefined},{...comment,comment_id:"bad"}])
+  assert.equal(core.metaCommentTarget("feed",v),null);
+ assert.equal(core.metaCommentTarget("comments",{id:"123456789"}),"123456789");
+ assert.equal(core.metaCommentTarget("comments",{post_id:"123456789"}),null);
+ assert.equal(core.metaCommentTarget("likes",{id:"123456789"}),null);
+ assert.equal(core.validMetaSender("123456789"),true);
+ for(const v of ["123_456","abc",123,null,"1","1".repeat(41)])assert.equal(core.validMetaSender(v),false);
+});
+test("webhooks require the shared Connections database, bounded bodies, exact message recipient and unexpired account",()=>{
+ const h=read("app/api/platform/social/meta/webhook/route.ts");
+ const store=read("lib/social-meta-automation-store.ts");
+ const hub=read("app/api/reach/connection-hub/route.ts");
+ assert.match(h,/ownerSocialStorageConfigured\(env\)/);
+ assert.match(hub,/ownerSocialWorkspace\(\)/);
+ assert.match(store,/socialMetaWorkspaceDb\(workspaceId\)/);
+ assert.match(h,/reader\.read\(\)/);
+ assert.match(h,/total>max/);
+ assert.doesNotMatch(h,/req\.arrayBuffer\(\)/);
+ assert.match(h,/recipient!==accountId/);
+ assert.match(h,/metaEventTimestamp\(v\?\.timestamp\)/);
+ assert.match(h,/metaCommentTarget\(field,value\)/);
+ assert.match(store,/occurred_at<=now\(\)/);
+ assert.match(store,/provider_account_id=\$3 AND revoked_at IS NULL AND \(expires_at IS NULL OR expires_at>now\(\)\)/);
+});
