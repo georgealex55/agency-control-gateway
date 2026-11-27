@@ -8,7 +8,23 @@ export const META_SOCIAL_PERMISSIONS={
  facebook_pages:["pages_show_list","pages_read_engagement","read_insights","pages_manage_posts","pages_manage_engagement","pages_manage_metadata","pages_messaging"],
  instagram_professional:["instagram_business_basic","instagram_business_manage_insights","instagram_business_content_publish","instagram_business_manage_comments","instagram_business_manage_messages"]
 } as const;
-export type MetaPermissionPreset="basic"|"social_tools";
+export const FACEBOOK_PERMISSION_OPTIONS=[
+ {id:"analytics",label:"Advanced analytics",description:"Detailed page and post insights",extra:["read_insights"]},
+ {id:"publishing",label:"Publishing & scheduling",description:"Permission to publish approved posts",extra:["pages_manage_posts"]},
+ {id:"comments",label:"Comment management",description:"Permission to manage comments",extra:["pages_manage_engagement"]},
+ {id:"messages",label:"Messenger",description:"Permission to manage customer messages",extra:["pages_messaging"]},
+ {id:"webhooks",label:"Webhook setup",description:"Permission to manage Page subscriptions",extra:["pages_manage_metadata"]}
+] as const;
+export type MetaPermissionPreset="basic"|"social_tools"|typeof FACEBOOK_PERMISSION_OPTIONS[number]["id"];
+export function validMetaPermissionPreset(provider:MetaProvider,value:unknown):value is MetaPermissionPreset{
+ return value==="basic"||value==="social_tools"||provider==="facebook_pages"&&FACEBOOK_PERMISSION_OPTIONS.some(p=>p.id===value);
+}
+export function metaRequestedPermissions(provider:MetaProvider,preset:MetaPermissionPreset="basic"):string[]{
+ if(!validMetaPermissionPreset(provider,preset))throw Error("Unsupported permission request");
+ if(preset==="social_tools")return [...META_SOCIAL_PERMISSIONS[provider]];
+ const option=FACEBOOK_PERMISSION_OPTIONS.find(p=>p.id===preset);
+ return [...META_READ_PERMISSIONS[provider],...(option?.extra||[])];
+}
 export function isMetaProvider(value:unknown):value is MetaProvider{
  return META_PROVIDERS.some(x=>x===value);
 }
@@ -27,7 +43,8 @@ export function buildMetaAuthorizeURL(input:{provider:MetaProvider;clientId:stri
  u.searchParams.set("redirect_uri",input.redirectUri);
  u.searchParams.set("state",input.state);
  u.searchParams.set("response_type","code");
- u.searchParams.set("scope",(input.permissionPreset==="social_tools"?META_SOCIAL_PERMISSIONS[input.provider]:META_READ_PERMISSIONS[input.provider]).join(","));
+ u.searchParams.set("scope",metaRequestedPermissions(input.provider,input.permissionPreset).join(","));
+ if(facebook&&input.permissionPreset&&input.permissionPreset!=="basic")u.searchParams.set("auth_type","rerequest");
  if(!facebook)u.searchParams.set("enable_fb_login","0");
  return u.href;
 }

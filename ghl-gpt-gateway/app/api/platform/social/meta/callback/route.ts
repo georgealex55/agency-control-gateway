@@ -12,11 +12,13 @@ import {resolvedMetaEnv} from "@/lib/reach-meta-app-vault";
 import {instagramUnifiedReady,exchangeInstagramUnifiedCode,listInstagramUnifiedAccounts} from "@/lib/social-meta-instagram-unified";
 export const runtime="nodejs";export const dynamic="force-dynamic";
 const noStore={"Cache-Control":"no-store"};
-function toSocial(req:NextRequest,status:"failed"|"canceled"|"select",provider?:MetaProvider){
+function toSocial(req:NextRequest,status:"failed"|"canceled"|"select",provider?:MetaProvider,reason?:"permission_denied"|"provider_error"){
  const production=process.env.VERCEL_ENV==="production";
  const destination=new URL(production?"/connections":"/",req.nextUrl.origin);
  if(!production)destination.searchParams.set("social","connections");
  destination.searchParams.set("meta",status);
+ if(provider)destination.searchParams.set("provider",provider);
+ if(reason)destination.searchParams.set("reason",reason);
  const response=NextResponse.redirect(destination,{status:303,headers:noStore});
  if(provider)response.cookies.set("agency_meta_nonce_"+provider,"",{path:"/api/platform/social/meta/callback",httpOnly:true,secure:true,sameSite:"lax",maxAge:0});
  return response;
@@ -44,7 +46,10 @@ export async function GET(req:NextRequest){
  if(!setup.isCanonicalHost||!setup.branchMatches)return toSocial(req,"failed",parsed?.provider);
  try{
   if(!await consumeMetaFlow(parsed.workspaceId,parsed.provider,parsed.nonce))return toSocial(req,"failed",parsed?.provider);
-  if(req.nextUrl.searchParams.has("error")||req.nextUrl.searchParams.has("error_reason"))return toSocial(req,"canceled",parsed.provider);
+  if(req.nextUrl.searchParams.has("error")||req.nextUrl.searchParams.has("error_reason")){
+   const denied=req.nextUrl.searchParams.get("error")==="access_denied"||req.nextUrl.searchParams.get("error_reason")==="user_denied";
+   return toSocial(req,denied?"canceled":"failed",parsed.provider,denied?"permission_denied":"provider_error");
+  }
   const code=req.nextUrl.searchParams.get("code");
   if(!code)return toSocial(req,"failed",parsed?.provider);
   const unified=parsed.provider==="instagram_professional"&&instagramUnifiedReady(metaEnv);

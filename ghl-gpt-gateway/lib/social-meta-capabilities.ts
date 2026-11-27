@@ -18,7 +18,7 @@ const catalog:ReadonlyArray<{key:MetaFeature;title:string;implemented:boolean}>=
 ];
 export const metaFeatureRequirements=(mode:MetaLoginMode):Record<MetaFeature,string[]>=>{
  if(mode==="facebook")return {
-  profile:["pages_show_list","pages_read_engagement"],analytics:["pages_read_engagement"],
+  profile:["pages_show_list","pages_read_engagement"],analytics:["pages_read_engagement","read_insights"],
   publishing:["pages_manage_posts"],scheduling:["pages_manage_posts"],
   comments:["pages_manage_engagement"],messages:["pages_messaging"],webhooks:["pages_manage_metadata"]
  };
@@ -94,4 +94,11 @@ export async function inspectMetaToken(input:{
 }
 export function appSecretProof(token:string,secret:string):string{
  return createHmac("sha256",secret).update(token).digest("hex");
+}
+
+/** Never replace a working Page grant with a narrower or unverifiable grant. */
+export function canReplaceFacebookGrant(prior:MetaTokenInspection,next:MetaTokenInspection):boolean{
+ if(!next.verified||!["pages_show_list","pages_read_engagement"].every(s=>next.grantedScopes.includes(s)))return false;
+ if(prior.verified)return prior.grantedScopes.every(s=>next.grantedScopes.includes(s));
+ return prior.reason==="invalid";
 }

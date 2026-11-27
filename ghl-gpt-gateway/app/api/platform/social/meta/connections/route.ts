@@ -18,7 +18,7 @@ export async function POST(req:NextRequest){
  try{
   const connection=await selectMetaCandidate(p.workspaceId,p.pendingId,p.accountId,process.env.SOCIAL_META_TOKEN_KEY||"");
   return connection?reply({connection,readOnly:true,publishingEnabled:false},201):reply({error:"Consent expired, account not selected or already consumed"},409);
- }catch{return reply({error:"Unable to complete connection"},503);}
+ }catch(e){if(e instanceof Error&&e.message==="facebook_grant_not_preserved")return reply({error:"New Facebook consent could not be verified to preserve existing access. Your previous connection was kept. Include existing permissions and try again."},409);return reply({error:"Unable to complete connection"},503);}
 }
 export async function DELETE(req:NextRequest){
  const denied=connectionGate(req,true);if(denied)return denied;

@@ -4,6 +4,7 @@ import Link from "next/link";
 import "./connections.css";
 import {healthLabel,type ConnectionHealthStatus} from "@/lib/reach-connection-health";
 import {connectionTrafficLight} from "@/lib/reach-connection-traffic-light";
+import {FACEBOOK_PERMISSION_OPTIONS,metaRequestedPermissions,type MetaPermissionPreset} from "@/lib/social-meta-contract";
 
 type Workspace={id:string;name:string;slug:string};
 type MetaSetup={provider:"facebook_pages"|"instagram_professional";launchEnabled:boolean;readOnly:true;publishingEnabled:false};
@@ -47,18 +48,21 @@ export default function Connections(){
  const [healthError,setHealthError]=useState("");
  const [attentionOnly,setAttentionOnly]=useState(false);
  const [busy,setBusy]=useState("");
+ const [permissions,setPermissions]=useState<Record<string,{permissionsVerified:boolean;permissionCheck:string;grantedPermissions:string[]}>>({});
+
  const [error,setError]=useState("");
  const [info,setInfo]=useState("");
  const [loading,setLoading]=useState(true);
  const [check,setCheck]=useState(0);
+ useEffect(()=>setPermissions({}),[workspace,check]);
  useEffect(()=>{
   const status=new URLSearchParams(window.location.search).get("meta");
   if(status==="select")setInfo("Authorization completed. Choose the exact account below to finish connecting.");
-  if(status==="failed")setError("Authorization did not finish. Confirm your provider account has access and try connecting again.");
+  if(status==="failed")setError("Authorization did not finish. Existing connections were not replaced. For Facebook, retry one permission group and check Meta App Review if the scope is rejected.");
   if(status==="canceled")setInfo("You canceled authorization. Nothing was connected.");
  },[]);
  useEffect(()=>{
-  let active=true;setLoading(true);setError("");
+  let active=true;setLoading(true);
   (async()=>{
    const session=await call<{configured:boolean;authenticated:boolean}>("/api/portal/session");
    if(!active)return;
@@ -96,18 +100,24 @@ export default function Connections(){
   setError(service+" authorization is awaiting REACH platform configuration. Your Meta account has not been modified. No developer app credentials are required from customers.");
  }
 
- async function start(provider:"facebook"|"instagram"){
+ async function start(provider:"facebook"|"instagram",permissionPreset:MetaPermissionPreset="basic"){
   const m=metaId(provider);
   if(!m||!workspace)return;
   setBusy(provider);setError("");setInfo("");
   try{
    const result=await call<{authorizeUrl:string;requestedPermissions:string[];publishingEnabled:false}>("/api/platform/social/meta/start",{
-    method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({workspaceId:workspace,provider:m})
+    method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({workspaceId:workspace,provider:m,permissionPreset})
    });
    const target=trustedMetaAuth(result.authorizeUrl,provider);
    if(!target||result.publishingEnabled!==false)throw Error("Authorization URL was not approved");
    window.location.assign(target);
   }catch(e){setError(e instanceof Error?e.message:"Unable to start authorization");setBusy("");}
+ }
+ async function checkPermissions(connectionId:string){
+  if(!workspace||busy)return;setBusy(connectionId);setError("");
+  try{const q=new URLSearchParams({workspaceId:workspace,connectionId});const result=await call<{permissionsVerified:boolean;permissionCheck:string;grantedPermissions:string[]}>("/api/platform/social/meta/capabilities?"+q.toString());
+   setPermissions(old=>({...old,[connectionId]:result}));
+  }catch(e){setPermissions(old=>{const next={...old};delete next[connectionId];return next;});setError(e instanceof Error?e.message:"Permission verification unavailable");}finally{setBusy("");}
  }
  async function choose(pendingId:string,accountId:string){
   if(!workspace)return;setBusy(pendingId);setError("");
@@ -243,13 +253,19 @@ export default function Connections(){
           <p className="reach-conn-small">Access expires: {c.expiresAt?new Date(c.expiresAt).toLocaleString():"Not reported"}</p>
           <div className="reach-linked-actions">
            <button type="button" disabled={busy!==""||c.expired} onClick={()=>void verify(c.id)}>{busy===c.id?"Checking…":"Check connection"}</button>
+           <button type="button" disabled={busy!==""||c.expired} onClick={()=>void checkPermissions(c.id)}>Check permissions</button>
            <button className="reach-conn-disconnect" type="button" disabled={busy!==""} onClick={()=>void disconnect(c.id)}>Disconnect</button>
           </div>
+          {permissions[c.id]&&<div className="reach-conn-small" role="status">
+           <strong>{permissions[c.id].permissionsVerified?"Granted permissions":"Permissions could not be verified"}</strong>
+           {!permissions[c.id].permissionsVerified?<p>Reason: {permissions[c.id].permissionCheck.replaceAll("_"," ")}. No permissions are assumed.</p>:<><p>{permissions[c.id].grantedPermissions.join(", ")||"None reported"}</p>{p.id==="facebook"&&FACEBOOK_PERMISSION_OPTIONS.map(option=>{const missing=metaRequestedPermissions("facebook_pages",option.id).filter(x=>!permissions[c.id].grantedPermissions.includes(x));return <p key={option.id}><b>{option.label}:</b> {missing.length?"Missing "+missing.join(", "):"Granted (delivery settings remain separate)"}</p>;})}</>}
+          </div>}
          </div>;
         })}
         {linked.length>0&&<button type="button" disabled={busy!==""} onClick={action}>
          {busy===p.id?"Opening secure sign-in…":"Reconnect or add account"}
         </button>}
+        {p.id==="facebook"&&<section className="reach-conn-linked"><h3>Facebook permissions</h3><p>Request only the feature you need. Keep existing accounts connected; choose the same Page after authorization.</p>{FACEBOOK_PERMISSION_OPTIONS.map(option=><div key={option.id}><button type="button" disabled={!canConnect} onClick={()=>void start("facebook",option.id)}>{option.label}</button><p className="reach-conn-small">{option.description}. Requests: {metaRequestedPermissions("facebook_pages",option.id).join(", ")}.</p></div>)}<details><summary>Full integration (optional)</summary><button type="button" disabled={!canConnect} onClick={()=>void start("facebook","social_tools")}>Request all Facebook permissions</button></details><p className="reach-conn-small">If Meta rejects a scope, check the corresponding permission in your Meta Developer application. Requesting access does not enable delivery or webhooks.</p></section>}
         {!meta?.launchEnabled&&<p className="reach-conn-small">This connection is currently unavailable for new sign-ins. Existing accounts have not been changed.</p>}
         {!workspace&&<p className="reach-conn-small">Choose a business before connecting.</p>}
         <details className="reach-technical-details">

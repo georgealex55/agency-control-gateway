@@ -2,6 +2,8 @@ import {createHash,randomUUID} from "node:crypto";
 import {socialMetaWorkspaceDb} from "@/lib/reach-social-owner-db";
 import {encryptMetaToken,decryptMetaToken} from "@/lib/social-meta-crypto";
 import type {MetaProvider} from "@/lib/social-meta-contract";
+import {inspectMetaToken,canReplaceFacebookGrant} from "@/lib/social-meta-capabilities";
+import {resolvedMetaEnv} from "@/lib/reach-meta-app-vault";
 type Row=Record<string,unknown>;
 function rows<T>(v:unknown):T[]{if(Array.isArray(v))return v as T[];if(v&&typeof v==="object"&&"rows" in v&&Array.isArray(v.rows))return v.rows as T[];throw Error("Database query result invalid");}
 export type MetaCandidate={id:string;name:string;tasks?:string[];accountType?:string};
@@ -65,6 +67,20 @@ export async function selectMetaCandidate(workspaceId:string,pendingId:string,ac
  // A pending selection is invalid if the provider credential expired during consent.
  if(staged.token_expires_at&&new Date(String(staged.token_expires_at)).getTime()<=Date.now())return null;
  const token=decryptMetaToken(String(staged.encrypted_token),key,workspaceId,provider,pendingId);
+ // A narrower Facebook reauthorization must not erase previously verified access.
+ // Compare live scopes for the exact same Page; fail closed if an existing grant cannot be checked.
+ let previousCipher:string|null=null;
+ if(provider==="facebook_pages"){
+  const previous=rows<Row>(await db.query("SELECT encrypted_access_token,expires_at FROM agency_social_meta_connections WHERE workspace_id=$1::uuid AND provider=$2 AND provider_account_id=$3",[workspaceId,provider,accountId]))[0];
+  if(previous){
+   previousCipher=String(previous.encrypted_access_token);
+   const env=await resolvedMetaEnv(provider);
+   const common={provider,accountId,appId:env.SOCIAL_META_FACEBOOK_CLIENT_ID||"",appSecret:env.SOCIAL_META_FACEBOOK_CLIENT_SECRET||"",version:env.SOCIAL_META_GRAPH_VERSION||""};
+   const priorToken=decryptMetaToken(previousCipher,key,workspaceId,provider,accountId);
+   const [prior,next]=await Promise.all([inspectMetaToken({...common,token:priorToken}),inspectMetaToken({...common,token})]);
+   if(!canReplaceFacebookGrant(prior,next))throw Error("facebook_grant_not_preserved");
+  }
+ }
  const encrypted=encryptMetaToken(token,key,workspaceId,provider,accountId);
  // Atomically consume pending consent exactly once; no second account can be silently attached.
  const result=rows<Row>(await db.query(
@@ -73,11 +89,12 @@ export async function selectMetaCandidate(workspaceId:string,pendingId:string,ac
   "SELECT $3::uuid,$2::uuid,$4,$5,$6,$7,ARRAY[]::text[],$8::timestamptz,now() FROM consumed "+
   "ON CONFLICT(workspace_id,provider,provider_account_id) DO UPDATE SET "+
   "provider_display_name=EXCLUDED.provider_display_name,encrypted_access_token=EXCLUDED.encrypted_access_token,expires_at=EXCLUDED.expires_at,last_verified_at=now(),connected_at=now() "+
+  "WHERE EXCLUDED.provider<>\'facebook_pages\' OR agency_social_meta_connections.encrypted_access_token=$9 "+
   "RETURNING id,provider,provider_account_id,provider_display_name,connected_at,expires_at), "+
   "audited AS (INSERT INTO agency_platform_audit_events(workspace_id,action,detail) "+
   "SELECT $2::uuid,'social.meta.connected',jsonb_build_object('connection_id',id,'provider',provider) FROM linked RETURNING id) "+
   "SELECT * FROM linked",
-  [pendingId,workspaceId,randomUUID(),provider,accountId,selected.name,encrypted,staged.token_expires_at]
+  [pendingId,workspaceId,randomUUID(),provider,accountId,selected.name,encrypted,staged.token_expires_at,previousCipher]
  ));
  if(!result[0])return null;
  const p=result[0];return {id:String(p.id),provider,accountId,name:selected.name,connectedAt:new Date(String(p.connected_at)).toISOString(),expiresAt:p.expires_at?new Date(String(p.expires_at)).toISOString():null,lastVerifiedAt:new Date().toISOString(),expired:false};
