@@ -38,6 +38,8 @@ export default function MetaAutomationPanel({workspaceId,accounts,mode="posting"
  const [busy,setBusy]=useState(false);
  const [simulation,setSimulation]=useState("");
  const [batch,setBatch]=useState<Draft[]>([]);
+ const [inboxActivity,setInboxActivity]=useState<{connectionId:string;snapshot:{recentConversationCount:number;moreAvailable:boolean;lastActivity:string[];unreadMessages:number|null;checkedAt:string}}|null>(null);
+ const [inboxBusy,setInboxBusy]=useState(false);
  const account=accounts.find(a=>a.id===connectionId);
  const choices=opts(account?.provider||"facebook_pages").filter(o=>mode==="inbox"?o.kind.endsWith("_reply"):!o.kind.endsWith("_reply"));
  const reply=kind.endsWith("_reply");
@@ -49,6 +51,20 @@ export default function MetaAutomationPanel({workspaceId,accounts,mode="posting"
  },[accounts,connectionId]);
  useEffect(()=>{setKind(opts(account?.provider||"facebook_pages").find(o=>mode==="inbox"?o.kind.endsWith("_reply"):!o.kind.endsWith("_reply"))!.kind);setTarget("");},[account?.provider,connectionId,mode]);
  useEffect(()=>{setBody("");setMediaUrl("");},[mode==="inbox"]);
+ async function loadInboxActivity(){
+  if(!workspaceId||!connectionId||account?.provider!=="facebook_pages"||inboxBusy)return;
+  setInboxBusy(true);setInboxActivity(null);setMessage("");
+  try{
+   const q=new URLSearchParams({workspaceId,connectionId});
+   const r=await fetch("/api/platform/social/meta/inbox-activity?"+q.toString(),{credentials:"same-origin",cache:"no-store"});
+   const v=await r.json();if(!r.ok||v.connectionId!==connectionId||v.readOnly!==true||v.snapshot?.source!=="meta_graph_api")throw Error(v.error||"Messenger activity unavailable");
+   setInboxActivity({connectionId,snapshot:v.snapshot});
+  }catch(e){setMessage(e instanceof Error?e.message:"Messenger activity unavailable");}finally{setInboxBusy(false);}
+ }
+ async function copyManual(text:string){
+  try{await navigator.clipboard.writeText(text);setMessage("Copied. Open Meta Business Suite to schedule manually. REACH has not sent or scheduled anything with Meta.");}
+  catch{setMessage("Clipboard unavailable. Select and copy the post text manually.");}
+ }
  async function refresh(){
   if(!workspaceId){setItems([]);setEvents([]);return;}
   try{
@@ -136,6 +152,8 @@ export default function MetaAutomationPanel({workspaceId,accounts,mode="posting"
    <details><summary>Delivery & permission details</summary><p>Connected does not guarantee Meta granted publishing, comments, or messaging permissions. Every delivery rechecks permissions and approved recipients.</p></details>
   </div>
   {message&&<p className="ag-ws-note" role="status">{message}</p>}
+  {mode==="inbox"&&account?.provider==="facebook_pages"&&<section className="ag-ws-note"><h3>Messenger activity — read only</h3><p>Read recent conversation activity using existing messaging access. No message bodies, customer names or replies are stored or sent.</p><button type="button" className="ag-secondary" disabled={inboxBusy||account.expired} onClick={()=>void loadInboxActivity()}>{inboxBusy?"Checking Meta…":"Load Messenger activity"}</button>
+   {inboxActivity?.connectionId===connectionId&&<div><p><b>{inboxActivity.snapshot.recentConversationCount}</b> recent conversations returned{inboxActivity.snapshot.moreAvailable?" (more available)":""}; unread messages: {inboxActivity.snapshot.unreadMessages??"Unavailable"}</p><small>Checked {new Date(inboxActivity.snapshot.checkedAt).toLocaleString()}; recent sample, not lifetime total.</small><details><summary>Recent activity times</summary>{inboxActivity.snapshot.lastActivity.map((stamp,i)=><p key={stamp+":"+i}>{new Date(stamp).toLocaleString()}</p>)}</details></div>}</section>}
   {!accounts.length?<div className="ag-social-empty">Connect a Facebook Page or Instagram Professional account first.</div>:<>
    <form className="ag-social-form" onSubmit={create}>
     <label>1. Choose a page or profile<select required value={connectionId} onChange={e=>setConnectionId(e.target.value)}>
@@ -177,6 +195,7 @@ export default function MetaAutomationPanel({workspaceId,accounts,mode="posting"
     {a.errorCode&&<small>Delivery status: {a.errorCode}</small>}
    </div>
    <div className="ag-social-actions">
+    {a.status==="draft"&&a.kind.startsWith("facebook_")&&!a.kind.endsWith("_reply")&&<details className="ag-ws-note"><summary>Schedule manually in Meta Business Suite</summary><p>Keep this record as a draft if you schedule it outside REACH. Do not approve it for automatic delivery as well. REACH cannot verify external scheduling or publishing.</p><button type="button" className="ag-secondary" onClick={()=>void copyManual(a.body)}>Copy post text</button>{a.mediaUrl&&<button type="button" className="ag-secondary" onClick={()=>void copyManual(a.mediaUrl!)}>Copy media / link</button>}<a className="ag-secondary" href="https://business.facebook.com/latest/planner" target="_blank" rel="noopener noreferrer">Open Meta planner</a><p>Planned time: {new Date(a.scheduledAt).toLocaleString()}. After manually scheduling, leave as draft or cancel the REACH draft to prevent duplicate delivery.</p></details>}
     {a.status==="draft"&&<button className="ag-secondary" disabled={busy} onClick={()=>void transition(a.id,"approve")}>Approve</button>}
     {["draft","approved"].includes(a.status)&&<button className="ag-secondary" disabled={busy} onClick={()=>void transition(a.id,"cancel")}>Cancel</button>}
     {a.status==="approved"&&flags.liveWrites&&Date.parse(a.scheduledAt)<=Date.now()&&
