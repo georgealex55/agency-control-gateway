@@ -110,10 +110,23 @@ test("global toolbar is mounted once, authenticated and collapsible on business 
 test("marketing contains campaign tools rather than ordinary website or social navigation",()=>{
  const rows=[...catalog.matchAll(/\{id:"([^"]+)",title:"[^"]+",group:"([^"]+)"/g)];
  const groups=Object.fromEntries(rows.map(x=>[x[1],x[2]]));
- for(const id of ["social","social-calendar","social-analytics","media","social-connections","social-inbox","insights"])assert.equal(groups[id],"Social Media");
+ for(const id of ["social","social-calendar","social-analytics","media","social-inbox"])assert.equal(groups[id],"Social Media");
+ assert.equal(groups["social-connections"],"Platform");assert.equal(groups.insights,"Operations");
  for(const id of ["website","web-domains","web-analytics","web-seo","web-publishing"])assert.equal(groups[id],"Web Design");
  for(const id of ["funnels","social-ads","search-ads","email-campaigns","campaign-reporting","reviews"])assert.equal(groups[id],"Marketing");
  assert.match(app,/view==="web"\|\|view==="marketing"/);
  assert.match(app,/session.authenticated\?<ReachBusinessArea/);
- assert.match(social,/socialView==="metrics"\|\|socialView==="content"\?"metrics"/);
+ assert.match(social,/socialView==="metrics"\?"metrics":socialView==="content"\?"content"/);
+});
+
+test("production social calendar is a real month view, not a redirect to posting",()=>{
+ const calendar=read("ghl-gpt-gateway/app/meta-social-calendar.tsx");
+ assert.match(social,/productionSocial\?\[\["automations","Create & Schedule"\],\["calendar","Calendar"\],\["content","Published Content"\],\["metrics","Analytics"\],\["inbox","Inbox"\]\]/);
+ assert.match(social,/mode=\{tab==="calendar"\?"calendar"/);
+ assert.match(calendar,/Array\.from\(\{length:42\}/);
+ assert.match(calendar,/a\.scheduledAt/);
+ assert.match(calendar,/a\.status!=="canceled"/);
+ assert.match(calendar,/e\.occurredAt/);
+ assert.doesNotMatch(calendar,/fetch\(|method:"POST"/);
+ assert.match(read("ghl-gpt-gateway/app/connections/page.tsx"),/<h1>Connections Center<\/h1>/);
 });

@@ -169,3 +169,40 @@ test("analytics UI isolates platform and account selection from the content card
  assert.match(studio,/<MetaAnalyticsPanel key=\{workspaceId\}/);
  assert.doesNotMatch(ui,/dangerouslySetInnerHTML/);
 });
+
+const report=await import("data:text/javascript;base64,"+Buffer.from(transpile(read("lib/social-report-summary.ts"))).toString("base64"));
+test("format analytics distinguish missing values from real zeros and expose denominators",()=>{
+ const p=(format,likes,views)=>({format,likes,views,comments:null,shares:null,reach:null,saves:null,interactions:null,uniqueViewers:null,createdAt:null});
+ const posts=[p("PHOTO",0,20),p("PHOTO",null,null),p("REEL",5,100),p(null,null,null)];
+ const groups=report.groupPostFormats(posts);
+ assert.deepEqual(groups.map(g=>g.format),["PHOTO","REEL","unknown"]);
+ assert.deepEqual(groups[0].metrics.likes,{sum:0,known:1,total:2,average:0});
+ assert.deepEqual(groups[0].metrics.views,{sum:20,known:1,total:2,average:20});
+ assert.deepEqual(groups[2].metrics.likes,{sum:null,known:0,total:1,average:null});
+ assert.deepEqual(report.metricSummary(posts,"views"),{sum:120,known:2,total:4,average:60});
+ assert.equal(report.postActivity(posts).reduce((a,d)=>a+d.count,0),0);
+ const ui=read("app/meta-analytics-panel.tsx");
+ assert.match(ui,/groupPostFormats\(posts\)/);
+ assert.match(ui,/m.known\}\/\{m.total\} reported/);
+ assert.match(ui,/not deduplicated/);
+});
+
+test("account insights retain a provider window and never sum overlapping unique viewers",async()=>{
+ const common={mode:"facebook",version:"v27.0",token:pageToken,appSecret:secret,accountId};
+ const now=Date.parse("2026-11-26T12:00:00Z");
+ const res=await analytics.fetchAccountInsights({...common,fetcher:async(url,init)=>{
+  const u=new URL(url);assert.equal(init.method,"GET");assert.equal(u.origin,"https://graph.facebook.com");assert.equal(u.searchParams.get("period"),"days_28");
+  const name=u.searchParams.get("metric");
+  if(name==="page_total_actions")return new Response("denied",{status:403});
+  return new Response(JSON.stringify({data:[{name,period:"days_28",values:[{end_time:"2026-11-24T00:00:00Z",value:10},{end_time:"2026-11-25T00:00:00Z",value:15},{end_time:"2026-11-27T00:00:00Z",value:999}]}]}));
+ }},true,now);
+ assert.equal(res.status,"partial");assert.equal(res.metrics.length,2);assert.equal(res.metrics[0].value,15);
+ const ig=await analytics.fetchAccountInsights({...common,mode:"instagram_direct",fetcher:async(url)=>{
+  const u=new URL(url);assert.equal(u.origin,"https://graph.instagram.com");assert.equal(u.searchParams.get("metric_type"),"total_value");
+  assert.equal(Number(u.searchParams.get("until"))-Number(u.searchParams.get("since")),28*86400);
+  return new Response(JSON.stringify({data:[{name:u.searchParams.get("metric"),period:"day",total_value:{value:0}}]}));
+ }},true,now);
+ assert.equal(ig.status,"available");assert.equal(ig.metrics.length,6);assert.equal(ig.metrics[0].value,0);
+ const denied=await analytics.fetchAccountInsights({...common,fetcher:async()=>{throw Error("Unexpected request");}},false,now);
+ assert.equal(denied.status,"unavailable");assert.deepEqual(denied.metrics,[]);
+});
