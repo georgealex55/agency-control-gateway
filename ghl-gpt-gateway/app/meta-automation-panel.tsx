@@ -21,7 +21,7 @@ type Draft={workspaceId:string;connectionId:string;kind:Kind;body:string;mediaUr
 const needsMedia=(k:Kind)=>["facebook_photo","facebook_link","instagram_photo"].includes(k);
 const localTime=(minutes=5)=>{const t=new Date(Date.now()+minutes*60000);return new Date(t.getTime()-t.getTimezoneOffset()*60000).toISOString().slice(0,16);};
 const postStatus=(v:string)=>v==="draft"?"Awaiting approval":v==="approved"?"Approved / scheduled":v==="sending"?"Sending, check before retrying":v==="sent"?"Delivered":v==="uncertain"?"Check the provider before taking any action":v==="blocked"?"Blocked: verify permissions":v==="canceled"?"Canceled":v;
-export default function MetaAutomationPanel({workspaceId,accounts,mode="posting"}:{workspaceId:string;accounts:Account[];mode?:"posting"|"calendar"|"inbox"}){
+export default function MetaAutomationPanel({workspaceId,accounts,mode="posting",onOpenPosting}:{workspaceId:string;accounts:Account[];mode?:"posting"|"calendar"|"inbox";onOpenPosting?:()=>void}){
  const [items,setItems]=useState<Action[]>([]);
  const [loaded,setLoaded]=useState(false);
  const [queueFilter,setQueueFilter]=useState("active");
@@ -47,7 +47,8 @@ export default function MetaAutomationPanel({workspaceId,accounts,mode="posting"
  useEffect(()=>{
   if(!accounts.some(a=>a.id===connectionId)){setConnectionId(accounts[0]?.id||"");}
  },[accounts,connectionId]);
- useEffect(()=>{setKind(opts(account?.provider||"facebook_pages").find(o=>mode==="inbox"?o.kind.endsWith("_reply"):!o.kind.endsWith("_reply"))!.kind);setTarget("");setBody("");setMediaUrl("");},[account?.provider,connectionId,mode]);
+ useEffect(()=>{setKind(opts(account?.provider||"facebook_pages").find(o=>mode==="inbox"?o.kind.endsWith("_reply"):!o.kind.endsWith("_reply"))!.kind);setTarget("");},[account?.provider,connectionId,mode]);
+ useEffect(()=>{setBody("");setMediaUrl("");},[mode==="inbox"]);
  async function refresh(){
   if(!workspaceId){setItems([]);setEvents([]);return;}
   try{
@@ -124,7 +125,7 @@ export default function MetaAutomationPanel({workspaceId,accounts,mode="posting"
   setSimulation(due.length?due.length+" approved action(s) are due. This simulation made zero external requests.":"No approved actions are due. This simulation made zero external requests.");
  }
  const visible=items.filter(a=>(!connectionId||a.connectionId===connectionId)&&(mode==="inbox"?a.kind.endsWith("_reply"):!a.kind.endsWith("_reply"))&&(queueFilter==="all"||queueFilter==="active"&&["draft","approved","sending","uncertain","blocked"].includes(a.status)||a.status===queueFilter));
- if(mode==="calendar")return <section className="ag-card">{message&&<p role="status">{message}</p>}<MetaSocialCalendar accounts={accounts} items={items} events={events} refresh={()=>void refresh()} busy={busy} loaded={loaded}/></section>;
+ if(mode==="calendar")return <section className="ag-card">{message&&<p role="status">{message}</p>}<MetaSocialCalendar accounts={accounts} items={items} events={events} refresh={()=>void refresh()} busy={busy} loaded={loaded} onPlan={onOpenPosting?(day,id)=>{if(id!=="all")setConnectionId(id);const proposed=new Date(day+"T09:00");setScheduledAt(proposed.getTime()>Date.now()?day+"T09:00":localTime(15));onOpenPosting();}:undefined}/></section>;
  return <section className="ag-card" aria-label="Meta Social automations">
   <div className="ag-platform-bar"><div><h2>{mode==="inbox"?"Social inbox":"Create a post"}</h2>
    <p>{mode==="inbox"?"Review verified incoming interactions and prepare replies.":"Choose an account, write your post, and pick a date. Review saved drafts before approving delivery."}</p></div>
