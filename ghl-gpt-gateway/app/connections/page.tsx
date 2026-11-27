@@ -62,7 +62,7 @@ export default function Connections(){
   if(status==="canceled")setInfo("You canceled authorization. Nothing was connected.");
  },[]);
  useEffect(()=>{
-  let active=true;setLoading(true);setError("");
+  let active=true;setLoading(true);
   (async()=>{
    const session=await call<{configured:boolean;authenticated:boolean}>("/api/portal/session");
    if(!active)return;
