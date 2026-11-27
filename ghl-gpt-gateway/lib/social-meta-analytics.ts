@@ -215,7 +215,7 @@ export async function fetchAccountInsights(input:AccountInsightInput,allowed:boo
  const until=Math.floor(now/86400000)*86400,since=until-28*86400;
  const result:AccountInsights={period:facebook?"Latest provider-reported 28-day window":"Previous 28 complete UTC days ("+new Date(since*1000).toISOString().slice(0,10)+" to "+new Date((until-86400)*1000).toISOString().slice(0,10)+")",status:"unavailable",metrics:[]};
  if(!allowed||!idValid(input.accountId))return result;
- const requests=keys.map(async name=>{
+ const requests=keys.map(async (name):Promise<AccountInsights["metrics"][number]|null>=>{
   try{
    const body=await graphGet({...input,path:input.accountId+"/insights",params:facebook?{metric:name,period:"days_28"}:{metric:name,period:"day",metric_type:"total_value",since:String(since),until:String(until)}});
    const item=Array.isArray(body.data)?body.data.map(object).find(v=>v?.name===name):null;
