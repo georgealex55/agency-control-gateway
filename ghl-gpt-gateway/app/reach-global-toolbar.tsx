@@ -33,7 +33,7 @@ export default function ReachGlobalToolbar(){
    <a className={styles.direct} href="/">Home</a>
    {groups.map(group=><div className={styles.group} key={group}>
     <button type="button" className={styles.trigger} aria-expanded={open===group} onClick={()=>setOpen(v=>v===group?null:group)}>{group}<span aria-hidden="true">{open===group?"▴":"▾"}</span></button>
-    {open===group&&<div className={styles.menu}>{REACH_FEATURES.filter(f=>f.group===group).map(f=>{const href=featureHref(f);return href?<a key={f.id} href={href} onClick={()=>{setOpen(null);setMobile(false);}}>{f.title}{f.status==="source"&&<small>Setup</small>}</a>:<span className={styles.unavailable} key={f.id} title={f.detail}>{f.title}<small>{featureLabel(f)}</small></span>;})}</div>}
+    {open===group&&<div className={styles.menu}>{REACH_FEATURES.filter(f=>f.group===group).map(f=>{const href=featureHref(f);return href?<a key={f.id} href={href} onClick={()=>{setOpen(null);setMobile(false);}}>{f.title}{(f.status==="source"||f.status==="planned")&&<small>Setup</small>}</a>:<span className={styles.unavailable} key={f.id} title={f.detail}>{f.title}<small>{featureLabel(f)}</small></span>;})}</div>}
    </div>)}
    <a className={styles.direct} href="/connections">Connections</a>
    <a className={styles.direct} href="/?view=directory">All tools</a>
