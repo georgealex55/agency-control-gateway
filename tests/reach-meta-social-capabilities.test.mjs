@@ -99,3 +99,39 @@ test("Meta access and analytics GETs are owner-gated and do not expose tokens or
  assert.match(ui,/Social analytics and posting permissions/);
  assert.doesNotMatch(ui,/fetch\("https:\/\/graph\.facebook\.com/);
 });
+
+test("expanded analytics keep account and post insights distinct and preserve zero values",async()=>{
+ const seen=[];
+ const fetcher=async(url,init)=>{
+  const u=new URL(url);seen.push(u);assert.equal(init.method,"GET");assert.equal(init.redirect,"error");
+  assert.equal(u.origin,"https://graph.instagram.com");
+  if(u.pathname.endsWith("/"+accountId))return new Response(JSON.stringify({id:accountId,username:"testbiz",followers_count:10,media_count:45}));
+  if(u.pathname.endsWith("/media")){
+   assert.equal(u.searchParams.get("limit"),"25");
+   return new Response(JSON.stringify({data:Array.from({length:12},(_,i)=>({id:String(10000+i),media_type:"VIDEO",media_product_type:"REELS",like_count:i,comments_count:0}))}));
+  }
+  if(u.pathname.endsWith("/insights"))return new Response(JSON.stringify({data:[
+   {name:"views",period:"lifetime",values:[{value:200}]},
+   {name:"reach",period:"lifetime",values:[{value:100}]},
+   {name:"saved",period:"lifetime",values:[{value:0}]},
+   {name:"shares",period:"lifetime",values:[{value:2}]},
+   {name:"total_interactions",period:"lifetime",values:[{value:3}]}
+  ]}));
+  throw Error("Unexpected endpoint");
+ };
+ const v=await analytics.fetchMetaAnalytics({mode:"instagram_direct",token:userToken,appSecret:secret,version:"v27.0",accountId,postLimit:25,detailed:true,grantedPermissions:["instagram_business_manage_insights"],fetcher});
+ assert.equal(v.period,"recent_25_posts");assert.equal(v.recentPosts.length,12);assert.equal(v.detailCoverage,10);
+ assert.equal(v.recentPosts[0].format,"REEL");assert.equal(v.recentPosts[0].views,200);
+ assert.equal(v.recentPosts[0].saves,0);assert.equal(v.recentPosts[10].views,null);
+ assert.equal(v.reach,null);assert.equal(v.recentShares,null);
+ assert.equal(seen.filter(u=>u.pathname.endsWith("/insights")).length,10);
+});
+test("lifetime metric parser rejects unrelated names, time series and breakdown objects",()=>{
+ assert.deepEqual(analytics.readLifetimeInsights({data:[
+  {name:"views",period:"lifetime",values:[{value:0}]},
+  {name:"reach",period:"day",values:[{value:10}]},
+  {name:"saved",period:"lifetime",values:[{value:1},{value:2}]},
+  {name:"shares",period:"lifetime",values:[{value:{organic:5}}]},
+  {name:"unrequested",period:"lifetime",values:[{value:99}]}
+ ]},["views","reach","saved","shares"]),{views:0});
+});

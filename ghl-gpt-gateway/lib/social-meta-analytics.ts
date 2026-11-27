@@ -8,13 +8,15 @@ const idValid=(v:unknown):v is string=>typeof v==="string"&&/^[0-9]{2,40}$/.test
 const postIdValid=(v:unknown):v is string=>typeof v==="string"&&/^[0-9]{2,40}(?:_[0-9]{2,40})?$/.test(v);
 const countSummary=(v:unknown):number|null=>nonnegative(object(object(v)?.summary)?.total_count);
 export type MetaPostMetric={id:string;createdAt:string|null;caption:string|null;
- likes:number|null;comments:number|null;shares:number|null;link:string|null};
+ likes:number|null;comments:number|null;shares:number|null;link:string|null;
+ format:string|null;views:number|null;uniqueViewers:number|null;reach:number|null;saves:number|null;interactions:number|null;insightsStatus:"not_requested"|"available"|"partial"|"unavailable"};
 export type MetaAnalyticsSnapshot={
  source:"meta_graph_api";accountId:string;accountName:string|null;checkedAt:string;
  followers:number|null;totalPosts:number|null;recentPosts:MetaPostMetric[];
  recentLikes:number|null;recentComments:number|null;
  reach:number|null;reachStatus:"not_requested"|"unavailable"|"available";
- partial:boolean;period:"recent_10_posts";liveProviderRead:true;
+ partial:boolean;period:"recent_10_posts"|"recent_25_posts"|"recent_50_posts";liveProviderRead:true;
+ requestedPosts:number;detailCoverage:number;recentShares:number|null;
 };
 async function graphGet(input:{mode:MetaLoginMode;version:string;token:string;appSecret:string;
  path:string;params:Record<string,string>;fetcher:typeof fetch}):Promise<Obj>{
@@ -45,7 +47,7 @@ async function facebookPageToken(input:{version:string;token:string;appSecret:st
  * do not infer reach, views, impressions or engagement rates.
  */
 export async function fetchMetaAnalytics(input:{mode:MetaLoginMode;accountId:string;version:string;
- token:string;appSecret:string;grantedPermissions:string[];fetcher?:typeof fetch
+ token:string;appSecret:string;grantedPermissions:string[];fetcher?:typeof fetch;postLimit?:number;detailed?:boolean
 }):Promise<MetaAnalyticsSnapshot>{
  if(!idValid(input.accountId)||!validGraphVersion(input.version)||typeof input.token!=="string"||
   input.token.length<10||input.token.length>4096||input.appSecret.length<8||input.appSecret.length>1024)
@@ -55,27 +57,33 @@ export async function fetchMetaAnalytics(input:{mode:MetaLoginMode;accountId:str
  let token=input.token;
  if(facebook)token=await facebookPageToken({version:input.version,token,appSecret:input.appSecret,accountId:input.accountId,fetcher});
  const mode=input.mode;
+ const postLimit=input.postLimit===25?25:input.postLimit===50?50:10;
+ const detailed=input.detailed===true;
  const params=facebook?{fields:"id,name,followers_count,fan_count"}:
    {fields:"id,username,followers_count,media_count"};
  const profile=await graphGet({mode,version:input.version,token,appSecret:input.appSecret,
   path:input.accountId,params,fetcher});
  if(profile.id!==input.accountId)throw Error("Meta returned a different account identity");
  const postPath=input.accountId+(facebook?"/published_posts":"/media");
- const postParams=facebook?
-  {fields:"id,created_time,message,permalink_url,comments.summary(true),reactions.summary(true),shares",limit:"10"}:
-  {fields:"id,timestamp,caption,permalink,media_type,like_count,comments_count",limit:"10"};
+ const baseFields=facebook?"id,created_time,message,permalink_url,comments.summary(true),reactions.summary(true),shares":
+  "id,timestamp,caption,permalink,media_type,like_count,comments_count";
+ const postParams={fields:baseFields+(detailed?(facebook?",attachments{media_type,type}":",media_product_type"):""),limit:String(postLimit)};
  let postRecords:MetaPostMetric[]=[],partial=false;
  try{
-  const body=await graphGet({mode,version:input.version,token,appSecret:input.appSecret,path:postPath,
-   params:postParams,fetcher});
-  if(!Array.isArray(body.data)||body.data.length>10)throw Error("Invalid recent post data");
-  postRecords=body.data.map(raw=>{
+  const args={mode,version:input.version,token,appSecret:input.appSecret,path:postPath,fetcher};
+  let body:Obj;
+  try{body=await graphGet({...args,params:postParams});}
+  catch(e){if(!detailed)throw e;partial=true;body=await graphGet({...args,params:{fields:baseFields,limit:String(postLimit)}});}
+  if(!Array.isArray(body.data)||body.data.length>postLimit)throw Error("Invalid recent post data");
+  postRecords=body.data.map((raw):MetaPostMetric=>{
    const o=object(raw);if(!o||!postIdValid(o.id))throw Error("Invalid provider post");
    return{id:o.id,createdAt:text(facebook?o.created_time:o.timestamp,64),
     caption:text(facebook?o.message:o.caption,2000),
     likes:facebook?countSummary(o.reactions):nonnegative(o.like_count),
     comments:facebook?countSummary(o.comments):nonnegative(o.comments_count),
     shares:facebook?nonnegative(object(o.shares)?.count):null,
+    format:facebook?facebookFormat(o):text(o.media_product_type==="REELS"?"REEL":o.media_type,40),
+    views:null,uniqueViewers:null,reach:null,saves:null,interactions:null,insightsStatus:"not_requested",
     link:(()=>{
      const candidate=text(facebook?o.permalink_url:o.permalink,500);
      if(!candidate)return null;
@@ -85,6 +93,28 @@ export async function fetchMetaAnalytics(input:{mode:MetaLoginMode;accountId:str
     })()};
   });
  }catch{partial=true;}
+ // Keep deep insight requests bounded independently from the post list. Meta may
+ // deny some metric combinations; preserve real basic data and mark missing values.
+ const detailPosts=detailed?postRecords.slice(0,10):[];
+ const canReadInsights=input.grantedPermissions.includes(facebook?"read_insights":mode==="instagram_direct"?"instagram_business_manage_insights":"instagram_manage_insights");
+ for(let i=0;i<detailPosts.length;i+=5){
+  await Promise.all(detailPosts.slice(i,i+5).map(async p=>{
+   if(!canReadInsights){p.insightsStatus="unavailable";return;}
+   const metrics=facebook?["post_media_view","post_total_media_view_unique"]:["views","reach","saved","shares","total_interactions"];
+   try{
+    const body=await graphGet({mode,version:input.version,token,appSecret:input.appSecret,path:p.id+"/insights",
+     params:{metric:metrics.join(",")},fetcher});
+    const values=readLifetimeInsights(body,metrics);
+    p.views=values[facebook?"post_media_view":"views"]??null;
+    if(facebook)p.uniqueViewers=values.post_total_media_view_unique??null;
+    else {p.reach=values.reach??null;p.saves=values.saved??null;p.shares=values.shares??p.shares;p.interactions=values.total_interactions??null;}
+    const count=Object.keys(values).length;
+    p.insightsStatus=count===metrics.length?"available":count?"partial":"unavailable";
+   }catch{p.insightsStatus="unavailable";}
+  }));
+ }
+ if(detailPosts.some(p=>p.insightsStatus!=="available"))partial=true;
+ const shares=postRecords.length&&postRecords.every(p=>p.shares!==null)?postRecords.reduce((a,p)=>a+(p.shares??0),0):null;
  const likes=postRecords.every(p=>p.likes!==null)&&postRecords.length?
   postRecords.reduce((a,p)=>a+(p.likes||0),0):null;
  const comments=postRecords.every(p=>p.comments!==null)&&postRecords.length?
@@ -97,5 +127,27 @@ export async function fetchMetaAnalytics(input:{mode:MetaLoginMode;accountId:str
   followers:nonnegative(profile.followers_count)??(facebook?nonnegative(profile.fan_count):null),
   totalPosts:facebook?null:nonnegative(profile.media_count),
   recentPosts:postRecords,recentLikes:likes,recentComments:comments,
-  reach:null,reachStatus:"not_requested",partial,period:"recent_10_posts",liveProviderRead:true};
+  reach:null,reachStatus:"not_requested",partial,period:postLimit===25?"recent_25_posts":postLimit===50?"recent_50_posts":"recent_10_posts",liveProviderRead:true,
+  requestedPosts:postLimit,detailCoverage:detailPosts.filter(p=>p.insightsStatus==="available"||p.insightsStatus==="partial").length,recentShares:shares};
+}
+
+function facebookFormat(o:Obj):string|null{
+ const items=object(o.attachments)?.data;
+ if(!Array.isArray(items))return null;
+ if(items.length>1)return "MULTI_ATTACHMENT";
+ const a=object(items[0]);return text(a?.media_type??a?.type,40);
+}
+/** Never sum time-series or breakdowns as if they were a lifetime total. */
+export function readLifetimeInsights(body:Obj,allowed:readonly string[]):Record<string,number>{
+ const out:Record<string,number>={};
+ if(!Array.isArray(body.data))return out;
+ for(const raw of body.data){
+  const item=object(raw),name=item?.name;
+  if(typeof name!=="string"||!allowed.includes(name)||item?.period&&item.period!=="lifetime")continue;
+  const values=item?.values;
+  const n=Array.isArray(values)&&values.length===1?nonnegative(object(values[0])?.value):
+   !values?nonnegative(object(item?.total_value)?.value):null;
+  if(n!==null)out[name]=n;
+ }
+ return out;
 }

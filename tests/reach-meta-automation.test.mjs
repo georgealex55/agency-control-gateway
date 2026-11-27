@@ -151,3 +151,18 @@ test("webhooks require the shared Connections database, bounded bodies, exact me
  assert.match(store,/occurred_at<=now\(\)/);
  assert.match(store,/provider_account_id=\$3 AND revoked_at IS NULL AND \(expires_at IS NULL OR expires_at>now\(\)\)/);
 });
+
+test("additional Facebook formats require valid media URLs and publishing permission",()=>{
+ for(const kind of ["facebook_photo","facebook_link"]){
+  assert.equal(core.parseActionDraft({...base,kind},now)?.kind,kind);
+  assert.equal(core.parseActionDraft({...base,kind,mediaUrl:null},now),null);
+  assert.equal(core.parseActionDraft({...base,kind,mediaUrl:"http://example.com"},now),null);
+  assert.equal(core.validForProvider(kind,"facebook_pages"),true);
+  assert.equal(core.validForProvider(kind,"instagram_professional"),false);
+  assert.equal(core.outboundFeature(kind),"publishing");
+ }
+ assert.match(read("db/reach-meta-automation/V002__facebook_photo_link_formats.sql"),/facebook_photo/);
+ const ui=read("app/meta-automation-panel.tsx");
+ assert.match(ui,/Save all as drafts/);assert.match(ui,/remaining.push\(draft\)/);
+ assert.doesNotMatch(ui,/a\.body\.slice\(0,350\)/);
+});

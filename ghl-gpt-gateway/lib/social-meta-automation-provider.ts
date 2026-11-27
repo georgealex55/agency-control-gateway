@@ -67,7 +67,7 @@ async function assertPermissions(action:MetaStoredAction,fetcher:typeof fetch){
  let token=cred.token;
  if(mode==="facebook"){
   const page=await facebookPageToken({version,userToken:token,secret:appSecret,accountId:cred.accountId,fetcher});
-  const allowed=action.kind==="facebook_post"?["CREATE_CONTENT","MANAGE"]:action.kind==="facebook_comment_reply"?["MODERATE","MANAGE"]:["MESSAGING","MANAGE"];
+  const allowed=outboundFeature(action.kind)==="publishing"?["CREATE_CONTENT","MANAGE"]:action.kind==="facebook_comment_reply"?["MODERATE","MANAGE"]:["MESSAGING","MANAGE"];
   if(!page.taskList.some(v=>allowed.includes(v)))throw new MetaDeliveryError("PERMISSION_MISSING");
   token=page.token;
  }
@@ -84,6 +84,12 @@ export async function deliverMetaAction(action:MetaStoredAction,fetcher:typeof f
  let response:Json;
  if(action.kind==="facebook_post"){
   response=await send(p.accountId+"/feed",{message:action.body});
+ }else if(action.kind==="facebook_link"){
+  if(!action.mediaUrl)throw new MetaDeliveryError("META_RESPONSE_INVALID");
+  response=await send(p.accountId+"/feed",{message:action.body,link:action.mediaUrl});
+ }else if(action.kind==="facebook_photo"){
+  if(!action.mediaUrl)throw new MetaDeliveryError("META_RESPONSE_INVALID");
+  response=await send(p.accountId+"/photos",{url:action.mediaUrl,caption:action.body,published:"true"});
  }else if(action.kind==="instagram_photo"){
   if(!action.mediaUrl)throw new MetaDeliveryError("META_RESPONSE_INVALID");
   const container=await send(p.accountId+"/media",{image_url:action.mediaUrl,caption:action.body});

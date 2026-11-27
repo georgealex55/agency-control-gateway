@@ -7,11 +7,13 @@ import {instagramUnifiedReady} from "@/lib/social-meta-instagram-unified";
 import {inspectMetaToken,metaFeatureRequirements,type MetaLoginMode} from "@/lib/social-meta-capabilities";
 import {fetchMetaAnalytics} from "@/lib/social-meta-analytics";
 import {validGraphVersion} from "@/lib/social-meta-contract";
-export const runtime="nodejs";export const dynamic="force-dynamic";
+export const runtime="nodejs";export const dynamic="force-dynamic";export const maxDuration=60;
 export async function GET(req:NextRequest){
  const denied=connectionGate(req);if(denied)return denied;
  const workspaceId=workspaceFromQuery(req),connectionId=req.nextUrl.searchParams.get("connectionId");
  if(!workspaceId||!validId(connectionId))return reply({error:"Select a connected Meta account"},400);
+ const limit=req.nextUrl.searchParams.get("limit")||"10",detail=req.nextUrl.searchParams.get("detail")||"0";
+ if(!["10","25","50"].includes(limit)||!["0","1"].includes(detail))return reply({error:"Invalid analytics range"},400);
  const version=process.env.SOCIAL_META_GRAPH_VERSION;
  if(!validGraphVersion(version))return reply({error:"Meta insights are not configured"},503);
  try{
@@ -29,7 +31,7 @@ export async function GET(req:NextRequest){
   if(missing.length)return reply({error:"Account access permissions are missing. Reconnect this account with the requested permissions.",
    requiredAction:"reauthorize",missingPermissions:missing},403);
   const snapshot=await fetchMetaAnalytics({mode,accountId:credential.accountId,token:credential.token,
-   appSecret,version,grantedPermissions:inspection.grantedScopes});
+   appSecret,version,grantedPermissions:inspection.grantedScopes,postLimit:Number(limit),detailed:detail==="1"});
   return reply({workspaceId,connectionId,provider:credential.provider,snapshot,permissionsVerified:true,
    publishingEnabled:false,metricsAreReal:true});
  }catch{return reply({error:"Meta analytics were not available for this account. Verify permissions or reconnect.",requiredAction:"reauthorize_or_retry"},503);}

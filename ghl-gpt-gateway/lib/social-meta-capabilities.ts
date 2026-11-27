@@ -30,7 +30,7 @@ export const metaFeatureRequirements=(mode:MetaLoginMode):Record<MetaFeature,str
  };
  return {
   profile:["instagram_business_basic"],analytics:["instagram_business_manage_insights"],
-  publishing:["instagram_business_content_publish"],scheduling:["instagram_business_content_publishing"],
+  publishing:["instagram_business_content_publish"],scheduling:["instagram_business_content_publish"],
   comments:["instagram_business_manage_comments"],messages:["instagram_business_manage_messages"],
   webhooks:["instagram_business_manage_comments"]
  };
