@@ -49,7 +49,7 @@ export async function discoverGoogle(group:GoogleGroup,access:string,subject:str
  if(groupFor(group)?.domain&&(!host||normalizeDomain(host)!==host))throw Error("Invalid domain");
  if(group==="ga4"){
  const data=await get("https://analyticsadmin.googleapis.com/v1beta/accountSummaries?pageSize=100");
- const props=array(data.accountSummaries).flatMap(a=>array(a.propertySummaries)).filter(p=>typeof p.property==="string"&&/^properties\/\d{1,20}$/.test(p.property)).slice(0,15);
+ const props=array(data.accountSummaries).flatMap(a=>array(a.propertySummaries)).filter(p=>typeof p.property==="string"&&/^properties\/\d{1,20}$/.test(p.property)).slice(0,10);
  // The selected website must match the property web stream's configured default URI.
  const matches:Candidate[]=[];
  for(let i=0;i<props.length;i+=5)await Promise.all(props.slice(i,i+5).map(async p=>{try{const streams=await get("https://analyticsadmin.googleapis.com/v1beta/"+p.property+"/dataStreams?pageSize=100");if(array(streams.dataStreams).some(s=>{try{const u=new URL(s.webStreamData?.defaultUri);return u.protocol==="https:"&&u.hostname===host&&!u.port&&!u.username&&!u.password;}catch{return false;}}))matches.push({id:p.property,name:name(p.displayName)});}catch{}}));
