@@ -349,8 +349,8 @@ export async function scanMetaExtras(input:{mode:MetaLoginMode;accountId:string;
   return {status:result.status,missing,inventory,details};
  };
  const insights=scope.includes(fb?"read_insights":input.mode==="instagram_direct"?"instagram_business_manage_insights":"instagram_manage_insights");
- const trends=insights?await safe(async()=>{const token=fb?await facebookPageToken({...input,fetcher}):input.token;return fetchMetaDailyTrends({...input,token,fetcher});}):{status:"permission_required",data:null};
+ const trendsPromise=insights?safe(async()=>{const token=fb?await facebookPageToken({...input,fetcher}):input.token;return fetchMetaDailyTrends({...input,token,fetcher});}):Promise.resolve({status:"permission_required",data:null});
  const features=fb?["ads","businesses","leads"] as const:[input.mode==="instagram_direct"?"instagram_direct_comments":"instagram_comments"] as const;
- const [reports,inbox]=await Promise.all([Promise.all(features.map(async f=>({feature:f,...await scan(f)}))),fb&&FACEBOOK_INBOX_READ_SCOPES.every(s=>scope.includes(s))?safe(()=>fetchFacebookInboxActivity(input)):{status:fb?"permission_required":"not_supported",data:null}]);
+ const [reports,inbox,trends]=await Promise.all([Promise.all(features.map(async f=>({feature:f,...await scan(f)}))),fb&&FACEBOOK_INBOX_READ_SCOPES.every(s=>scope.includes(s))?safe(()=>fetchFacebookInboxActivity(input)):{status:fb?"permission_required":"not_supported",data:null},trendsPromise]);
  return {reports,inbox,trends};
 }
