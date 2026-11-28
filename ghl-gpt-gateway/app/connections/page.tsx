@@ -2,6 +2,7 @@
 import {useEffect,useState} from "react";
 import Link from "next/link";
 import "./connections.css";
+import InfrastructureCards from "./infrastructure-cards";
 import {healthLabel,type ConnectionHealthStatus} from "@/lib/reach-connection-health";
 import {connectionTrafficLight} from "@/lib/reach-connection-traffic-light";
 import {FACEBOOK_PERMISSION_OPTIONS,metaRequestedPermissions,type MetaPermissionPreset} from "@/lib/social-meta-contract";
@@ -201,8 +202,8 @@ export default function Connections(){
      <span><i className="reach-light-dot yellow" aria-hidden="true"/>Yellow: needs attention</span>
      <span><i className="reach-light-dot red" aria-hidden="true"/>Red: disconnected</span>
     </div>
-    <section className="reach-conn-overview" aria-label="Connection summary">
-     <div><strong>Connected</strong><span>{statusesKnown?counts.connected:"—"}</span></div>
+    <section className="reach-conn-overview" aria-label="Social connection summary">
+     <div><strong>Social connected</strong><span>{statusesKnown?counts.connected:"—"}</span></div>
      <div><strong>Needs attention</strong><span>{inventory?counts.attention:"—"}</span></div>
      <div><strong>Disconnected</strong><span>{inventory?counts.disconnected:"—"}</span></div>
     </section>
@@ -277,8 +278,9 @@ export default function Connections(){
       </details>
      </article>;
     })}
+    {workspace&&hub.storageApproved&&hub.environment==="ready"&&<InfrastructureCards key={workspace} workspaceId={workspace} attentionOnly={attentionOnly} refreshKey={check}/>}
     </div>
-    {attentionOnly&&visibleCards.length===0&&cards.length>0&&<p className="reach-conn-info" role="status">No connections need attention based on the last saved check.</p>}
+    {attentionOnly&&visibleCards.length===0&&cards.length>0&&<p className="reach-conn-info" role="status">No social connections need attention based on the last saved check.</p>}
     {cards.length===0&&inventory&&<section className="reach-conn-alert"><h2>No available integrations yet</h2><p>Only available connections or accounts already linked to this business appear here. REACH will add new services as they become ready.</p></section>}
     <p className="reach-conn-disclaimer">Status lights reflect saved connection and verification records, not continuous live monitoring. A green light means access was verified recently, not that a provider was contacted right now. Read-only access remains in place; publishing and messaging stay disabled.</p>
    </>}
