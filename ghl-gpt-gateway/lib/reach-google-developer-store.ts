@@ -9,7 +9,7 @@ function rootEnv(env:NodeJS.ProcessEnv=process.env):NodeJS.ProcessEnv{
  if(!vaultEncryptionReady(env))throw Error("Owner vault key unavailable");
  const root=Buffer.from(env.REACH_VAULT_ENCRYPTION_KEY!,"base64url");
  const derived=Buffer.from(hkdfSync("sha256",root,Buffer.from("reach-google-developer-v1"),Buffer.from("oauth-configuration"),32)).toString("base64url");
- return {REACH_GOOGLE_TOKEN_KEY:derived};
+ return {NODE_ENV:env.NODE_ENV,REACH_GOOGLE_TOKEN_KEY:derived};
 }
 const ctx=(w:string,id:string)=>w+":developer-config:"+id;
 function approved(w:string){return ownerSocialStorageConfigured()&&w===process.env.REACH_SOCIAL_OWNER_WORKSPACE_ID;}
