@@ -344,3 +344,17 @@ test("unified scan rejects missing scope before provider requests and keeps deta
  assert.equal(ad.reports.find(r=>r.feature==="ads").details[0].data.rows[0].spend,"0");
  assert.ok(seen.every(u=>!u.searchParams.has("access_token")&&!String(u).includes("field_data")));
 });
+
+test("profile-first analytics has independent scan scopes and honest health states",()=>{
+ const now=Date.parse("2026-11-27T00:00:00Z"),p={id:"a",name:"A",provider:"facebook_pages",snapshot:null};
+ assert.ok(summary.profileHealth(p,null,now).every(h=>h.status==="unknown"));
+ const snapshot={followers:100,recentPosts:Array.from({length:3},()=>({likes:0,comments:0,shares:null,createdAt:"2026-10-01T12:00:00Z"})),accountInsights:{metrics:[{name:"page_media_view",value:0},{name:"page_total_media_view_unique",value:0}]},partial:false};
+ const h=summary.profileHealth({...p,snapshot},2,now);
+ assert.equal(h.find(x=>x.name==="Exposure").status,"observed");
+ for(const name of ["Engagement","Publishing","Customer activity"])assert.equal(h.find(x=>x.name===name).status,"attention");
+ assert.equal(summary.profileHealth({...p,snapshot},null,now).find(x=>x.name==="Customer activity").status,"unknown");
+ const ui=read("app/meta-intelligence-panel.tsx"),studio=read("app/social-studio.tsx");
+ assert.match(ui,/scanAll\("profile"\)/);assert.match(ui,/scanAll\("all"\)/);assert.match(ui,/scope==="all"\|\|a.id===account\?\.id/);
+ assert.match(ui,/old.filter\(s=>!selected.some/);assert.match(ui,/scanned&&<section className=\{styles.health\}/);
+ assert.match(studio,/\(!productionSocial&&tab==="metrics"\)\|\|tab==="content"/);
+});
