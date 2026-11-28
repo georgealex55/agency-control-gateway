@@ -52,7 +52,7 @@ export async function selectGoogle(w:string,id:string,resourceId:string){
  const selected=candidates.find(c=>c.id===resourceId);if(!selected)throw Error("Resource not verified");
  const newId=randomUUID(),sealed=sealGoogle(p.refresh,context(w,newId,"connection"));
  // Atomic consume + insert: conflicts roll back the whole statement, preserving existing connections.
- const result=rows(await p.d.query("WITH claimed AS (DELETE FROM public.reach_google_pending WHERE workspace_id=$1::uuid AND id=$2::uuid AND client_hash=$3 AND expires_at>now() RETURNING *) INSERT INTO public.reach_google_connections(id,workspace_id,group_id,domain_id,subject,email,resource_id,resource_name,scopes,sealed_refresh,client_hash) SELECT $4::uuid,workspace_id,group_id,domain_id,subject,email,$5,$6,scopes,$7,client_hash FROM claimed RETURNING id",[w,id,clientHash(),newId,selected.id,selected.name,sealed]));
+ const result=rows(await p.d.query("WITH claimed AS (DELETE FROM public.reach_google_pending WHERE workspace_id=$1::uuid AND id=$2::uuid AND client_hash=$3 AND expires_at>now() RETURNING *) INSERT INTO public.reach_google_connections(id,workspace_id,group_id,domain_id,subject,email,resource_id,resource_name,scopes,sealed_refresh,client_hash) SELECT $4::uuid,workspace_id,group_id,domain_id,subject,email,$5,$6,scopes,$7,client_hash FROM claimed ON CONFLICT(workspace_id,group_id,domain_id,resource_id,subject) DO UPDATE SET id=EXCLUDED.id,email=EXCLUDED.email,resource_name=EXCLUDED.resource_name,scopes=EXCLUDED.scopes,sealed_refresh=EXCLUDED.sealed_refresh,client_hash=EXCLUDED.client_hash,connected_at=now() RETURNING id",[w,id,clientHash(),newId,selected.id,selected.name,sealed]));
  if(result.length!==1)throw Error("Selection already used");
 }
 export async function googleConnectionAccess(w:string,id:string){
@@ -72,5 +72,7 @@ export async function googleSiteAccess(w:string,host:string,group:"ga4"|"search_
  const d=await db(w),r=rows(await d.query("SELECT c.id FROM public.reach_google_connections c JOIN public.agency_platform_domains d ON d.id=c.domain_id AND d.workspace_id=c.workspace_id WHERE c.workspace_id=$1::uuid AND c.group_id=$2 AND d.hostname=$3 AND c.client_hash=$4 LIMIT 1",[w,group,host,clientHash()]))[0];
  if(!r)return null;
  const c=await googleConnectionAccess(w,r.id);if(c.host!==host||c.group!==group)throw Error("Selected resource mismatch");
+ if(group==="ga4"&&!/^properties\\/\\d{1,20}$/.test(c.resourceId))throw Error("Invalid property");
+ if(group==="search_console"&&c.resourceId!=="https://"+host+"/")throw Error("Invalid search property");
  return {token:c.token,resourceId:c.resourceId};
 }
