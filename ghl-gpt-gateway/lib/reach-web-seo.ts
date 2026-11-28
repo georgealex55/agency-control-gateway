@@ -11,7 +11,7 @@ async function json(fetcher:typeof fetch,url:string,init:RequestInit={},timeout=
  if(!r.ok)throw Error("Provider unavailable");
  if(!r.body)throw Error("Empty provider response");
  const reader=r.body.getReader();let bytes=0;const decoder=new TextDecoder();let result="";
- try{while(true){const {done,value}=await reader.read();if(done)break;bytes+=value.byteLength;if(bytes>4000000)throw Error("Report too large");result+=decoder.decode(value,{stream:true});}return obj(JSON.parse(result+decoder.decode()));}finally{await reader.cancel().catch(()=>{});}
+ try{while(true){const {done,value}=await reader.read();if(done)break;bytes+=value.byteLength;if(bytes>12000000)throw Error("Report too large");result+=decoder.decode(value,{stream:true});}return obj(JSON.parse(result+decoder.decode()));}finally{await reader.cancel().catch(()=>{});}
 }
 export function parsePageSpeed(raw:unknown,host:string){
  const r=obj(raw),lh=obj(r.lighthouseResult),final=str(lh.finalDisplayedUrl??lh.finalUrl,2048);
@@ -30,7 +30,7 @@ export function parsePageSpeed(raw:unknown,host:string){
 }
 export async function pageSpeed(host:string,strategy:"mobile"|"desktop",env:NodeJS.ProcessEnv,fetcher:typeof fetch){
  if(normalizeDomain(host)!==host||!["mobile","desktop"].includes(strategy))throw Error("Invalid audit");
- const q=new URLSearchParams({url:"https://"+host+"/",strategy,locale:"en",fields:"loadingExperience(id,origin_fallback,metrics),lighthouseResult(finalUrl,finalDisplayedUrl,fetchTime,runtimeError,categories(id,score),audits(id,title,score,scoreDisplayMode,displayValue,numericValue,numericUnit))"});
+ const q=new URLSearchParams({url:"https://"+host+"/",strategy,locale:"en"});
  for(const c of categories)q.append("category",c);
  if(env.REACH_PAGESPEED_API_KEY)q.set("key",env.REACH_PAGESPEED_API_KEY);
  try{return parsePageSpeed(await json(fetcher,"https://www.googleapis.com/pagespeedonline/v5/runPagespeed?"+q.toString(),{},40000),host);}
