@@ -3,6 +3,7 @@ import {useEffect,useState} from "react";
 import Link from "next/link";
 import "./connections.css";
 import InfrastructureCards from "./infrastructure-cards";
+import ProviderSetupCards from "./provider-setup-cards";
 import {healthLabel,type ConnectionHealthStatus} from "@/lib/reach-connection-health";
 import {connectionTrafficLight} from "@/lib/reach-connection-traffic-light";
 import {FACEBOOK_PERMISSION_OPTIONS,metaRequestedPermissions,type MetaPermissionPreset} from "@/lib/social-meta-contract";
@@ -217,6 +218,7 @@ export default function Connections(){
      </button>
     </section>
     {(healthError||inventoryError)&&<p className="reach-health-warning" role="status">We couldn't confirm all connection details. Your accounts are unchanged. {healthError||inventoryError}</p>}
+    <h2 className="reach-provider-heading">Existing social &amp; infrastructure connections</h2>
     <div className="reach-conn-grid" aria-label="Available business integrations">
     {visibleCards.map(({provider:p,meta,linked,pending,status})=>{
      const canConnect=Boolean(meta?.launchEnabled&&hub.storageApproved&&workspace&&!busy);
@@ -280,8 +282,9 @@ export default function Connections(){
     })}
     {workspace&&hub.storageApproved&&hub.environment==="ready"&&<InfrastructureCards key={workspace} workspaceId={workspace} attentionOnly={attentionOnly} refreshKey={check}/>}
     </div>
+    {workspace&&hub.storageApproved&&hub.environment==="ready"&&<ProviderSetupCards key={workspace} workspaceId={workspace} refreshKey={check} attentionOnly={attentionOnly}/>}
     {attentionOnly&&visibleCards.length===0&&cards.length>0&&<p className="reach-conn-info" role="status">No social connections need attention based on the last saved check.</p>}
-    {cards.length===0&&inventory&&<section className="reach-conn-alert"><h2>No available integrations yet</h2><p>Only available connections or accounts already linked to this business appear here. REACH will add new services as they become ready.</p></section>}
+    {cards.length===0&&inventory&&<section className="reach-conn-alert"><h2>No available integrations yet</h2><p>Existing social accounts are not available. Additional provider setup cards are listed separately.</p></section>}
     <p className="reach-conn-disclaimer">Status lights reflect saved connection and verification records, not continuous live monitoring. A green light means access was verified recently, not that a provider was contacted right now. Read-only access remains in place; publishing and messaging stay disabled.</p>
    </>}
   </div>
