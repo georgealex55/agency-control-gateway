@@ -50,20 +50,20 @@ export function parseSearch(raw:unknown,dimension:Dimension,host:string){
  const ctr=num(a.ctr);return [{label,clicks:num(a.clicks),impressions:num(a.impressions),ctr:ctr!==null&&ctr<=1?ctr:null,position:num(a.position)}];});
  return {dimension,status:rows.length?"available":"no_rows",rows};
 }
-export async function searchConsole(host:string,days:7|28|90,env:NodeJS.ProcessEnv,fetcher:typeof fetch){
+export async function searchConsole(host:string,days:7|28|90,env:NodeJS.ProcessEnv,fetcher:typeof fetch,oauth?:{token:string;resourceId:string}|null){
  // Exact HTTPS URL-prefix property only. No broad domain or other website property.
  let configured=false;try{const m=obj(JSON.parse(env.REACH_WEB_SEO_PROPERTIES||"{}"));configured=Object.hasOwn(m,host)&&m[host]==="https://"+host+"/";}catch{}
  const range=searchRequest("overview",days);
- if(!configured||!env.REACH_WEB_SEO_SERVICE_ACCOUNT)return {status:"not_configured",range,reports:[]};
+ if(!(oauth?.resourceId==="https://"+host+"/")&&(!configured||!env.REACH_WEB_SEO_SERVICE_ACCOUNT))return {status:"not_configured",range,reports:[]};
  try{
- const token=await accessToken(env,fetcher,"search_console");
+ const token=oauth?.resourceId==="https://"+host+"/"?oauth.token:await accessToken(env,fetcher,"search_console");
  const endpoint="https://www.googleapis.com/webmasters/v3/sites/"+encodeURIComponent("https://"+host+"/")+"/searchAnalytics/query";
  const reports=await Promise.all(searchDimensions.map(async d=>{try{return parseSearch(await json(fetcher,endpoint,{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify(searchRequest(d,days))}),d,host);}catch{return {dimension:d,status:"unavailable",rows:[]};}}));
  return {status:reports.some(r=>r.status!=="unavailable")?"reported":"unavailable",range,reports};
  }catch{return {status:"unavailable",range,reports:[]};}
 }
-export async function websiteSeo(host:string,days:7|28|90,strategy:"mobile"|"desktop",env:NodeJS.ProcessEnv=process.env,fetcher:typeof fetch=fetch){
+export async function websiteSeo(host:string,days:7|28|90,strategy:"mobile"|"desktop",env:NodeJS.ProcessEnv=process.env,fetcher:typeof fetch=fetch,oauth?:{token:string;resourceId:string}|null){
  if(normalizeDomain(host)!==host||![7,28,90].includes(days)||!["mobile","desktop"].includes(strategy))throw Error("Invalid SEO scan");
- const [technical,search]=await Promise.all([pageSpeed(host,strategy,env,fetcher),searchConsole(host,days,env,fetcher)]);
+ const [technical,search]=await Promise.all([pageSpeed(host,strategy,env,fetcher),searchConsole(host,days,env,fetcher,oauth)]);
  return {hostname:host,days,strategy,technical,search,readOnly:true,checkedAt:new Date().toISOString()};
 }
