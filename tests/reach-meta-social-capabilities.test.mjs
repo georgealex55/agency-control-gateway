@@ -358,3 +358,35 @@ test("profile-first analytics has independent scan scopes and honest health stat
  assert.match(ui,/old.filter\(s=>!selected.some/);assert.match(ui,/scanned&&<section className=\{styles.health\}/);
  assert.match(studio,/\(!productionSocial&&tab==="metrics"\)\|\|tab==="content"/);
 });
+
+test("inbox reads only verified profile conversations and comments, never arbitrary object IDs or writes",async()=>{
+ const seen=[];
+ const fetcher=async(url,opts)=>{
+  const u=new URL(url);seen.push(u.pathname);assert.equal(opts.method,"GET");assert.equal(opts.redirect,"error");
+  if(u.pathname.endsWith("/me/accounts"))return new Response(JSON.stringify({data:[{id:accountId,access_token:pageToken}]}));
+  assert.equal(opts.headers.Authorization,"Bearer "+pageToken);
+  if(u.pathname.endsWith("/conversations"))return new Response(JSON.stringify({data:[{id:"t_123",updated_time:"2026-11-20T00:00:00Z",participants:{data:[{id:accountId,name:"Owner"},{id:"12345",name:"Test customer"}]}}]}));
+  if(u.pathname.endsWith("/t_123/messages"))return new Response(JSON.stringify({data:[{id:"m_123",message:"Synthetic message",created_time:"2026-11-20T00:00:00Z",from:{id:accountId,name:"Owner"}}],paging:{next:"secret-url"}}));
+  if(u.pathname.endsWith("/published_posts"))return new Response(JSON.stringify({data:[{id:accountId+"_123",message:"Synthetic post",comments:{summary:{total_count:2}}}]}));
+  if(u.pathname.endsWith("/"+accountId+"_123/comments"))return new Response(JSON.stringify({data:[{id:"123_456",message:"Synthetic comment",from:{name:"Test author"}}]}));
+  throw Error("Unexpected route "+u.pathname);
+ };
+ const common={mode:"facebook",accountId,version:"v27.0",token:userToken,appSecret:secret,fetcher};
+ const inbox={...common,channel:"messages",grantedPermissions:[...analytics.FACEBOOK_INBOX_READ_SCOPES]};
+ assert.equal((await analytics.fetchMetaInbox(inbox)).rows[0].title,"Test customer");
+ const thread=await analytics.fetchMetaInbox({...inbox,parentId:"t_123"});
+ assert.equal(thread.rows[0].direction,"outgoing");assert.equal(thread.rows[0].body,"Synthetic message");
+ assert.doesNotMatch(JSON.stringify(thread),/secret-url|fb-page-synthetic-token/);
+ await assert.rejects(()=>analytics.fetchMetaInbox({...inbox,parentId:"t_999"}),/not in the connected profile/);
+ await assert.rejects(()=>analytics.fetchMetaInbox({...inbox,parentId:"../me"}),/Invalid inbox selection/);
+ const comments={...common,channel:"comments",grantedPermissions:["pages_show_list","pages_read_engagement"]};
+ assert.equal((await analytics.fetchMetaInbox(comments)).rows[0].count,2);
+ assert.equal((await analytics.fetchMetaInbox({...comments,parentId:accountId+"_123"})).rows[0].body,"Synthetic comment");
+ await assert.rejects(()=>analytics.fetchMetaInbox({...comments,grantedPermissions:[]}),/Missing inbox permissions/);
+ assert.ok(!seen.some(x=>x.includes("t_999")));
+ const route=read("app/api/platform/social/meta/inbox/route.ts"),ui=read("app/meta-inbox-panel.tsx"),studio=read("app/social-studio.tsx");
+ assert.match(route,/connectionGate\(req\)/);assert.match(route,/inspectMetaToken/);assert.match(route,/publishingEnabled:false/);
+ assert.doesNotMatch(route,/export async function (POST|PATCH|DELETE)/);
+ assert.match(ui,/snapshot.accountId!==account.accountId/);assert.match(ui,/local session only/);
+ assert.match(studio,/\["comments","Comments"\]/);
+});
