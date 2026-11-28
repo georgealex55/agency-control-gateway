@@ -2,7 +2,7 @@ import {NextRequest} from "next/server";
 import {connectionGate,reply,workspaceFromQuery} from "@/lib/social-api";
 import {approvedGoogleWorkspace} from "@/lib/reach-google-store";
 import {canonicalGoogleRequest} from "@/lib/reach-google-diagnostics";
-import {googleDeveloperStatus,saveGoogleDeveloper,enableGoogleDeveloper,replaceGoogleDeveloper,GoogleReplacementBlocked} from "@/lib/reach-google-developer-store";
+import {googleDeveloperStatus,saveGoogleDeveloper,enableGoogleDeveloper,replaceGoogleDeveloper,GoogleReplacementBlocked,GoogleStorageVerificationError} from "@/lib/reach-google-developer-store";
 import {validateGoogleDeveloper,parseGoogleWebClient} from "@/lib/reach-google-developer-contract";
 export const runtime="nodejs";export const dynamic="force-dynamic";
 function canonical(req:NextRequest){return canonicalGoogleRequest(req.nextUrl.origin,req.headers.get("host"),req.headers.get("x-forwarded-host"),req.headers.get("x-forwarded-proto"),process.env.VERCEL_ENV);}
@@ -28,5 +28,5 @@ export async function POST(req:NextRequest){
  }
  if(b.action==="enable"&&typeof b.enabled==="boolean")return reply({workspaceId:w,status:await enableGoogleDeveloper(w,b.enabled)});
  return reply({error:"Unsupported configuration action"},400);
- }catch(e){if(e instanceof GoogleReplacementBlocked)return reply({error:e.message},409);return reply({error:"Google configuration not changed. Check vault readiness, application identity, storage migration and master activation gate."},503);}
+ }catch(e){if(e instanceof GoogleStorageVerificationError)return reply({error:e.message},503);if(e instanceof GoogleReplacementBlocked)return reply({error:e.message},409);return reply({error:"Google configuration could not be confirmed. Check vault readiness, application identity, storage migration and master activation gate. Retry the same credentials without resetting."},503);}
 }

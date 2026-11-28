@@ -654,7 +654,8 @@ test("Google client replacement supports manual credentials as well as optional 
  assert.match(replace,/typeof b.expectedUpdatedAt!=="string"/);
  assert.match(ui,/Optional: import Google Web OAuth JSON/);
  assert.match(ui,/!status.replacementAllowed\|\|!ready\|\|busy\|\|projectId.trim\(\)!==status.projectId/);
- assert.match(ui,/action==="replace"\?\{workspaceId,action,confirm:true,\.\.\.\(json\?\{webClientJson:json\}:\{config:\{projectId,clientId,clientSecret:secret\}\}\),expectedUpdatedAt:status.updatedAt/);
+ assert.match(ui,/action==="replace"\?\{action,\.\.\.credentials,expectedUpdatedAt:status.updatedAt\}/);
+ assert.match(ui,/json\?\{webClientJson:json\}:\{config:validateGoogleDeveloper\(/);
  const credentials={projectId:"reach-example",clientId:"synthetic-example.apps.googleusercontent.com",clientSecret:"GOCSPX-synthetic-secret"};
  assert.deepEqual(googleDeveloper.validateGoogleDeveloper(credentials),credentials);
  assert.throws(()=>googleDeveloper.validateGoogleDeveloper({...credentials,clientSecret:""}));
@@ -688,4 +689,79 @@ test("Paused Google connections remain visible and only confirmed owner-scoped r
  assert.match(route,/configured,ready:configured,callbackUrl/);
  assert.match(store,/const pending=googleConfigured\(env\)\?rows/);
  assert.match(ui,/action!=="disconnect"&&!inventory.ready/);
+});
+
+
+test("Google activation UI retains entered credentials until confirmed save and prompts service selection",()=>{
+ const ui=read("app/connections/google-developer-panel.tsx"),services=read("app/connections/google-oauth-panel.tsx");
+ const mutation=ui.slice(ui.indexOf("async function mutate"),ui.indexOf("function edit"));
+ assert.match(ui,/Save credentials and enable authorization/);
+ assert.match(ui,/Step 2 — Enable Google authorization/);
+ assert.match(ui,/Refresh Google setup status/);
+ assert.match(mutation,/!v.status.storageReady\|\|v.status.source!=="vault"\|\|!v.status.configured/);
+ assert.match(mutation,/if\(action==="save"\|\|action==="replace"\)\{saved=true;setSecret\(""\)/);
+ assert.doesNotMatch(mutation.slice(mutation.indexOf("}catch(e)")),/setSecret\(""\)|setClient\(""\)|setJson\(""\)/);
+ assert.match(mutation,/if\(activateAfterSave&&!next.enabled\)/);
+ assert.match(mutation,/request\(\{action:"enable",enabled:true\}\)/);
+ assert.match(ui,/window.confirm\("Save these credentials securely and enable Google authorization/);
+ assert.match(services,/id="google-service-connections"/);
+ assert.match(services,/Choose the Google services you want to use/);
+ assert.doesNotMatch(ui,/localStorage|sessionStorage/);
+});
+
+
+test("Google credential storage round trip retains the same encrypted token key across requests and secret rotation",async()=>{
+ const uri=source=>"data:text/javascript;base64,"+Buffer.from(transpile(source)).toString("base64");
+ const oauthUri=uri(read("lib/reach-google-oauth.ts").replace('"./reach-google-diagnostics"',JSON.stringify(googleDiagnosticsUri)).replace('"./reach-google-contract"',JSON.stringify(googleContractUri)).replace('"./reach-infrastructure"',JSON.stringify(infraUri)));
+ const developerUri=uri(read("lib/reach-google-developer-contract.ts").replace('"./reach-google-contract"',JSON.stringify(googleContractUri)));
+ const fixture=`
+ const fixtureEnv={VERCEL_ENV:"production",REACH_GOOGLE_OAUTH_ENABLED:"true",REACH_SOCIAL_OWNER_WORKSPACE_ID:"workspace",REACH_VAULT_ENCRYPTION_KEY:Buffer.alloc(32,7).toString("base64url")};
+ let row=null,failCounts=false;
+ export const inspectFixture=()=>row?{...row}:null;
+ export const breakCounts=()=>{failCounts=true;};
+ const ownerSocialStorageConfigured=()=>true;
+ const vaultEncryptionReady=()=>true;
+ const socialMetaWorkspaceDb=async()=>({query:async(sql,p=[])=>{
+  if(sql.startsWith("SELECT project_id"))return row?[{...row}]:[];
+  if(sql.startsWith("INSERT INTO")){row={project_id:p[1],client_id:p[2],sealed_config:p[3],enabled:row?.enabled??false,updated_at:"2026-11-28T12:00:00.000Z"};return [{workspace_id:p[0]}];}
+  if(sql.startsWith("UPDATE public.reach_google_developer_config SET enabled")){row.enabled=p[1];return [{workspace_id:p[0]}];}
+  if(sql.startsWith("SELECT (SELECT count(*)")){if(failCounts)throw Error("synthetic counts unavailable");return [{connections:0,pending:0,flows:0}];}
+  throw Error("Unexpected fixture query");
+ }});
+ `;
+ const source=read("lib/reach-google-developer-store.ts")
+  .replace('import {ownerSocialStorageConfigured,socialMetaWorkspaceDb} from "./reach-social-owner-db";',"")
+  .replace('import {vaultEncryptionReady} from "./reach-neon-vault-crypto";',"")
+  .replace('"./reach-google-oauth"',JSON.stringify(oauthUri))
+  .replace('"./reach-google-developer-contract"',JSON.stringify(developerUri))
+  .replace('"./reach-google-contract"',JSON.stringify(googleContractUri))
+  .replaceAll("process.env","fixtureEnv");
+ const store=await import(uri(fixture+source));
+ const v={projectId:"reach-example",clientId:"synthetic-example.apps.googleusercontent.com",clientSecret:"GOCSPX-synthetic-secret"};
+ assert.equal((await store.googleDeveloperStatus("workspace")).configured,false);
+ const status=await store.saveGoogleDeveloper("workspace",v);
+ assert.equal(status.configured,true);assert.equal(status.enabled,false);assert.equal(status.source,"vault");
+ assert.doesNotMatch(JSON.stringify(status),/GOCSPX-synthetic-secret/);
+ assert.doesNotMatch(store.inspectFixture().sealed_config,/GOCSPX-synthetic-secret/);
+ const first=await store.resolvedGoogleEnv("workspace");
+ assert.equal(first.REACH_GOOGLE_CLIENT_SECRET,v.clientSecret);
+ assert.equal(first.REACH_GOOGLE_OAUTH_ENABLED,"false");
+ assert.equal((await store.enableGoogleDeveloper("workspace",true)).enabled,true);
+ const enabled=await store.resolvedGoogleEnv("workspace");
+ assert.equal(enabled.REACH_GOOGLE_OAUTH_ENABLED,"true");
+ assert.equal(enabled.REACH_GOOGLE_TOKEN_KEY,first.REACH_GOOGLE_TOKEN_KEY);
+ await store.enableGoogleDeveloper("workspace",false);
+ const rotated={...v,clientSecret:"GOCSPX-synthetic-rotated"};
+ await store.saveGoogleDeveloper("workspace",rotated);
+ const latest=await store.resolvedGoogleEnv("workspace");
+ assert.equal(latest.REACH_GOOGLE_CLIENT_SECRET,rotated.clientSecret);
+ assert.equal(latest.REACH_GOOGLE_TOKEN_KEY,first.REACH_GOOGLE_TOKEN_KEY);
+ assert.equal((await store.googleDeveloperStatus("other")).configured,false);
+ store.breakCounts();
+ const degraded=await store.googleDeveloperStatus("workspace");
+ assert.equal(degraded.configured,true);assert.equal(degraded.replacementAllowed,false);
+ assert.equal(degraded.source,"vault");
+ const text=read("lib/reach-google-developer-store.ts");
+ assert.match(text,/decrypted.clientSecret!==v.clientSecret\|\|decrypted.tokenKey!==tokenKey/);
+ assert.match(text,/return verifySavedGoogleDeveloper\(w,v,tokenKey\)/);
 });
