@@ -554,7 +554,7 @@ test("Google authorization keeps one-time flows, workspace checks and explicit r
  const store=read("lib/reach-google-store.ts"),route=read("app/api/reach/google/route.ts"),callback=read("app/api/reach/google/callback/route.ts"),migration=read("migrations/003-google-oauth.sql");
  assert.match(route,/connectionGate\(req,true\)/);assert.match(route,/b.confirm!==true/);assert.match(callback,/consumeGoogleFlow/);
  assert.match(store,/DELETE FROM public.reach_google_flows WHERE workspace_id=\$1::uuid AND state_hash=\$2 AND browser_hash=\$3/);
- assert.match(store,/candidates.find\(c=>c.id===resourceId\)/);assert.match(store,/WITH claimed AS \(DELETE FROM public.reach_google_pending/);
+ assert.match(store,/candidates.find\(c=>c.id===resourceId\)/);assert.match(store,/claimed AS \(DELETE FROM public.reach_google_pending/);
  assert.equal((migration.match(/FORCE ROW LEVEL SECURITY/g)||[]).length,3);
  assert.match(migration,/reach_google_one_site_mapping/);
  assert.match(read("app/api/reach/website-analytics/route.ts"),/googleSiteAccess/);
@@ -627,4 +627,21 @@ test("Google token response diagnostic codes never expose raw provider messages 
  await assert.rejects(()=>googleOAuth.exchangeGoogle("synthetic-code","a".repeat(43),"ga4",env,async()=>new Response(JSON.stringify({scope:scopes,access_token:"synthetic-access",token_type:"Bearer"}))),e=>e.code==="offline_missing");
  assert.equal(googleDiagnostics.providerDiagnostic("access_denied"),"consent_denied");
  assert.equal(googleDiagnostics.providerDiagnostic("admin_policy_enforced"),"access_blocked");
+});
+
+test("Google OAuth client replacement requires paused same-project config and no existing grants",()=>{
+ const store=read("lib/reach-google-developer-store.ts"),route=read("app/api/reach/google/developer/route.ts"),ui=read("app/connections/google-developer-panel.tsx"),flows=read("lib/reach-google-store.ts");
+ assert.match(store,/old.project_id!==v.projectId/);
+ assert.match(store,/old.client_id===v.clientId/);
+ assert.match(store,/replacementReason\(old.enabled,await googleReplacementCounts\(w\)\)/);
+ assert.match(store,/const tokenKey=secrets\(w,old\).tokenKey/);
+ assert.match(store,/SET client_id=\$2,sealed_config=\$3,enabled=false/);
+ assert.match(store,/AND NOT c.enabled AND NOT EXISTS\(SELECT 1 FROM public.reach_google_connections/);
+ assert.match(store,/c.updated_at=\$7::timestamptz/);
+ assert.match(route,/b.action==="replace"/);
+ assert.match(route,/parseGoogleWebClient\(b.webClientJson\)/);
+ assert.match(ui,/Replace Google OAuth application/);
+ assert.match(ui,/expectedUpdatedAt:status.updatedAt/);
+ assert.equal((flows.match(/active_app AS MATERIALIZED/g)||[]).length,3);
+ assert.equal((flows.match(/AND enabled FOR UPDATE/g)||[]).length,3);
 });
