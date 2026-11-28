@@ -659,3 +659,33 @@ test("Google client replacement supports manual credentials as well as optional 
  assert.deepEqual(googleDeveloper.validateGoogleDeveloper(credentials),credentials);
  assert.throws(()=>googleDeveloper.validateGoogleDeveloper({...credentials,clientSecret:""}));
 });
+
+
+test("Google setup is centralized while OAuth resource verification and disconnect remain service-specific",()=>{
+ const developer=read("app/connections/google-developer-panel.tsx"),ui=read("app/connections/google-oauth-panel.tsx"),providers=read("app/connections/provider-setup-cards.tsx");
+ assert.match(developer,/<details><summary>Advanced: import credentials from a file<\/summary>/);
+ assert.match(developer,/Google API setup — all services/);
+ for(const api of ["analyticsdata.googleapis.com","analyticsadmin.googleapis.com","searchconsole.googleapis.com","youtube.googleapis.com","youtubeanalytics.googleapis.com","calendar-json.googleapis.com","people.googleapis.com","tagmanager.googleapis.com","pagespeedonline.googleapis.com"])assert.ok(developer.includes(api));
+ assert.match(ui,/connections.filter\(c=>c.group_id===g.id\)/);
+ assert.match(ui,/pending.filter\(p=>p.group_id===g.id\)/);
+ assert.match(ui,/action\("verify",\{id:c.id\},c.id\)/);
+ assert.match(ui,/action\("disconnect",\{id:c.id,confirm:true\},c.id\)/);
+ assert.match(ui,/proof\[c.id\]!==true/);
+ assert.match(providers,/group!=="Google"\|\|!groupFor\(i.id\)/);
+ assert.match(providers,/Advanced: existing Analytics and Search Console service-account verification/);
+});
+test("Paused Google connections remain visible and only confirmed owner-scoped resource disconnect bypasses activation",()=>{
+ const route=read("app/api/reach/google/route.ts"),store=read("lib/reach-google-store.ts"),ui=read("app/connections/google-oauth-panel.tsx");
+ const post=route.slice(route.indexOf("export async function POST"));
+ const disconnect=post.indexOf('b.action==="disconnect"&&b.confirm===true&&validId(b.id)');
+ assert.ok(disconnect>post.indexOf("connectionGate(req,true)")&&disconnect>post.indexOf("if(!canonical(req))")&&disconnect>post.indexOf("if(!approvedGoogleWorkspace(w))"));
+ assert.ok(disconnect<post.indexOf("if(!googleConfigured(env))"));
+ assert.match(post,/disconnectGoogle\(w,b.id\)/);
+ const remove=store.slice(store.indexOf("export async function disconnectGoogle"),store.indexOf("export async function googleSiteAccess"));
+ assert.match(remove,/approvedGoogleWorkspace\(w\)/);
+ assert.match(remove,/DELETE FROM public.reach_google_connections WHERE workspace_id=\$1::uuid AND id=\$2::uuid RETURNING id/);
+ assert.doesNotMatch(remove,/refreshGoogle|revoke|googleConfigured/);
+ assert.match(route,/configured,ready:configured,callbackUrl/);
+ assert.match(store,/const pending=googleConfigured\(env\)\?rows/);
+ assert.match(ui,/action!=="disconnect"&&!inventory.ready/);
+});
