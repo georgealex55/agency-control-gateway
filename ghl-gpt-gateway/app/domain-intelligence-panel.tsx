@@ -3,7 +3,7 @@ import {useState,useEffect,useRef} from "react";
 import styles from "./domain-intelligence-panel.module.css";
 type Domain={id:string;hostname:string};
 type Obs={status:string;records:unknown[]|null};
-type Report={hostname:string;checkedAt:string;elapsedMs:number;ownership:string;records:Record<string,Obs>;checks:{name:string;status:"observed"|"attention"|"unknown";detail:string}[];mail:{spf:string[];dmarc:{policy:string|null;count:number;status:string};dkim:string};authority:Record<string,Obs>;www:{hostname:string|null;a:Obs;aaaa:Obs;cname:Obs};limits:Record<string,string>};
+type Report={hostname:string;checkedAt:string;elapsedMs:number;ownership:string;records:Record<string,Obs>;checks:{name:string;status:"observed"|"attention"|"unknown";detail:string}[];mail:{spf:string[];status:string;dmarc:{policy:string|null;count:number;status:string};dkim:string};authority:Record<string,Obs>;www:{hostname:string|null;a:Obs;aaaa:Obs;cname:Obs};limits:Record<string,string>};
 const count=(v?:Obs)=>v?.status==="returned"?v.records?.length??0:v?.status==="not_found"?0:null;
 const display=(v:unknown)=>typeof v==="string"?v:JSON.stringify(v);
 function RecordList({records}:{records:Record<string,Obs>}){
