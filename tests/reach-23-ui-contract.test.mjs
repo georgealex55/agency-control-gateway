@@ -133,10 +133,18 @@ test("production social calendar is a real month view, not a redirect to posting
 
 test("central infrastructure and web links replace the retired Published Content navigation",()=>{
  assert.doesNotMatch(catalog,/title:"Published Content"/);assert.doesNotMatch(social,/\["content","Published Content"\]/);
- assert.match(catalog,/href:"\/connections#domains"/);assert.match(catalog,/href:"\/connections#neon"/);
+ assert.match(catalog,/href:"\/\?view=web&tool=web-domains"/);assert.match(catalog,/href:"\/connections#neon"/);
  const hub=read("ghl-gpt-gateway/app/connections/page.tsx");assert.match(hub,/<InfrastructureCards/);
  const route=read("ghl-gpt-gateway/app/api/reach/infrastructure/route.ts");
  assert.match(route,/connectionGate\(req,true\)/);assert.match(route,/ownerSocialStorageConfigured/);assert.match(route,/REACH_SOCIAL_OWNER_WORKSPACE_ID/);
  assert.match(route,/pg_database_size\(current_database\(\)\)/);assert.match(route,/quotaBytes:null/);assert.match(route,/ON CONFLICT\(hostname\) DO NOTHING/);assert.match(route,/dnsChanged:false/);
  assert.doesNotMatch(route,/DELETE FROM|ALTER TABLE|DROP TABLE|UPDATE public/);
+});
+
+test("Web Design opens domain intelligence and registration remains in Connections",()=>{
+ const area=read("ghl-gpt-gateway/app/reach-business-area.tsx"),panel=read("ghl-gpt-gateway/app/domain-intelligence-panel.tsx"),route=read("ghl-gpt-gateway/app/api/reach/infrastructure/route.ts");
+ assert.match(area,/<DomainIntelligencePanel\/>/);
+ assert.match(panel,/Scan domain/);assert.match(panel,/Scan all domains/);assert.match(panel,/href="\/connections#domains"/);
+ assert.match(route,/domains.find\(d=>d.id===id\)/);assert.match(route,/domainIntelligence\(selected.hostname,id\)/);
+ assert.doesNotMatch(panel,/method:"(?:POST|PUT|PATCH|DELETE)"/);
 });
