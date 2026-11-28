@@ -486,3 +486,33 @@ test("Search Console requires exact HTTPS property and preserves search metrics 
  assert.equal(parsed.rows.length,1);assert.equal(parsed.rows[0].clicks,0);assert.equal(parsed.rows[0].position,5.2);
  assert.equal(seo.parseSearch({rows:[]},"query","example.com").status,"no_rows");
 });
+
+const seoUri="data:text/javascript;base64,"+Buffer.from(transpile(read("lib/reach-web-seo.ts").replace('"./reach-infrastructure"',JSON.stringify(infraUri)).replace('"./reach-web-analytics"',JSON.stringify(websiteUri)))).toString("base64");
+const verifyProvider=await import("data:text/javascript;base64,"+Buffer.from(transpile(read("lib/reach-integration-verification.ts").replace('"./reach-infrastructure"',JSON.stringify(infraUri)).replace('"./reach-web-analytics"',JSON.stringify(websiteUri)).replace('"./reach-web-seo"',JSON.stringify(seoUri)))).toString("base64"));
+test("expanded provider setup cards distinguish working verification from setup guides",()=>{
+ const catalog=read("lib/reach-integration-catalog.ts"),ui=read("app/connections/provider-setup-cards.tsx"),page=read("app/connections/page.tsx"),route=read("app/api/reach/integrations/route.ts");
+ assert.match(page,/<ProviderSetupCards/);assert.match(page,/<InfrastructureCards/);
+ assert.match(catalog,/name:"Google Analytics 4"/);assert.match(catalog,/name:"Shopify"/);assert.match(catalog,/name:"Google Business Profile"/);
+ assert.match(ui,/Setup guide only/);assert.match(ui,/Input fields here are session-only/);
+ assert.match(route,/connectionGate\(req,true\)/);assert.match(route,/WHERE workspace_id=\$1::uuid AND id=\$2::uuid/);
+ assert.doesNotMatch(route,/INSERT INTO|UPDATE public|DELETE FROM/);
+ assert.equal(verifyProvider.configured("search_console","example.com",{REACH_WEB_SEO_PROPERTIES:'{"example.com":"sc-domain:example.com"}',REACH_WEB_SEO_SERVICE_ACCOUNT:"{}"}),false);
+ assert.equal(verifyProvider.configured("ga4","example.com",{REACH_WEB_ANALYTICS_PROPERTIES:'{"example.com":"123"}',REACH_WEB_ANALYTICS_SERVICE_ACCOUNT:"{}"}),true);
+});
+test("Shopify connection verification requires exact store, installed read scopes and no write access",async()=>{
+ const env={REACH_SHOPIFY_SHOP:"demo-shop.myshopify.com",REACH_SHOPIFY_CLIENT_ID:"synthetic-id",REACH_SHOPIFY_CLIENT_SECRET:"synthetic-secret"};
+ for(const bad of ["https://demo.myshopify.com","demo.myshopify.com.evil.org","demo.myshopify.com/path","127.0.0.1"])assert.equal(verifyProvider.validShop(bad),false);
+ let calls=0;
+ const fetcher=(scopes,shop=env.REACH_SHOPIFY_SHOP)=>async(url,opts)=>{
+  calls++;const u=new URL(url);assert.equal(u.origin,"https://demo-shop.myshopify.com");assert.equal(opts.redirect,"error");
+  if(u.pathname==="/admin/oauth/access_token"){assert.equal(opts.body.get("grant_type"),"client_credentials");return new Response(JSON.stringify({access_token:"synthetic-token"}));}
+  assert.equal(u.pathname,"/admin/api/2026-10/graphql.json");assert.equal(opts.headers["X-Shopify-Access-Token"],"synthetic-token");assert.doesNotMatch(opts.body,/mutation/);
+  return new Response(JSON.stringify({data:{shop:{myshopifyDomain:shop},currentAppInstallation:{accessScopes:scopes.map(handle=>({handle}))}}}));
+ };
+ const proof=await verifyProvider.verifyIntegration("shopify",null,env,fetcher(["read_products","read_inventory"]));
+ assert.equal(proof.status,"verified");assert.equal(calls,2);assert.doesNotMatch(JSON.stringify(proof),/synthetic-token|synthetic-secret/);
+ assert.equal((await verifyProvider.verifyIntegration("shopify",null,env,fetcher(["read_products","read_inventory","write_products"]))).status,"attention");
+ assert.equal((await verifyProvider.verifyIntegration("shopify",null,env,fetcher(["read_products"]))).status,"attention");
+ assert.equal((await verifyProvider.verifyIntegration("shopify",null,env,fetcher(["read_products","read_inventory"],"wrong.myshopify.com"))).status,"unavailable");
+ assert.equal((await verifyProvider.verifyIntegration("shopify",null,{},async()=>{throw Error("Must not call");})).status,"setup_required");
+});
