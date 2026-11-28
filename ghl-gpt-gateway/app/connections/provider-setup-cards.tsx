@@ -1,6 +1,7 @@
 "use client";
 import {useEffect,useRef,useState} from "react";
 import GoogleOAuthPanel from "./google-oauth-panel";
+import {groupFor} from "@/lib/reach-google-contract";
 import {INTEGRATIONS,GROUPS,type Integration} from "@/lib/reach-integration-catalog";
 type Domain={id:string;hostname:string;ga4Configured:boolean;searchConfigured:boolean};
 type Inventory={workspaceId:string;domains:Domain[];shopifyConfigured:boolean;pagespeedKeyConfigured:boolean;readOnly:true};
@@ -24,7 +25,7 @@ function SetupCard({item,domain,inventory,proof,busy,onVerify}:{item:Integration
  return <article id={"reach-provider-"+item.id} className={"reach-conn-card reach-conn-card-"+light}>
  <div className="reach-conn-card-head"><h2>{item.name}</h2><span className={"reach-light reach-light-"+light}><i className={"reach-light-dot "+light}/>{label}</span></div><p>{item.purpose}</p>
  {proof&&<p role="status">{proof.detail}{proof.account?" · "+proof.account:""}<br/>Checked {new Date(proof.checkedAt).toLocaleString()}</p>}
- <div className="reach-provider-actions"><External url={item.setupUrl}>{configured?"Manage API setup":"Open connection setup"}</External>{item.mode==="verify"&&<button type="button" disabled={busy||!inventory||(!domain&&item.id!=="shopify")} onClick={onVerify}>{busy?"Checking…":"Verify connection"}</button>}</div>
+ <div className="reach-provider-actions"><External url={item.setupUrl}>{configured?"Manage API setup":"Open connection setup"}</External>{groupFor(item.id)&&<a className="reach-conn-button reach-provider-link" href="#google-oauth">Connect with Google</a>}{item.mode==="verify"&&<button type="button" disabled={busy||!inventory||(!domain&&item.id!=="shopify")} onClick={onVerify}>{busy?"Checking…":"Verify connection"}</button>}</div>
  <details className="reach-conn-details"><summary>{verified?"Manage connection":"Setup fields & requirements"}</summary><div className="reach-conn-detail-body">
  <p>Required APIs: {item.apis.join(" · ")}</p>
  {item.fields.map(f=><div className="reach-setup-field" key={f.label}><label>{f.label}{f.secret?<span className="reach-conn-small"> · server-side secret</span>:null}{f.secret?<p>{f.env?"Enter securely as "+f.env+" in deployment settings.":"Prepare securely in the provider console; credential entry is not enabled."}</p>:f.kind==="host"?<input value={domain?.hostname||""} readOnly placeholder="Select a registered domain above"/>:<input type="text" autoComplete="off" maxLength={180} value={fields[f.label]||""} onChange={e=>{setFields(v=>({...v,[f.label]:e.target.value}));setCopied("");}} placeholder={f.placeholder||f.label}/>}</label>{f.env&&!f.secret&&<small>Deployment field: {f.env}</small>}</div>)}
@@ -32,7 +33,7 @@ function SetupCard({item,domain,inventory,proof,busy,onVerify}:{item:Integration
  {copied&&<p role="status">{copied}</p>}
  {item.steps.map((s,i)=><p key={i}>{i+1}. {s}</p>)}
  <div className="reach-provider-actions"><External url={storeLink||item.accountUrl}>Open provider account</External>{item.guide&&<External url={item.guide}>API instructions</External>}{item.mode==="verify"&&<External url={settings}>Protected deployment settings</External>}</div>
- {item.mode==="setup"&&<p className="reach-conn-small">Setup guide only. REACH authorization, token storage and data adapter for this provider have not been implemented. Do not paste secrets here.</p>}
+ {item.mode==="setup"&&<p className="reach-conn-small">{groupFor(item.id)?"Google resource authorization is available in the unified panel after configuration. Product reporting adapter is pending.":"Setup guide only. REACH authorization, token storage and data adapter for this provider have not been implemented."} Do not paste secrets here.</p>}
  {proof?.scopes.length? <p className="reach-conn-small">Verified access: {proof.scopes.join(", ")}</p>:null}
  <p className="reach-conn-small">Input fields here are session-only setup aids, not saved credentials. Verification uses existing server-side configuration.</p>
  </div></details>
