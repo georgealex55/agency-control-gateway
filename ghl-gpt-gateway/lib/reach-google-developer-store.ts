@@ -31,7 +31,7 @@ export async function googleDeveloperStatus(w:string){
  if(!approved(w)||!base.vaultReady)return base;
  try{
  const r=await read(w);
- if(r){secrets(w,r);return {...base,storageReady:true,configured:true,enabled:r.enabled,projectId:r.project_id,clientIdMasked:"••••"+r.client_id.slice(-36,-27),source:"vault",updatedAt:new Date(r.updated_at).toISOString()};}
+ if(r){secrets(w,r);return {...base,storageReady:true,configured:true,enabled:r.enabled,projectId:r.project_id,clientIdMasked:"••••"+r.client_id.split(".")[0].slice(-4),source:"vault",updatedAt:new Date(r.updated_at).toISOString()};}
  return {...base,storageReady:true,configured:!!process.env.REACH_GOOGLE_CLIENT_ID&&!!process.env.REACH_GOOGLE_CLIENT_SECRET,enabled:googleConfigured(),source:process.env.REACH_GOOGLE_CLIENT_ID?"environment":"none"};
  }catch{return base;}
 }
@@ -40,11 +40,12 @@ export async function saveGoogleDeveloper(w:string,input:unknown){
  const v=validateGoogleDeveloper(input),db=await socialMetaWorkspaceDb(w),old=await read(w);
  // Keep the client identity and token encryption key stable; never silently replace a configured app.
  if(old&&(old.client_id!==v.clientId||old.project_id!==v.projectId))throw Error("Different application requires a separate migration.");
+ if(old?.enabled&&secrets(w,old).clientSecret!==v.clientSecret)throw Error("Pause authorization before rotating the same client secret.");
  if(!old&&process.env.REACH_GOOGLE_CLIENT_ID&&process.env.REACH_GOOGLE_CLIENT_ID!==v.clientId)throw Error("Existing environment application must be preserved.");
- if(!old&&process.env.REACH_GOOGLE_CLIENT_ID&&!/^[A-Za-z0-9_-]{43}$/.test(process.env.REACH_GOOGLE_TOKEN_KEY||""))throw Error("Existing environment key must be preserved.");
+ if(!old&&process.env.REACH_GOOGLE_CLIENT_ID&&(!/^[A-Za-z0-9_-]{43}$/.test(process.env.REACH_GOOGLE_TOKEN_KEY||"")||Buffer.from(process.env.REACH_GOOGLE_TOKEN_KEY||"","base64url").length!==32))throw Error("Existing environment key must be preserved.");
  const tokenKey=old?secrets(w,old).tokenKey:process.env.REACH_GOOGLE_CLIENT_ID?process.env.REACH_GOOGLE_TOKEN_KEY!:randomBytes(32).toString("base64url");
  const sealed=sealGoogle(JSON.stringify({clientSecret:v.clientSecret,tokenKey}),ctx(w,v.clientId),rootEnv());
- const result=await db.query("INSERT INTO public.reach_google_developer_config(workspace_id,project_id,client_id,sealed_config,enabled) VALUES($1::uuid,$2,$3,$4,false) ON CONFLICT(workspace_id) DO UPDATE SET sealed_config=EXCLUDED.sealed_config,updated_at=now() WHERE reach_google_developer_config.client_id=EXCLUDED.client_id AND reach_google_developer_config.project_id=EXCLUDED.project_id AND reach_google_developer_config.sealed_config=$5 RETURNING workspace_id",[w,v.projectId,v.clientId,sealed,old?.sealed_config||""]);
+ const result=await db.query("INSERT INTO public.reach_google_developer_config(workspace_id,project_id,client_id,sealed_config,enabled) VALUES($1::uuid,$2,$3,$4,false) ON CONFLICT(workspace_id) DO UPDATE SET sealed_config=EXCLUDED.sealed_config,updated_at=now() WHERE reach_google_developer_config.client_id=EXCLUDED.client_id AND reach_google_developer_config.project_id=EXCLUDED.project_id AND reach_google_developer_config.sealed_config=$5 AND reach_google_developer_config.enabled=$6 RETURNING workspace_id",[w,v.projectId,v.clientId,sealed,old?.sealed_config||"",old?.enabled??false]);
  if(!Array.isArray(result)||result.length!==1)throw Error("Configuration changed concurrently; reload.");
  return googleDeveloperStatus(w);
 }
