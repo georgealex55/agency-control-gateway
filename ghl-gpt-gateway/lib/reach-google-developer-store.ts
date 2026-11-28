@@ -31,9 +31,25 @@ export async function googleDeveloperStatus(w:string){
  if(!approved(w)||!base.vaultReady)return base;
  try{
  const r=await read(w);
- if(r){secrets(w,r);const counts=await googleReplacementCounts(w);const reason=replacementReason(r.enabled,counts);return {...base,replacementAllowed:reason===null,replacementReason:reason,storageReady:true,configured:true,enabled:r.enabled,projectId:r.project_id,clientIdMasked:"••••"+r.client_id.split(".")[0].slice(-4),source:"vault",updatedAt:new Date(r.updated_at).toISOString()};}
+ if(r){
+  secrets(w,r);
+  const saved={...base,storageReady:true,configured:true,enabled:r.enabled,projectId:r.project_id,clientIdMasked:"••••"+r.client_id.split(".")[0].slice(-4),source:"vault",updatedAt:new Date(r.updated_at).toISOString()};
+  // A replacement-count failure must not conceal a successfully decrypted saved configuration.
+  try{const counts=await googleReplacementCounts(w);const reason=replacementReason(r.enabled,counts);return {...saved,replacementAllowed:reason===null,replacementReason:reason};}
+  catch{return {...saved,replacementAllowed:false,replacementReason:"Cannot verify existing grants. Replacement is blocked until status is available."};}
+ }
  return {...base,storageReady:true,configured:!!process.env.REACH_GOOGLE_CLIENT_ID&&!!process.env.REACH_GOOGLE_CLIENT_SECRET,enabled:googleConfigured(),source:process.env.REACH_GOOGLE_CLIENT_ID?"environment":"none"};
  }catch{return base;}
+}
+async function verifySavedGoogleDeveloper(w:string,v:ReturnType<typeof validateGoogleDeveloper>,tokenKey:string){
+ const persisted=await read(w);
+ if(!persisted||persisted.project_id!==v.projectId||persisted.client_id!==v.clientId)throw new GoogleStorageVerificationError();
+ const decrypted=secrets(w,persisted);
+ if(decrypted.clientSecret!==v.clientSecret||decrypted.tokenKey!==tokenKey)throw new GoogleStorageVerificationError();
+ return googleDeveloperStatus(w);
+}
+export class GoogleStorageVerificationError extends Error{
+ constructor(){super("Google credential storage could not be confirmed. Retry the same credentials; no reset is needed.");this.name="GoogleStorageVerificationError";}
 }
 export async function saveGoogleDeveloper(w:string,input:unknown){
  if(!approved(w))throw Error("Workspace unavailable");
@@ -47,7 +63,7 @@ export async function saveGoogleDeveloper(w:string,input:unknown){
  const sealed=sealGoogle(JSON.stringify({clientSecret:v.clientSecret,tokenKey}),ctx(w,v.clientId),rootEnv());
  const result=await db.query("INSERT INTO public.reach_google_developer_config(workspace_id,project_id,client_id,sealed_config,enabled) VALUES($1::uuid,$2,$3,$4,false) ON CONFLICT(workspace_id) DO UPDATE SET sealed_config=EXCLUDED.sealed_config,updated_at=now() WHERE reach_google_developer_config.client_id=EXCLUDED.client_id AND reach_google_developer_config.project_id=EXCLUDED.project_id AND reach_google_developer_config.sealed_config=$5 AND reach_google_developer_config.enabled=$6 RETURNING workspace_id",[w,v.projectId,v.clientId,sealed,old?.sealed_config||"",old?.enabled??false]);
  if(!Array.isArray(result)||result.length!==1)throw Error("Configuration changed concurrently; reload.");
- return googleDeveloperStatus(w);
+ return verifySavedGoogleDeveloper(w,v,tokenKey);
 }
 export async function enableGoogleDeveloper(w:string,enabled:boolean){
  if(!approved(w))throw Error("Workspace unavailable");
@@ -106,5 +122,5 @@ export async function replaceGoogleDeveloper(w:string,input:unknown,expectedUpda
  // are left intact until normal expiry cleanup; their old client hash cannot authorize the new app.
  const result=await db.query("UPDATE public.reach_google_developer_config c SET client_id=$2,sealed_config=$3,enabled=false,updated_at=now() WHERE c.workspace_id=$1::uuid AND c.project_id=$4 AND c.client_id=$5 AND c.sealed_config=$6 AND c.updated_at=$7::timestamptz AND NOT c.enabled AND NOT EXISTS(SELECT 1 FROM public.reach_google_connections WHERE workspace_id=$1::uuid) AND NOT EXISTS(SELECT 1 FROM public.reach_google_pending WHERE workspace_id=$1::uuid AND expires_at>now()) AND NOT EXISTS(SELECT 1 FROM public.reach_google_flows WHERE workspace_id=$1::uuid AND expires_at>now()) RETURNING workspace_id",[w,v.clientId,sealed,v.projectId,old.client_id,old.sealed_config,old.updated_at]);
  if(!Array.isArray(result)||result.length!==1)throw new GoogleReplacementBlocked("Configuration changed or Google activity exists. Refresh and retry.");
- return googleDeveloperStatus(w);
+ return verifySavedGoogleDeveloper(w,v,tokenKey);
 }
