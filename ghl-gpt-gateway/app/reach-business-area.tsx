@@ -1,6 +1,7 @@
 "use client";
 import {useState} from "react";
 import DomainIntelligencePanel from "./domain-intelligence-panel";
+import WebsiteAnalyticsPanel from "./website-analytics-panel";
 import {REACH_FEATURES,featureLabel} from "./reach-ui-23";
 import {PLATFORM_SERVICES} from "@/lib/platform-services";
 export default function ReachBusinessArea({area,initialTool}:{area:"web"|"marketing";initialTool:string}){
@@ -13,7 +14,8 @@ export default function ReachBusinessArea({area,initialTool}:{area:"web"|"market
   <div className="reach-intro"><div><div className="ag-eyebrow">REACH / {group.toUpperCase()}</div><h1>{web?"Web Design":"Marketing"}</h1><p>{web?"Build, connect, maintain and measure your business website.":"Promote your business, capture leads and measure campaign results."}</p></div></div>
   <div className="reach-feature-grid">{items.map(f=><article className="reach-feature" key={f.id}><span className="reach-feature-icon" aria-hidden="true">{f.icon}</span><div><div className="reach-feature-title"><h3>{f.title}</h3><span className={"reach-status "+f.status}>{featureLabel(f)}</span></div><p>{f.description}</p><small>{f.detail}</small></div><button className="reach-open" type="button" aria-pressed={tool===f.id} onClick={()=>setTool(v=>v===f.id?"":f.id)}>{tool===f.id?"Collapse":"Details"}</button></article>)}</div>
   {selected?.id==="web-domains"&&<DomainIntelligencePanel/>}
-  {selected&&selected.id!=="web-domains"&&<section className="ag-card" aria-label={selected.title}><h2>{selected.title}</h2><p>{selected.description}</p><p className="ag-ws-note">{selected.detail}</p>
+  {selected?.id==="web-analytics"&&<WebsiteAnalyticsPanel/>}
+  {selected&&selected.id!=="web-domains"&&selected.id!=="web-analytics"&&<section className="ag-card" aria-label={selected.title}><h2>{selected.title}</h2><p>{selected.description}</p><p className="ag-ws-note">{selected.detail}</p>
    {selected.id==="website"&&engine&&<><h3>Website engine foundation</h3><div className="ag-source-list">{engine.capabilities.filter(c=>c!=="Forms & appointments").map(c=><div key={c}>{c}</div>)}</div><p>Runtime: {engine.runtime}. The visual editor is not live yet.</p></>}
    {selected.id==="funnels"&&<><h3>Lead generation tools</h3><div className="ag-source-list">{["Landing pages","Lead capture forms","Funnel steps","Conversion tracking"].map(c=><div key={c}>{c}</div>)}</div><p>Website engine groundwork is available; public intake and conversion tracking are not enabled.</p></>}
    {selected.id==="social-ads"&&<p>Paid campaigns require a separate advertising account connection and budget approval. Organic post analytics do not provide ad spend or attribution.</p>}
