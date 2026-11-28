@@ -422,3 +422,15 @@ test("infrastructure DNS only accepts public hostnames and exact ownership chall
  assert.equal((await infra.domainDns("example.com",id,{...resolver,resolveTxt:async()=>[["different"]]})).ownership,"not_verified");
  await assert.rejects(()=>infra.domainDns("127.0.0.1",id,resolver),/Invalid domain/);
 });
+
+test("domain intelligence distinguishes observed DNS from unavailable checks and limits mail policy findings",async()=>{
+ const id="12345678-1234-1234-1234-123456789012",missing=async()=>{throw Object.assign(Error("missing"),{code:"ENODATA"});};
+ const resolver={resolve4:async h=>h==="example.com"?["192.0.2.10"]:[],resolve6:missing,resolveCname:missing,resolveMx:async()=>[{exchange:"mail.example.com",priority:10}],resolveNs:async()=>["ns.example.com"],resolveCaa:missing,resolveSoa:missing,resolveTxt:async h=>h.startsWith("_reach-verification.")?[["reach-verification="+id]]:h.startsWith("_dmarc.")?[["v=DMARC1; p=none"]]:[["v=spf1 -all"],["v=spf1 ~all"],["unrelated-verification-secret"]]};
+ const result=await infra.domainIntelligence("example.com",id,resolver);
+ assert.equal(result.ownership,"verified");assert.equal(result.mail.spf.length,2);assert.equal(result.mail.dmarc.policy,"none");
+ assert.equal(result.checks.find(c=>c.name==="SPF").status,"attention");assert.equal(result.checks.find(c=>c.name==="DMARC").status,"attention");
+ assert.equal(result.limits.ssl,"not_checked");assert.doesNotMatch(JSON.stringify(result),/unrelated-verification-secret/);
+ const failed=async()=>{throw Object.assign(Error("timeout"),{code:"ETIMEOUT"});};
+ const noData=await infra.domainIntelligence("example.com",id,{...resolver,resolve4:failed,resolve6:failed,resolveCname:failed,resolveTxt:failed});
+ assert.equal(noData.checks.find(c=>c.name==="Website DNS").status,"unknown");assert.equal(noData.checks.find(c=>c.name==="SPF").status,"unknown");
+});
