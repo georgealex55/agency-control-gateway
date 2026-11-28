@@ -11,12 +11,12 @@ function canonical(req:NextRequest){return canonicalGoogleRequest(req.nextUrl.or
 export async function GET(req:NextRequest){
  const denied=connectionGate(req);if(denied)return denied;
  const w=workspaceFromQuery(req);if(!approvedGoogleWorkspace(w))return reply({error:"Approved owner workspace required"},428);
- const env=await resolvedGoogleEnv(w);
- const configured=googleConfigured(env),isCanonical=canonical(req);
- if(!configured||!isCanonical)return reply({workspaceId:w,configured,ready:false,callbackUrl:GOOGLE_CALLBACK,pending:[],connections:[],readOnly:true});
+ if(!canonical(req))return reply({error:"Use the canonical REACH host"},428);
+ let configured=false;
  try{
+ const env=await resolvedGoogleEnv(w);configured=googleConfigured(env);
  const data=await googleInventory(w,env);
- return reply({workspaceId:w,configured,ready:true,callbackUrl:GOOGLE_CALLBACK,...data,readOnly:true});
+ return reply({workspaceId:w,configured,ready:configured,callbackUrl:GOOGLE_CALLBACK,...data,readOnly:true});
  }catch{return reply({workspaceId:w,configured,ready:false,callbackUrl:GOOGLE_CALLBACK,pending:[],connections:[],readOnly:true,storageUnavailable:true});}
 }
 export async function POST(req:NextRequest){
@@ -26,6 +26,7 @@ export async function POST(req:NextRequest){
  try{
  const b=await req.json(),w=b?.workspaceId;
  if(!approvedGoogleWorkspace(w))return reply({error:"Approved owner workspace required"},428);
+ if(b.action==="disconnect"&&b.confirm===true&&validId(b.id))return reply({workspaceId:w,disconnected:await disconnectGoogle(w,b.id),readOnly:true});
  const env=await resolvedGoogleEnv(w);if(!googleConfigured(env))return reply({error:"Google OAuth is not activated"},428);
  if(b.action==="start"){
  const g=groupFor(b.group);if(!g||(g.domain&&!validId(b.domainId)))return reply({error:"Choose permission group and registered domain"},400);
@@ -46,7 +47,6 @@ export async function POST(req:NextRequest){
  await selectGoogle(w,b.id,b.resourceId,env);return reply({workspaceId:w,selected:true,readOnly:true});
  }
  if(b.action==="verify"){stage="verification_unavailable";return reply({workspaceId:w,id:b.id,verified:await verifyGoogleConnection(w,b.id,env),readOnly:true});}
- if(b.action==="disconnect"&&b.confirm===true)return reply({workspaceId:w,disconnected:await disconnectGoogle(w,b.id,env),readOnly:true});
  return reply({error:"Unsupported action"},400);
  }catch(e){const code=safeDiagnostic(e,stage);console.info("reach_google_action",code);return reply({error:GOOGLE_DIAGNOSTICS[code],diagnostic:code},503);}
 }
