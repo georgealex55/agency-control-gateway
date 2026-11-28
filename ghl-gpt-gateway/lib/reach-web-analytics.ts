@@ -51,11 +51,11 @@ export function parseGaReport(raw:unknown,spec:Spec){
 function propertyFor(host:string,env:NodeJS.ProcessEnv){
  try{const map=obj(JSON.parse(env.REACH_WEB_ANALYTICS_PROPERTIES||"{}"));const id=Object.hasOwn(map,host)?map[host]:null;return typeof id==="string"&&/^\d{1,20}$/.test(id)?id:null;}catch{return null;}
 }
-async function accessToken(env:NodeJS.ProcessEnv,fetcher:typeof fetch){
- const account=obj(JSON.parse(env.REACH_WEB_ANALYTICS_SERVICE_ACCOUNT||"{}"));
+export async function accessToken(env:NodeJS.ProcessEnv,fetcher:typeof fetch,scope:"analytics"|"search_console"="analytics"){
+ const account=obj(JSON.parse((scope==="search_console"?env.REACH_WEB_SEO_SERVICE_ACCOUNT:env.REACH_WEB_ANALYTICS_SERVICE_ACCOUNT)||"{}"));
  if(typeof account.client_email!=="string"||!account.client_email.endsWith(".gserviceaccount.com")||typeof account.private_key!=="string")throw Error("Analytics credentials unavailable");
  const encode=(v:unknown)=>Buffer.from(JSON.stringify(v)).toString("base64url"),now=Math.floor(Date.now()/1000);
- const unsigned=encode({alg:"RS256",typ:"JWT"})+"."+encode({iss:account.client_email,scope:"https://www.googleapis.com/auth/analytics.readonly",aud:"https://oauth2.googleapis.com/token",iat:now,exp:now+300});
+ const unsigned=encode({alg:"RS256",typ:"JWT"})+"."+encode({iss:account.client_email,scope:scope==="search_console"?"https://www.googleapis.com/auth/webmasters.readonly":"https://www.googleapis.com/auth/analytics.readonly",aud:"https://oauth2.googleapis.com/token",iat:now,exp:now+300});
  const signature=createSign("RSA-SHA256").update(unsigned).sign(account.private_key,"base64url");
  const token=await json(fetcher,"https://oauth2.googleapis.com/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:new URLSearchParams({grant_type:"urn:ietf:params:oauth:grant-type:jwt-bearer",assertion:unsigned+"."+signature})});
  if(typeof token.access_token!=="string"||token.access_token.length>8192||!token.access_token)throw Error("Analytics token unavailable");
