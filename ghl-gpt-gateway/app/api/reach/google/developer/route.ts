@@ -1,18 +1,19 @@
 import {NextRequest} from "next/server";
 import {connectionGate,reply,workspaceFromQuery} from "@/lib/social-api";
 import {approvedGoogleWorkspace} from "@/lib/reach-google-store";
-import {GOOGLE_ORIGIN} from "@/lib/reach-google-contract";
+import {canonicalGoogleRequest} from "@/lib/reach-google-diagnostics";
 import {googleDeveloperStatus,saveGoogleDeveloper,enableGoogleDeveloper} from "@/lib/reach-google-developer-store";
 import {validateGoogleDeveloper,parseGoogleWebClient} from "@/lib/reach-google-developer-contract";
 export const runtime="nodejs";export const dynamic="force-dynamic";
+function canonical(req:NextRequest){return canonicalGoogleRequest(req.nextUrl.origin,req.headers.get("host"),req.headers.get("x-forwarded-host"),req.headers.get("x-forwarded-proto"),process.env.VERCEL_ENV);}
 export async function GET(req:NextRequest){
  const denied=connectionGate(req);if(denied)return denied;
- const w=workspaceFromQuery(req);if(!approvedGoogleWorkspace(w)||req.nextUrl.origin!==GOOGLE_ORIGIN)return reply({error:"Approved canonical owner workspace required"},428);
+ const w=workspaceFromQuery(req);if(!approvedGoogleWorkspace(w)||!canonical(req))return reply({error:"Approved canonical owner workspace required"},428);
  return reply({workspaceId:w,status:await googleDeveloperStatus(w)});
 }
 export async function POST(req:NextRequest){
  const denied=connectionGate(req,true);if(denied)return denied;
- if(req.nextUrl.origin!==GOOGLE_ORIGIN)return reply({error:"Use the canonical REACH host"},428);
+ if(!canonical(req))return reply({error:"Use the canonical REACH host"},428);
  try{
  const raw=await req.text();if(raw.length>40000)return reply({error:"Configuration too large"},413);
  const b=JSON.parse(raw),w=b?.workspaceId;if(!approvedGoogleWorkspace(w)||b.confirm!==true)return reply({error:"Confirm owner configuration change"},400);
