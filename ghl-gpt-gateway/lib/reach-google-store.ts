@@ -36,8 +36,9 @@ export async function stageGoogle(w:string,group:GoogleGroup,domainId:string|nul
  if(r.length!==1)throw Error("Too many pending grants");
 }
 export async function googleInventory(w:string,env:NodeJS.ProcessEnv){
- const d=await db(w,env);
- const pending=rows(await d.query("SELECT id,group_id,domain_id,email,expires_at FROM public.reach_google_pending WHERE workspace_id=$1::uuid AND client_hash=$2 AND expires_at>now() ORDER BY expires_at DESC LIMIT 10",[w,clientHash(env)]));
+ if(!approvedGoogleWorkspace(w))throw Error("Google setup required");
+ const d=await socialMetaWorkspaceDb(w);
+ const pending=googleConfigured(env)?rows(await d.query("SELECT id,group_id,domain_id,email,expires_at FROM public.reach_google_pending WHERE workspace_id=$1::uuid AND client_hash=$2 AND expires_at>now() ORDER BY expires_at DESC LIMIT 10",[w,clientHash(env)])):[];
  const connections=rows(await d.query("SELECT id,group_id,domain_id,email,resource_id,resource_name,scopes,connected_at,client_hash=$2 AS client_matches FROM public.reach_google_connections WHERE workspace_id=$1::uuid ORDER BY connected_at DESC LIMIT 100",[w,clientHash(env)]));
  return {pending,connections};
 }
@@ -70,8 +71,9 @@ export async function googleConnectionAccess(w:string,id:string,env:NodeJS.Proce
 export async function verifyGoogleConnection(w:string,id:string,env:NodeJS.ProcessEnv){
  const c=await googleConnectionAccess(w,id,env);return (await discoverGoogle(c.group,c.token,c.subject,c.host)).some(v=>v.id===c.resourceId);
 }
-export async function disconnectGoogle(w:string,id:string,env:NodeJS.ProcessEnv){
- const d=await db(w,env);return rows(await d.query("DELETE FROM public.reach_google_connections WHERE workspace_id=$1::uuid AND id=$2::uuid RETURNING id",[w,id])).length===1;
+export async function disconnectGoogle(w:string,id:string){
+ if(!approvedGoogleWorkspace(w))throw Error("Google setup required");
+ const d=await socialMetaWorkspaceDb(w);return rows(await d.query("DELETE FROM public.reach_google_connections WHERE workspace_id=$1::uuid AND id=$2::uuid RETURNING id",[w,id])).length===1;
 }
 export async function googleSiteAccess(w:string,host:string,group:"ga4"|"search_console"){
  const env=await resolvedGoogleEnv(w);
