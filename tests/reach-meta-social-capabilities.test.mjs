@@ -358,3 +358,53 @@ test("profile-first analytics has independent scan scopes and honest health stat
  assert.match(ui,/old.filter\(s=>!selected.some/);assert.match(ui,/scanned&&<section className=\{styles.health\}/);
  assert.match(studio,/\(!productionSocial&&tab==="metrics"\)\|\|tab==="content"/);
 });
+
+test("inbox reads only verified profile conversations and comments, never arbitrary object IDs or writes",async()=>{
+ const seen=[];
+ const fetcher=async(url,opts)=>{
+  const u=new URL(url);seen.push(u.pathname);assert.equal(opts.method,"GET");assert.equal(opts.redirect,"error");
+  if(u.pathname.endsWith("/me/accounts"))return new Response(JSON.stringify({data:[{id:accountId,access_token:pageToken}]}));
+  assert.equal(opts.headers.Authorization,"Bearer "+pageToken);
+  if(u.pathname.endsWith("/conversations"))return new Response(JSON.stringify({data:[{id:"t_123",updated_time:"2026-11-20T00:00:00Z",participants:{data:[{id:accountId,name:"Owner"},{id:"12345",name:"Test customer"}]}}]}));
+  if(u.pathname.endsWith("/t_123/messages"))return new Response(JSON.stringify({data:[{id:"m_123",message:"Synthetic message",created_time:"2026-11-20T00:00:00Z",from:{id:accountId,name:"Owner"}}],paging:{next:"secret-url"}}));
+  if(u.pathname.endsWith("/published_posts"))return new Response(JSON.stringify({data:[{id:accountId+"_123",message:"Synthetic post",comments:{summary:{total_count:2}}}]}));
+  if(u.pathname.endsWith("/"+accountId+"_123/comments"))return new Response(JSON.stringify({data:[{id:"123_456",message:"Synthetic comment",from:{name:"Test author"}}]}));
+  throw Error("Unexpected route "+u.pathname);
+ };
+ const common={mode:"facebook",accountId,version:"v27.0",token:userToken,appSecret:secret,fetcher};
+ const inbox={...common,channel:"messages",grantedPermissions:[...analytics.FACEBOOK_INBOX_READ_SCOPES]};
+ assert.equal((await analytics.fetchMetaInbox(inbox)).rows[0].title,"Test customer");
+ const thread=await analytics.fetchMetaInbox({...inbox,parentId:"t_123"});
+ assert.equal(thread.rows[0].direction,"outgoing");assert.equal(thread.rows[0].body,"Synthetic message");
+ assert.doesNotMatch(JSON.stringify(thread),/secret-url|fb-page-synthetic-token/);
+ await assert.rejects(()=>analytics.fetchMetaInbox({...inbox,parentId:"t_999"}),/not in the connected profile/);
+ await assert.rejects(()=>analytics.fetchMetaInbox({...inbox,parentId:"../me"}),/Invalid inbox selection/);
+ const comments={...common,channel:"comments",grantedPermissions:["pages_show_list","pages_read_engagement"]};
+ assert.equal((await analytics.fetchMetaInbox(comments)).rows[0].count,2);
+ assert.equal((await analytics.fetchMetaInbox({...comments,parentId:accountId+"_123"})).rows[0].body,"Synthetic comment");
+ await assert.rejects(()=>analytics.fetchMetaInbox({...comments,grantedPermissions:[]}),/Missing inbox permissions/);
+ assert.ok(!seen.some(x=>x.includes("t_999")));
+ const route=read("app/api/platform/social/meta/inbox/route.ts"),ui=read("app/meta-inbox-panel.tsx"),studio=read("app/social-studio.tsx");
+ assert.match(route,/connectionGate\(req\)/);assert.match(route,/inspectMetaToken/);assert.match(route,/publishingEnabled:false/);
+ assert.doesNotMatch(route,/export async function (POST|PATCH|DELETE)/);
+ assert.match(ui,/snapshot.accountId!==account.accountId/);assert.match(ui,/local session only/);
+ assert.match(studio,/\["comments","Comments"\]/);
+});
+
+test("Instagram direct inbox reads only the most recent 20 message IDs from the selected conversation",async()=>{
+ const seen=[];
+ const fetcher=async(url,opts)=>{
+  const u=new URL(url);seen.push(u.pathname);assert.equal(u.origin,"https://graph.instagram.com");assert.equal(opts.method,"GET");
+  if(u.pathname.endsWith("/conversations"))return new Response(JSON.stringify({data:[{id:"ig_thread_1"}]}));
+  if(u.pathname.endsWith("/ig_thread_1")){assert.equal(u.searchParams.get("fields"),"messages");return new Response(JSON.stringify({id:"ig_thread_1",messages:{data:Array.from({length:23},(_,i)=>({id:"ig_message_"+i}))}}));}
+  const id=u.pathname.split("/").pop();
+  if(id==="ig_message_0")return new Response(JSON.stringify({id:"wrong_id",message:"wrong identity"}));
+  return new Response(JSON.stringify({id,message:"Synthetic text",from:{username:"test_customer",id:"111111111111"}}));
+ };
+ const input={mode:"instagram_direct",accountId,version:"v27.0",token:userToken,appSecret:secret,channel:"messages",grantedPermissions:["instagram_business_basic","instagram_business_manage_messages"],parentId:"ig_thread_1",fetcher};
+ const result=await analytics.fetchMetaInbox(input);
+ assert.equal(result.rows.length,20);assert.equal(result.moreAvailable,true);
+ assert.equal(result.rows[0].body,null);assert.equal(result.rows[1].body,"Synthetic text");
+ assert.equal(seen.length,22);assert.ok(!seen.some(x=>x.endsWith("/ig_message_20")));
+ await assert.rejects(()=>analytics.fetchMetaInbox({...input,parentId:"ig_other"}),/not in the connected profile/);
+});

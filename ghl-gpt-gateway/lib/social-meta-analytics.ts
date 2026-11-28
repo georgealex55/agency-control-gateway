@@ -354,3 +354,58 @@ export async function scanMetaExtras(input:{mode:MetaLoginMode;accountId:string;
  const [reports,inbox,trends]=await Promise.all([Promise.all(features.map(async f=>({feature:f,...await scan(f)}))),fb&&FACEBOOK_INBOX_READ_SCOPES.every(s=>scope.includes(s))?safe(()=>fetchFacebookInboxActivity(input)):{status:fb?"permission_required":"not_supported",data:null},trendsPromise]);
  return {reports,inbox,trends};
 }
+
+export type InboxChannel="messages"|"comments";
+export function validInboxObject(v:unknown):v is string{return typeof v==="string"&&/^[A-Za-z0-9_-]{1,510}={0,2}$/.test(v);}
+export function inboxReadScopes(mode:MetaLoginMode,channel:InboxChannel):readonly string[]{
+ if(mode==="facebook")return channel==="messages"?FACEBOOK_INBOX_READ_SCOPES:["pages_show_list","pages_read_engagement"];
+ if(mode==="instagram_direct")return ["instagram_business_basic",channel==="messages"?"instagram_business_manage_messages":"instagram_business_manage_comments"];
+ return channel==="messages"?["instagram_basic","instagram_manage_messages","pages_manage_metadata","pages_show_list"]:["instagram_basic","instagram_manage_comments"];
+}
+type InboxInput={mode:MetaLoginMode;accountId:string;version:string;token:string;appSecret:string;grantedPermissions:string[];channel:InboxChannel;parentId?:string;fetcher?:typeof fetch};
+export async function fetchMetaInbox(input:InboxInput){
+ const {mode,accountId,channel,version,appSecret}=input;
+ if(!idValid(accountId)||!validGraphVersion(version)||input.token.length<10||input.token.length>4096||appSecret.length<8||appSecret.length>1024||!["messages","comments"].includes(channel)||input.parentId&&!validInboxObject(input.parentId))throw Error("Invalid inbox selection");
+ if(!inboxReadScopes(mode,channel).every(x=>input.grantedPermissions.includes(x)))throw Error("Missing inbox permissions");
+ const fetcher=input.fetcher||fetch,fb=mode==="facebook";
+ let token=input.token,root=accountId;
+ if(fb)token=await facebookPageToken({...input,fetcher});
+ if(mode==="instagram_unified"&&channel==="messages"){
+  const pages=await graphGet({...input,mode:"facebook",fetcher,path:"me/accounts",params:{fields:"id,access_token,instagram_business_account{id}",limit:"100"}});
+  const matches=boundedList(pages,100).filter(p=>object(p.instagram_business_account)?.id===accountId&&idValid(p.id)&&typeof p.access_token==="string"&&p.access_token.length>=10&&p.access_token.length<=4096);
+  if(matches.length!==1)throw Error("Linked Page could not be verified");
+  root=String(matches[0].id);token=String(matches[0].access_token);
+ }
+ const get=(path:string,params:Record<string,string>)=>graphGet({mode,version,token,appSecret,path,params,fetcher});
+ const pack=(body:Obj,rows:unknown[])=>({source:"meta_graph_api" as const,accountId,channel,rows,moreAvailable:Boolean(object(body.paging)?.next),checkedAt:new Date().toISOString(),readOnly:true as const});
+ const person=(v:unknown)=>{const o=object(v);return text(o?.name,160)??text(o?.username,160);};
+ const listPath=channel==="messages"?root+"/conversations":accountId+(fb?"/published_posts":"/media");
+ const params:Record<string,string>=channel==="messages"?{fields:"id,updated_time",platform:fb?"MESSENGER":"INSTAGRAM",limit:"25"}:fb?{fields:"id,message,created_time,comments.summary(true)",limit:"25"}:{fields:"id,caption,timestamp,comments_count",limit:"25"};
+ let inventory:Obj;
+ try{inventory=await get(listPath,channel==="messages"?{...params,fields:"id,updated_time,participants"}:params);}catch(e){if(channel!=="messages")throw e;inventory=await get(listPath,params);}
+ const parents=boundedList(inventory,25).filter(o=>channel==="messages"?validInboxObject(o.id):postIdValid(o.id));
+ if(!input.parentId)return pack(inventory,parents.map(o=>({id:o.id,title:channel==="messages"?(Array.isArray(object(o.participants)?.data)?(object(o.participants)!.data as unknown[]).slice(0,10).filter(v=>{const id=object(v)?.id;return typeof id==="string"&&id!==root&&id!==accountId;}).map(person).filter(Boolean).join(", ").slice(0,160)||null:null):text(fb?o.message:o.caption,4000),date:timestamp(channel==="messages"?o.updated_time:fb?o.created_time:o.timestamp),count:channel==="comments"?(fb?countSummary(o.comments):nonnegative(o.comments_count)):null})));
+ if(!parents.some(o=>o.id===input.parentId))throw Error("Selected item is not in the connected profile inventory");
+ if(channel==="comments"){
+  const body=await get(input.parentId+"/comments",fb?{fields:"id,message,created_time,from",limit:"25"}:{fields:"id,text,timestamp,username",limit:"25"});
+  return pack(body,boundedList(body,25).filter(o=>validInboxObject(o.id)).map(o=>({id:o.id,body:text(fb?o.message:o.text,12000),date:timestamp(fb?o.created_time:o.timestamp),author:fb?person(o.from):text(o.username,160),direction:null})));
+ }
+ if(mode==="instagram_direct"){
+  const result=await get(input.parentId,{fields:"messages"});
+  const body=object(result.messages);
+  if(result.id!==input.parentId||!body||!Array.isArray(body.data))throw Error("Conversation messages unavailable");
+  const recent=body.data.slice(0,20).map(object).filter((o):o is Obj=>!!o&&validInboxObject(o.id));
+  const rows=[];
+  for(let i=0;i<recent.length;i+=10){
+   rows.push(...await Promise.all(recent.slice(i,i+10).map(async item=>{
+    const id=String(item.id);
+    const d=await get(id,{fields:"id,created_time,from,message"}).catch(()=>null);
+    const m=d?.id===id?d:null;
+    return {id,body:text(m?.message,12000),date:timestamp(m?.created_time??item.created_time),author:person(m?.from),direction:object(m?.from)?.id===accountId?"outgoing":null};
+   })));
+  }
+  return {...pack(body,rows),moreAvailable:body.data.length>20||Boolean(object(body.paging)?.next)};
+ }
+ const body=await get(input.parentId+"/messages",{fields:"id,message,created_time,from",limit:"20"});
+ return pack(body,boundedList(body,20).filter(o=>validInboxObject(o.id)).map(o=>({id:o.id,body:text(o.message,12000),date:timestamp(o.created_time),author:person(o.from),direction:object(o.from)?.id===(fb?root:accountId)?"outgoing":null})));
+}
