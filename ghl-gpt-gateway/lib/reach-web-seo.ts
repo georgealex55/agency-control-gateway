@@ -30,7 +30,7 @@ export function parsePageSpeed(raw:unknown,host:string){
 }
 export async function pageSpeed(host:string,strategy:"mobile"|"desktop",env:NodeJS.ProcessEnv,fetcher:typeof fetch){
  if(normalizeDomain(host)!==host||!["mobile","desktop"].includes(strategy))throw Error("Invalid audit");
- const q=new URLSearchParams({url:"https://"+host+"/",strategy,locale:"en",fields:"loadingExperience(id,origin_fallback,metrics),lighthouseResult(finalUrl,finalDisplayedUrl,fetchTime,runtimeError,categories(id,score),audits(id,title,score,scoreDisplayMode,displayValue,numericValue,numericUnit)" + ")"});
+ const q=new URLSearchParams({url:"https://"+host+"/",strategy,locale:"en",fields:"loadingExperience(id,origin_fallback,metrics),lighthouseResult(finalUrl,finalDisplayedUrl,fetchTime,runtimeError,categories(id,score),audits(id,title,score,scoreDisplayMode,displayValue,numericValue,numericUnit))"});
  for(const c of categories)q.append("category",c);
  if(env.REACH_PAGESPEED_API_KEY)q.set("key",env.REACH_PAGESPEED_API_KEY);
  try{return parsePageSpeed(await json(fetcher,"https://www.googleapis.com/pagespeedonline/v5/runPagespeed?"+q.toString(),{},40000),host);}
