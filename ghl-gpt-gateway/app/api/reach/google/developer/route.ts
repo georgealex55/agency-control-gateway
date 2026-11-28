@@ -1,0 +1,26 @@
+import {NextRequest} from "next/server";
+import {connectionGate,reply,workspaceFromQuery} from "@/lib/social-api";
+import {approvedGoogleWorkspace} from "@/lib/reach-google-store";
+import {GOOGLE_ORIGIN} from "@/lib/reach-google-contract";
+import {googleDeveloperStatus,saveGoogleDeveloper,enableGoogleDeveloper} from "@/lib/reach-google-developer-store";
+import {validateGoogleDeveloper,parseGoogleWebClient} from "@/lib/reach-google-developer-contract";
+export const runtime="nodejs";export const dynamic="force-dynamic";
+export async function GET(req:NextRequest){
+ const denied=connectionGate(req);if(denied)return denied;
+ const w=workspaceFromQuery(req);if(!approvedGoogleWorkspace(w)||req.nextUrl.origin!==GOOGLE_ORIGIN)return reply({error:"Approved canonical owner workspace required"},428);
+ return reply({workspaceId:w,status:await googleDeveloperStatus(w)});
+}
+export async function POST(req:NextRequest){
+ const denied=connectionGate(req,true);if(denied)return denied;
+ if(req.nextUrl.origin!==GOOGLE_ORIGIN)return reply({error:"Use the canonical REACH host"},428);
+ try{
+ const raw=await req.text();if(raw.length>40000)return reply({error:"Configuration too large"},413);
+ const b=JSON.parse(raw),w=b?.workspaceId;if(!approvedGoogleWorkspace(w)||b.confirm!==true)return reply({error:"Confirm owner configuration change"},400);
+ if(b.action==="save"){
+ let config;try{config=typeof b.webClientJson==="string"?parseGoogleWebClient(b.webClientJson):validateGoogleDeveloper(b.config);}catch{return reply({error:"Use a valid Google Web OAuth client, project ID and secret; imported JSON must include the exact callback."},400);}
+ return reply({workspaceId:w,status:await saveGoogleDeveloper(w,config)});
+ }
+ if(b.action==="enable"&&typeof b.enabled==="boolean")return reply({workspaceId:w,status:await enableGoogleDeveloper(w,b.enabled)});
+ return reply({error:"Unsupported configuration action"},400);
+ }catch{return reply({error:"Google configuration not changed. Check vault readiness, application identity, storage migration and master activation gate."},503);}
+}
