@@ -460,3 +460,29 @@ test("website GA4 reports use exact hostname and privacy thresholding, not infer
  assert.match(route,/connectionGate\(req\)/);assert.match(route,/WHERE workspace_id=\$1::uuid AND id=\$2::uuid/);assert.doesNotMatch(route,/export async function (POST|DELETE|PATCH)/);
  assert.match(ui,/report.hostname!==selected.hostname/);assert.match(ui,/not visits or demographics/);
 });
+
+const websiteUri="data:text/javascript;base64,"+Buffer.from(transpile(read("lib/reach-web-analytics.ts").replace('"./reach-infrastructure"',JSON.stringify(infraUri)))).toString("base64");
+const seo=await import("data:text/javascript;base64,"+Buffer.from(transpile(read("lib/reach-web-seo.ts").replace('"./reach-infrastructure"',JSON.stringify(infraUri)).replace('"./reach-web-analytics"',JSON.stringify(websiteUri)))).toString("base64"));
+test("SEO scan uses fixed Google endpoint and distinguishes missing scores and redirects",async()=>{
+ const fixture={lighthouseResult:{finalDisplayedUrl:"https://example.com/",categories:{seo:{score:0.92},performance:{score:0},accessibility:{score:null}},audits:{"document-title":{title:"Document title",score:1,scoreDisplayMode:"binary"},"meta-description":{title:"Meta description",score:0,scoreDisplayMode:"binary"},"unrelated":{title:"Ignored"}}},loadingExperience:{id:"https://example.com/",metrics:{LARGEST_CONTENTFUL_PAINT_MS:{percentile:2400,category:"FAST"}}}};
+ const fetcher=async(url,opts)=>{const u=new URL(url);assert.equal(u.origin,"https://www.googleapis.com");assert.equal(u.pathname,"/pagespeedonline/v5/runPagespeed");assert.equal(u.searchParams.get("url"),"https://example.com/");assert.equal(u.searchParams.get("strategy"),"mobile");assert.deepEqual(u.searchParams.getAll("category"),["performance","seo","accessibility","best-practices"]);assert.equal(opts.redirect,"error");return new Response(JSON.stringify(fixture));};
+ const result=await seo.websiteSeo("example.com",28,"mobile",{},fetcher);
+ assert.equal(result.technical.scores.find(x=>x.id==="seo").score,92);
+ assert.equal(result.technical.scores.find(x=>x.id==="performance").score,0);
+ assert.equal(result.technical.scores.find(x=>x.id==="accessibility").score,null);
+ assert.equal(result.technical.audits.length,2);assert.equal(result.technical.field[0].percentile,2400);
+ assert.equal(result.search.status,"not_configured");
+ assert.equal(seo.parsePageSpeed({...fixture,lighthouseResult:{...fixture.lighthouseResult,finalDisplayedUrl:"https://other.com/"}}, "example.com").status,"redirected");
+ assert.equal(seo.parsePageSpeed({...fixture,loadingExperience:{...fixture.loadingExperience,origin_fallback:true}},"example.com").field.length,0);
+ assert.equal((await seo.pageSpeed("example.com","mobile",{},async()=>new Response("",{status:429}))).status,"unavailable");
+ await assert.rejects(()=>seo.websiteSeo("127.0.0.1",28,"mobile",{},fetcher),/Invalid SEO scan/);
+});
+test("Search Console requires exact HTTPS property and preserves search metrics without fabricating data",async()=>{
+ const result=await seo.searchConsole("example.com",28,{REACH_WEB_SEO_PROPERTIES:JSON.stringify({"example.com":"sc-domain:example.com"}),REACH_WEB_SEO_SERVICE_ACCOUNT:"{}"},async()=>{throw Error("Must not call");});
+ assert.equal(result.status,"not_configured");
+ const request=seo.searchRequest("date",7,Date.parse("2026-11-27T12:00:00Z"));
+ assert.equal(request.startDate,"2026-11-18");assert.equal(request.endDate,"2026-11-24");assert.equal(request.dataState,"final");
+ const parsed=seo.parseSearch({rows:[{keys:["https://example.com/a"],clicks:0,impressions:30,ctr:0,position:5.2},{keys:["https://other.com/"],clicks:99}]},"page","example.com");
+ assert.equal(parsed.rows.length,1);assert.equal(parsed.rows[0].clicks,0);assert.equal(parsed.rows[0].position,5.2);
+ assert.equal(seo.parseSearch({rows:[]},"query","example.com").status,"no_rows");
+});
