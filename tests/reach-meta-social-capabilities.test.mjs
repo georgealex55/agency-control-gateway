@@ -390,3 +390,21 @@ test("inbox reads only verified profile conversations and comments, never arbitr
  assert.match(ui,/snapshot.accountId!==account.accountId/);assert.match(ui,/local session only/);
  assert.match(studio,/\["comments","Comments"\]/);
 });
+
+test("Instagram direct inbox reads only the most recent 20 message IDs from the selected conversation",async()=>{
+ const seen=[];
+ const fetcher=async(url,opts)=>{
+  const u=new URL(url);seen.push(u.pathname);assert.equal(u.origin,"https://graph.instagram.com");assert.equal(opts.method,"GET");
+  if(u.pathname.endsWith("/conversations"))return new Response(JSON.stringify({data:[{id:"ig_thread_1"}]}));
+  if(u.pathname.endsWith("/ig_thread_1")){assert.equal(u.searchParams.get("fields"),"messages");return new Response(JSON.stringify({id:"ig_thread_1",messages:{data:Array.from({length:23},(_,i)=>({id:"ig_message_"+i}))}}));}
+  const id=u.pathname.split("/").pop();
+  if(id==="ig_message_0")return new Response(JSON.stringify({id:"wrong_id",message:"wrong identity"}));
+  return new Response(JSON.stringify({id,message:"Synthetic text",from:{username:"test_customer",id:"111111111111"}}));
+ };
+ const input={mode:"instagram_direct",accountId,version:"v27.0",token:userToken,appSecret:secret,channel:"messages",grantedPermissions:["instagram_business_basic","instagram_business_manage_messages"],parentId:"ig_thread_1",fetcher};
+ const result=await analytics.fetchMetaInbox(input);
+ assert.equal(result.rows.length,20);assert.equal(result.moreAvailable,true);
+ assert.equal(result.rows[0].body,null);assert.equal(result.rows[1].body,"Synthetic text");
+ assert.equal(seen.length,22);assert.ok(!seen.some(x=>x.endsWith("/ig_message_20")));
+ await assert.rejects(()=>analytics.fetchMetaInbox({...input,parentId:"ig_other"}),/not in the connected profile/);
+});
