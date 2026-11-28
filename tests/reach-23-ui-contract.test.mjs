@@ -8,11 +8,11 @@ const app=read("ghl-gpt-gateway/app/page.tsx");
 const css=read("ghl-gpt-gateway/app/reach-ui-23.css");
 const layout=read("ghl-gpt-gateway/app/layout.tsx");
 const social=read("ghl-gpt-gateway/app/social-studio.tsx");
-const paths=["command","directory","workspaces","contacts","inbox","calls","pipelines","social","social-analytics","social-inbox","social-connections","social-calendar","social-comments","web-home","website","web-domains","web-analytics","web-seo","web-publishing","marketing-home","funnels","social-ads","search-ads","email-campaigns","campaign-reporting","reviews","automations","tasks","calendar","courses","ai","insights","reporting","neon","integrations","features","settings","migration"];
-test("feature directory includes all 38 unique capabilities and eight owner groups",()=>{
+const paths=["command","directory","workspaces","contacts","inbox","calls","pipelines","social","social-analytics","social-inbox","social-connections","social-calendar","social-comments","web-home","website","web-domains","web-analytics","web-seo","marketing-home","funnels","social-ads","search-ads","email-campaigns","campaign-reporting","reviews","automations","tasks","calendar","courses","ai","insights","reporting","neon","integrations","features","settings","migration"];
+test("feature directory includes all 37 unique capabilities and eight owner groups",()=>{
  const entries=[...catalog.matchAll(/\{id:"([^"]+)",title:/g)].map(x=>x[1]);
  assert.deepEqual(entries,paths);
- assert.equal(new Set(entries).size,38);
+ assert.equal(new Set(entries).size,37);
  for(const group of ["Workspace","Customers","Social Media","Web Design","Marketing","Operations","Intelligence","Platform"]){
   assert.match(catalog,new RegExp('group:"'+group+'"'));
  }
@@ -112,7 +112,7 @@ test("marketing contains campaign tools rather than ordinary website or social n
  const groups=Object.fromEntries(rows.map(x=>[x[1],x[2]]));
  for(const id of ["social","social-calendar","social-analytics","social-comments","social-inbox"])assert.equal(groups[id],"Social Media");
  assert.equal(groups["social-connections"],"Platform");assert.equal(groups.insights,"Operations");
- for(const id of ["website","web-domains","web-analytics","web-seo","web-publishing"])assert.equal(groups[id],"Web Design");
+ for(const id of ["website","web-domains","web-analytics","web-seo"])assert.equal(groups[id],"Web Design");
  for(const id of ["funnels","social-ads","search-ads","email-campaigns","campaign-reporting","reviews"])assert.equal(groups[id],"Marketing");
  assert.match(app,/view==="web"\|\|view==="marketing"/);
  assert.match(app,/session.authenticated\?<ReachBusinessArea/);
@@ -147,4 +147,12 @@ test("Web Design opens domain intelligence and registration remains in Connectio
  assert.match(panel,/Scan domain/);assert.match(panel,/Scan all domains/);assert.match(panel,/href="\/connections#domains"/);
  assert.match(route,/domains.find\(d=>d.id===id\)/);assert.match(route,/domainIntelligence\(selected.hostname,id\)/);
  assert.doesNotMatch(panel,/method:"(?:POST|PUT|PATCH|DELETE)"/);
+});
+
+test("SEO dashboard is under Web Design and hosting is nested in Website Builder",()=>{
+ const area=read("ghl-gpt-gateway/app/reach-business-area.tsx"),panel=read("ghl-gpt-gateway/app/website-seo-panel.tsx"),route=read("ghl-gpt-gateway/app/api/reach/website-seo/route.ts");
+ assert.match(area,/<WebsiteSeoPanel\/>/);assert.match(area,/initialTool==="web-publishing"\?"website"/);
+ assert.match(area,/selected.id==="website"&&<details[^>]*>/);assert.doesNotMatch(catalog,/id:"web-publishing"/);
+ assert.match(route,/connectionGate\(req\)/);assert.match(route,/WHERE workspace_id=\$1::uuid AND id=\$2::uuid/);assert.doesNotMatch(route,/export async function (POST|DELETE|PATCH)/);
+ assert.match(panel,/v.report.hostname!==selected.hostname/);assert.match(panel,/no score is inferred/);
 });
