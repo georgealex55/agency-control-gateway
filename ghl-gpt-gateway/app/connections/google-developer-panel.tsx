@@ -2,7 +2,7 @@
 import {useEffect,useRef,useState} from "react";
 import {GOOGLE_CALLBACK,GOOGLE_ORIGIN} from "@/lib/reach-google-contract";
 import {INTEGRATIONS} from "@/lib/reach-integration-catalog";
-import {parseGoogleWebClient} from "@/lib/reach-google-developer-contract";
+import {parseGoogleWebClient,validateGoogleDeveloper} from "@/lib/reach-google-developer-contract";
 type Status={callbackUrl:string;masterEnabled:boolean;vaultReady:boolean;storageReady:boolean;configured:boolean;enabled:boolean;projectId:string|null;clientIdMasked:string|null;source:string;updatedAt:string|null;replacementAllowed:boolean;replacementReason:string|null};
 async function call(url:string,init?:RequestInit){const r=await fetch(url,{credentials:"same-origin",cache:"no-store",signal:AbortSignal.timeout(25000),...init});const v=await r.json();if(!r.ok)throw Error(v.error||"Google setup unavailable");return v;}
 const apiLinks=[["Google Analytics Data API","analyticsdata.googleapis.com"],["Google Analytics Admin API (property discovery)","analyticsadmin.googleapis.com"],["Google Search Console API","searchconsole.googleapis.com"],["YouTube Data API v3","youtube.googleapis.com"],["YouTube Analytics API","youtubeanalytics.googleapis.com"],["Google Calendar API","calendar-json.googleapis.com"],["People API (Contacts)","people.googleapis.com"],["Tag Manager API","tagmanager.googleapis.com"],["PageSpeed Insights API (separate optional API key)","pagespeedonline.googleapis.com"]] as const;
@@ -10,18 +10,18 @@ const links=[["Create Google Cloud project","https://console.cloud.google.com/pr
 export default function GoogleDeveloperPanel({workspaceId,refreshKey,onChanged}:{workspaceId:string;refreshKey:number;onChanged:()=>void}){
  const [status,setStatus]=useState<Status|null>(null),[projectId,setProject]=useState(""),[clientId,setClient]=useState(""),[secret,setSecret]=useState(""),[json,setJson]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState(""),[message,setMessage]=useState("");
  const gen=useRef(0),file=useRef<HTMLInputElement>(null);
- const [refreshing,setRefreshing]=useState(false);
+ const [refreshing,setRefreshing]=useState(false),[retry,setRetry]=useState(0);
  const active=useRef(false);
  useEffect(()=>{setSecret("");setJson("");setProject("");setClient("");setStatus(null);setMessage("");setError("");},[workspaceId]);
  const ready=Boolean(projectId.trim()&&clientId.trim()&&secret.trim());
- useEffect(()=>{const run=++gen.current;setRefreshing(true);call("/api/reach/google/developer?"+new URLSearchParams({workspaceId})).then(v=>{if(v.workspaceId!==workspaceId||v.status?.callbackUrl!==GOOGLE_CALLBACK)throw Error("Invalid status");if(run===gen.current){setStatus(v.status);setProject(old=>old||v.status.projectId||"");}}).catch(e=>{if(run===gen.current){setStatus(null);setError(e.message);}}).finally(()=>{if(run===gen.current)setRefreshing(false);});return()=>{gen.current++;};},[workspaceId,refreshKey]);
+ useEffect(()=>{const run=++gen.current;setRefreshing(true);call("/api/reach/google/developer?"+new URLSearchParams({workspaceId})).then(v=>{if(v.workspaceId!==workspaceId||v.status?.callbackUrl!==GOOGLE_CALLBACK)throw Error("Invalid status");if(run===gen.current){setStatus(v.status);setProject(old=>old||v.status.projectId||"");}}).catch(e=>{if(run===gen.current){setStatus(null);setError(e.message);}}).finally(()=>{if(run===gen.current)setRefreshing(false);});return()=>{gen.current++;};},[workspaceId,refreshKey,retry]);
  async function loadFile(f:File|undefined){setError("");setMessage("");setJson("");setSecret("");setClient("");if(!f)return;if(f.size>32768){setError("Choose a Google Web OAuth JSON file under 32 KB.");return;}const run=gen.current;try{const raw=await f.text();const v=parseGoogleWebClient(raw);if(run!==gen.current)return;setProject(v.projectId);setClient(v.clientId);setSecret(v.clientSecret);setJson(raw);setMessage("Web OAuth JSON validated locally. Save to encrypt the credentials.");}catch(e){if(run===gen.current)setError(e instanceof Error?e.message:"Invalid OAuth JSON");}finally{if(file.current)file.current.value="";}}
  async function mutate(action:"save"|"enable"|"replace",enabled?:boolean,activateAfterSave=false){
  if(active.current||busy||refreshing||!status?.storageReady)return;active.current=true;const run=gen.current;setBusy(true);setError("");setMessage("");
  const request=async(payload:Record<string,unknown>)=>{const v=await call("/api/reach/google/developer",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({workspaceId,confirm:true,...payload})});if(v.workspaceId!==workspaceId||v.status?.callbackUrl!==GOOGLE_CALLBACK||!v.status.storageReady||v.status.source!=="vault"||!v.status.configured)throw Error("The saved Google configuration could not be verified. Your entered credentials have been retained; retry or refresh status.");return v.status as Status;};
  let saved=false;
  try{
- const credentials=json?{webClientJson:json}:{config:{projectId,clientId,clientSecret:secret}};
+ const credentials=action==="enable"?{}:json?{webClientJson:json}:{config:validateGoogleDeveloper({projectId,clientId,clientSecret:secret})};
  const next=await request(action==="replace"?{action,...credentials,expectedUpdatedAt:status.updatedAt}:action==="save"?{action,...credentials}:{action,enabled});
  if(run!==gen.current)return;
  setStatus(next);setProject(next.projectId||"");
@@ -64,6 +64,6 @@ export default function GoogleDeveloperPanel({workspaceId,refreshKey,onChanged}:
  <details><summary>Google API setup — all services</summary><p>Enable APIs in your existing Google Cloud project. This checklist does not verify whether an API is enabled; use each service card to check access.</p><div className="reach-provider-actions"><a className="reach-conn-button reach-provider-link" href="https://console.cloud.google.com/apis/library" target="_blank" rel="noopener noreferrer">Open API library ↗</a></div><h4>APIs for current connection features</h4><ul>{apiLinks.map(([name,id])=><li key={id}><a href={"https://console.cloud.google.com/apis/library/"+id} target="_blank" rel="noopener noreferrer">{name} ↗</a></li>)}</ul><details><summary>Future services — setup guides only</summary>{INTEGRATIONS.filter(i=>i.group==="Google"&&["business_profile","google_ads","merchant","gmail","drive","maps"].includes(i.id)).map(i=><p key={i.id}><strong>{i.name}:</strong> {i.apis.join(" · ")} — <a href={i.setupUrl} target="_blank" rel="noopener noreferrer">Open setup ↗</a></p>)}</details></details>
  <details><summary>Advanced Google Cloud settings</summary><div className="reach-provider-actions">{links.map(([label,url])=><a key={url} className="reach-conn-button reach-provider-link" href={url} target="_blank" rel="noopener noreferrer">{label} ↗</a>)}</div></details>
  <p><strong>Step 3 — Connect a service</strong> using the Google service cards below. Each service requires its own Google consent and resource selection.</p>
- {error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}
+ {error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}<button type="button" disabled={busy||refreshing} onClick={()=>{setError("");setRetry(n=>n+1);}}>Refresh Google setup status</button>
  <small>Credentials are encrypted on the server and never displayed after saving. Google consent is still required for each service.</small></section>;
 }
