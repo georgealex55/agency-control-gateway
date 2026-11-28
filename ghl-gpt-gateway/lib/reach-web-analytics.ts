@@ -61,13 +61,13 @@ export async function accessToken(env:NodeJS.ProcessEnv,fetcher:typeof fetch,sco
  if(typeof token.access_token!=="string"||token.access_token.length>8192||!token.access_token)throw Error("Analytics token unavailable");
  return token.access_token;
 }
-export async function websiteAnalytics(host:string,days:7|28|90,env:NodeJS.ProcessEnv=process.env,fetcher:typeof fetch=fetch){
+export async function websiteAnalytics(host:string,days:7|28|90,env:NodeJS.ProcessEnv=process.env,fetcher:typeof fetch=fetch,oauth?:{token:string;resourceId:string}|null){
  if(normalizeDomain(host)!==host||![7,28,90].includes(days))throw Error("Invalid report");
- const ranking=publicRank(host,fetcher),property=propertyFor(host,env);
+ const ranking=publicRank(host,fetcher),property=oauth&&/^properties\/\d{1,20}$/.test(oauth.resourceId)?oauth.resourceId.slice(11):propertyFor(host,env);
  let measuredStatus="not_configured",reports:ReturnType<typeof parseGaReport>[]=[];
- if(property&&env.REACH_WEB_ANALYTICS_SERVICE_ACCOUNT){
+ if(property&&(oauth||env.REACH_WEB_ANALYTICS_SERVICE_ACCOUNT)){
  try{
- const token=await accessToken(env,fetcher);
+ const token=oauth?.token||await accessToken(env,fetcher);
  const run=async(spec:Spec)=>{try{return parseGaReport(await json(fetcher,"https://analyticsdata.googleapis.com/v1beta/properties/"+property+":runReport",{method:"POST",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify(gaRequest(host,days,spec))}),spec);}catch{return {id:spec.id,status:"unavailable",metrics:[...spec.metrics],rows:[],rowCount:null,partial:true};}};
  // Bounded concurrency and fixed reports; no arbitrary provider queries.
  for(let i=0;i<REPORTS.length;i+=5)reports.push(...await Promise.all(REPORTS.slice(i,i+5).map(run)));

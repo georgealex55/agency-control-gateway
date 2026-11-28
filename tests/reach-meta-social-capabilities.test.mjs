@@ -516,3 +516,45 @@ test("Shopify connection verification requires exact store, installed read scope
  assert.equal((await verifyProvider.verifyIntegration("shopify",null,env,fetcher(["read_products","read_inventory"],"wrong.myshopify.com"))).status,"unavailable");
  assert.equal((await verifyProvider.verifyIntegration("shopify",null,{},async()=>{throw Error("Must not call");})).status,"setup_required");
 });
+
+const googleContractUri="data:text/javascript;base64,"+Buffer.from(transpile(read("lib/reach-google-contract.ts"))).toString("base64");
+const googleContract=await import(googleContractUri);
+const googleOAuth=await import("data:text/javascript;base64,"+Buffer.from(transpile(read("lib/reach-google-oauth.ts").replace('"./reach-google-contract"',JSON.stringify(googleContractUri)).replace('"./reach-infrastructure"',JSON.stringify(infraUri)))).toString("base64"));
+test("Google incremental consent uses PKCE, offline read-only scopes and canonical callback",()=>{
+ const u=new URL(googleContract.authorizeGoogle("synthetic.apps.googleusercontent.com","ga4","state","challenge"));
+ assert.equal(u.origin,"https://accounts.google.com");assert.equal(u.searchParams.get("redirect_uri"),googleContract.GOOGLE_CALLBACK);
+ assert.equal(u.searchParams.get("include_granted_scopes"),"true");assert.equal(u.searchParams.get("code_challenge_method"),"S256");assert.equal(u.searchParams.get("access_type"),"offline");
+ const scopes=u.searchParams.get("scope");assert.ok(googleContract.googleGrant(scopes,"ga4"));assert.equal(googleContract.googleGrant(scopes,"search_console"),null);
+ assert.equal(googleContract.googleGrant(scopes+" https://www.googleapis.com/auth/analytics.edit","ga4"),null);
+ const env={REACH_GOOGLE_TOKEN_KEY:Buffer.alloc(32,7).toString("base64url")};
+ const sealed=googleOAuth.sealGoogle("synthetic-refresh","workspace:pending:123",env);
+ assert.doesNotMatch(sealed,/synthetic-refresh/);assert.equal(googleOAuth.openGoogle(sealed,"workspace:pending:123",env),"synthetic-refresh");
+ assert.throws(()=>googleOAuth.openGoogle(sealed,"another-workspace:pending:123",env));
+ assert.throws(()=>googleOAuth.openGoogle(sealed,"workspace:connection:123",env));
+});
+test("Google exchange and property discovery reject unverified identity and unrelated sites",async()=>{
+ const scopes=[...googleContract.IDENTITY_SCOPES,...googleContract.groupFor("ga4").scopes].join(" ");
+ const env={REACH_GOOGLE_CLIENT_ID:"synthetic.apps.googleusercontent.com",REACH_GOOGLE_CLIENT_SECRET:"synthetic-secret"};
+ const mock=async(url,opts)=>{const u=new URL(url);assert.equal(opts.redirect,"error");
+ if(u.hostname==="oauth2.googleapis.com"){assert.equal(opts.body.get("code_verifier"),"a".repeat(43));return new Response(JSON.stringify({access_token:"synthetic-access",refresh_token:"synthetic-refresh",scope:scopes,token_type:"Bearer"}));}
+ if(u.hostname==="openidconnect.googleapis.com")return new Response(JSON.stringify({sub:"123456",email:"owner@example.com",email_verified:true}));
+ if(u.pathname==="/v1beta/accountSummaries")return new Response(JSON.stringify({accountSummaries:[{propertySummaries:[{property:"properties/123",displayName:"Matched"},{property:"properties/456",displayName:"Other"}]}]}));
+ return new Response(JSON.stringify({dataStreams:[{webStreamData:{defaultUri:u.pathname.includes("/123/")?"https://example.com/":"https://other.com/"}}]}));
+ };
+ const grant=await googleOAuth.exchangeGoogle("synthetic-code","a".repeat(43),"ga4",env,mock);
+ assert.equal(grant.subject,"123456");assert.equal(grant.refresh,"synthetic-refresh");
+ assert.deepEqual(await googleOAuth.discoverGoogle("ga4",grant.access,grant.subject,"example.com",mock),[{id:"properties/123",name:"Matched"}]);
+ await assert.rejects(()=>googleOAuth.exchangeGoogle("synthetic-code","a".repeat(43),"search_console",env,mock),/grant/);
+ const sites=await googleOAuth.discoverGoogle("search_console","token","123456","example.com",async()=>new Response(JSON.stringify({siteEntry:[{siteUrl:"https://example.com/",permissionLevel:"siteFullUser"},{siteUrl:"sc-domain:example.com",permissionLevel:"siteOwner"},{siteUrl:"https://other.com/",permissionLevel:"siteOwner"}]})));
+ assert.deepEqual(sites,[{id:"https://example.com/",name:"https://example.com/"}]);
+});
+test("Google authorization keeps one-time flows, workspace checks and explicit resource selection",()=>{
+ const store=read("lib/reach-google-store.ts"),route=read("app/api/reach/google/route.ts"),callback=read("app/api/reach/google/callback/route.ts"),migration=read("migrations/003-google-oauth.sql");
+ assert.match(route,/connectionGate\(req,true\)/);assert.match(route,/b.confirm!==true/);assert.match(callback,/consumeGoogleFlow/);
+ assert.match(store,/DELETE FROM public.reach_google_flows WHERE workspace_id=\$1::uuid AND state_hash=\$2 AND browser_hash=\$3/);
+ assert.match(store,/candidates.find\(c=>c.id===resourceId\)/);assert.match(store,/WITH claimed AS \(DELETE FROM public.reach_google_pending/);
+ assert.equal((migration.match(/FORCE ROW LEVEL SECURITY/g)||[]).length,3);
+ assert.match(migration,/reach_google_one_site_mapping/);
+ assert.match(read("app/api/reach/website-analytics/route.ts"),/googleSiteAccess/);
+ assert.match(read("app/api/reach/website-seo/route.ts"),/googleSiteAccess/);
+});
