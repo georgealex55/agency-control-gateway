@@ -356,7 +356,7 @@ export async function scanMetaExtras(input:{mode:MetaLoginMode;accountId:string;
 }
 
 export type InboxChannel="messages"|"comments";
-export function validInboxObject(v:unknown):v is string{return typeof v==="string"&&/^[A-Za-z0-9_-]{1,256}$/.test(v);}
+export function validInboxObject(v:unknown):v is string{return typeof v==="string"&&/^[A-Za-z0-9_-]{1,510}={0,2}$/.test(v);}
 export function inboxReadScopes(mode:MetaLoginMode,channel:InboxChannel):readonly string[]{
  if(mode==="facebook")return channel==="messages"?FACEBOOK_INBOX_READ_SCOPES:["pages_show_list","pages_read_engagement"];
  if(mode==="instagram_direct")return ["instagram_business_basic",channel==="messages"?"instagram_business_manage_messages":"instagram_business_manage_comments"];
@@ -391,9 +391,20 @@ export async function fetchMetaInbox(input:InboxInput){
   return pack(body,boundedList(body,25).filter(o=>validInboxObject(o.id)).map(o=>({id:o.id,body:text(fb?o.message:o.text,12000),date:timestamp(fb?o.created_time:o.timestamp),author:fb?person(o.from):text(o.username,160),direction:null})));
  }
  if(mode==="instagram_direct"){
-  const result=await get(input.parentId,{fields:"messages.limit(20){id,created_time,from,message}"});
-  const body=object(result.messages);if(!body)throw Error("Conversation messages unavailable");
-  return pack(body,boundedList(body,20).filter(o=>validInboxObject(o.id)).map(o=>({id:o.id,body:text(o.message,12000),date:timestamp(o.created_time),author:person(o.from),direction:object(o.from)?.id===accountId?"outgoing":null})));
+  const result=await get(input.parentId,{fields:"messages"});
+  const body=object(result.messages);
+  if(result.id!==input.parentId||!body||!Array.isArray(body.data))throw Error("Conversation messages unavailable");
+  const recent=body.data.slice(0,20).map(object).filter((o):o is Obj=>!!o&&validInboxObject(o.id));
+  const rows=[];
+  for(let i=0;i<recent.length;i+=10){
+   rows.push(...await Promise.all(recent.slice(i,i+10).map(async item=>{
+    const id=String(item.id);
+    const d=await get(id,{fields:"id,created_time,from,message"}).catch(()=>null);
+    const m=d?.id===id?d:null;
+    return {id,body:text(m?.message,12000),date:timestamp(m?.created_time??item.created_time),author:person(m?.from),direction:object(m?.from)?.id===accountId?"outgoing":null};
+   })));
+  }
+  return {...pack(body,rows),moreAvailable:body.data.length>20||Boolean(object(body.paging)?.next)};
  }
  const body=await get(input.parentId+"/messages",{fields:"id,message,created_time,from",limit:"20"});
  return pack(body,boundedList(body,20).filter(o=>validInboxObject(o.id)).map(o=>({id:o.id,body:text(o.message,12000),date:timestamp(o.created_time),author:person(o.from),direction:object(o.from)?.id===(fb?root:accountId)?"outgoing":null})));
