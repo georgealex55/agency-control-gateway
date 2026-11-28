@@ -519,7 +519,9 @@ test("Shopify connection verification requires exact store, installed read scope
 
 const googleContractUri="data:text/javascript;base64,"+Buffer.from(transpile(read("lib/reach-google-contract.ts"))).toString("base64");
 const googleContract=await import(googleContractUri);
-const googleOAuth=await import("data:text/javascript;base64,"+Buffer.from(transpile(read("lib/reach-google-oauth.ts").replace('"./reach-google-contract"',JSON.stringify(googleContractUri)).replace('"./reach-infrastructure"',JSON.stringify(infraUri)))).toString("base64"));
+const googleDiagnosticsUri="data:text/javascript;base64,"+Buffer.from(transpile(read("lib/reach-google-diagnostics.ts"))).toString("base64");
+const googleDiagnostics=await import(googleDiagnosticsUri);
+const googleOAuth=await import("data:text/javascript;base64,"+Buffer.from(transpile(read("lib/reach-google-oauth.ts").replace('"./reach-google-diagnostics"',JSON.stringify(googleDiagnosticsUri)).replace('"./reach-google-contract"',JSON.stringify(googleContractUri)).replace('"./reach-infrastructure"',JSON.stringify(infraUri)))).toString("base64"));
 test("Google incremental consent uses PKCE, offline read-only scopes and canonical callback",()=>{
  const u=new URL(googleContract.authorizeGoogle("synthetic.apps.googleusercontent.com","ga4","state","challenge"));
  assert.equal(u.origin,"https://accounts.google.com");assert.equal(u.searchParams.get("redirect_uri"),googleContract.GOOGLE_CALLBACK);
@@ -580,4 +582,49 @@ test("developer app stays server encrypted, owner scoped, activation gated and p
  assert.match(googleStore,/g.scopes.every\(scope=>r.scopes.includes\(scope\)\)/);assert.match(googleStore,/await refreshGoogle\(refresh,group,r.subject,env\)/);
  assert.match(read("app/api/reach/google/callback/route.ts"),/resolvedGoogleEnv\(w\)/);
  assert.match(read("app/api/reach/google/route.ts"),/b.action==="reuse"/);
+});
+
+test("Google diagnostics accept only canonical routed host and reject hostile or conflicting headers",()=>{
+ const host="agency-control-gateway.vercel.app",origin="https://"+host,internal="https://internal-preview.vercel.app";
+ assert.equal(googleDiagnostics.canonicalGoogleRequest(origin,host,host,"https","production"),true);
+ assert.equal(googleDiagnostics.canonicalGoogleRequest(internal,host,host,"https","production"),true);
+ assert.equal(googleDiagnostics.canonicalGoogleRequest(internal,host,host,"http","production"),false);
+ assert.equal(googleDiagnostics.canonicalGoogleRequest(origin,host,"evil.example","https","production"),false);
+ assert.equal(googleDiagnostics.canonicalGoogleRequest(origin,"evil.example",host,"https","production"),false);
+ assert.equal(googleDiagnostics.canonicalGoogleRequest(origin,null,null,"https","production"),false);
+ assert.equal(googleDiagnostics.canonicalGoogleRequest(origin,host,host,"https","preview"),false);
+});
+test("Google callback distinguishes expired, mismatched and unknown flow without exposing hashes",()=>{
+ const valid={expired:false,browserMatches:true,clientMatches:true};
+ assert.equal(googleDiagnostics.flowFailure(null),"state_unknown");
+ assert.equal(googleDiagnostics.flowFailure({...valid,expired:true}),"state_expired");
+ assert.equal(googleDiagnostics.flowFailure({...valid,browserMatches:false}),"cookie_mismatch");
+ assert.equal(googleDiagnostics.flowFailure({...valid,clientMatches:false}),"client_changed");
+ assert.equal(googleDiagnostics.validGoogleNonce("a".repeat(43)),true);
+ assert.equal(googleDiagnostics.validGoogleNonce("a".repeat(44)),false);
+ assert.equal(googleDiagnostics.diagnosticCode("private-token"),null);
+ assert.equal(googleDiagnostics.safeDiagnostic(Error("private-token"),"token_unavailable"),"token_unavailable");
+ const route=read("app/api/reach/google/route.ts"),callback=read("app/api/reach/google/callback/route.ts"),store=read("lib/reach-google-store.ts");
+ assert.ok(route.includes('response.cookies.set("reach_google_browser_"+digest(state)'));
+ assert.ok(callback.includes('const name="reach_google_browser_"+digest(state)'));
+ assert.ok(route.includes("maxAge:GOOGLE_FLOW_SECONDS"));
+ assert.ok(store.includes("clientHash(env),GOOGLE_FLOW_SECONDS"));
+ assert.ok(callback.includes('console.info("reach_google_callback",code)'));
+ assert.ok(callback.includes('if(cookieName)r.cookies.set(cookieName'));
+ assert.ok(callback.includes('req.nextUrl.searchParams.getAll("state").length!==1'));
+ assert.ok(callback.includes('req.nextUrl.searchParams.getAll("code").length!==1'));
+ assert.ok(callback.includes('safeDiagnostic(e,stage)'));
+ assert.ok(callback.indexOf("await consumeGoogleFlow")<callback.indexOf("await exchangeGoogle"));
+ assert.notEqual(googleOAuth.digest("a".repeat(43)),googleOAuth.digest("b".repeat(43)));
+});
+test("Google token response diagnostic codes never expose raw provider messages or secrets",async()=>{
+ const env={REACH_GOOGLE_CLIENT_ID:"synthetic.apps.googleusercontent.com",REACH_GOOGLE_CLIENT_SECRET:"synthetic-secret"};
+ for(const code of ["invalid_client","invalid_grant","redirect_uri_mismatch","invalid_scope","unauthorized_client","arbitrary-provider-text"]){
+ const want=code==="arbitrary-provider-text"?"token_unavailable":code;
+ await assert.rejects(()=>googleOAuth.exchangeGoogle("synthetic-code","a".repeat(43),"ga4",env,async()=>new Response(JSON.stringify({error:code,error_description:"sensitive-provider-details"}),{status:400})),e=>e.code===want&&!e.message.includes("sensitive-provider-details"));
+ }
+ const scopes=[...googleContract.IDENTITY_SCOPES,...googleContract.groupFor("ga4").scopes].join(" ");
+ await assert.rejects(()=>googleOAuth.exchangeGoogle("synthetic-code","a".repeat(43),"ga4",env,async()=>new Response(JSON.stringify({scope:scopes,access_token:"synthetic-access",token_type:"Bearer"}))),e=>e.code==="offline_missing");
+ assert.equal(googleDiagnostics.providerDiagnostic("access_denied"),"consent_denied");
+ assert.equal(googleDiagnostics.providerDiagnostic("admin_policy_enforced"),"access_blocked");
 });
