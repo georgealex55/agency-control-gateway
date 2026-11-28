@@ -3,6 +3,7 @@ import {connectionGate,reply,workspaceFromQuery} from "@/lib/social-api";
 import {ownerSocialStorageConfigured,socialMetaWorkspaceDb} from "@/lib/reach-social-owner-db";
 import {validId} from "@/lib/social-contract";
 import {websiteSeo} from "@/lib/reach-web-seo";
+import {googleSiteAccess} from "@/lib/reach-google-store";
 export const runtime="nodejs";export const dynamic="force-dynamic";export const maxDuration=60;
 export async function GET(req:NextRequest){
  const denied=connectionGate(req);if(denied)return denied;
@@ -12,6 +13,7 @@ export async function GET(req:NextRequest){
  try{
  const db=await socialMetaWorkspaceDb(workspaceId),rows=await db.query("SELECT hostname FROM public.agency_platform_domains WHERE workspace_id=$1::uuid AND id=$2::uuid LIMIT 1",[workspaceId,domainId]);
  if(!Array.isArray(rows)||rows.length!==1||typeof rows[0].hostname!=="string")return reply({error:"Domain not registered in this workspace"},404);
- return reply({workspaceId,domainId,report:await websiteSeo(rows[0].hostname,days,strategy),readOnly:true});
+ const oauth=await googleSiteAccess(workspaceId,rows[0].hostname,"search_console").catch(()=>null);
+ return reply({workspaceId,domainId,report:await websiteSeo(rows[0].hostname,days,strategy,process.env,fetch,oauth),readOnly:true});
  }catch{return reply({error:"SEO report unavailable. No site, DNS or hosting changes made."},503);}
 }
