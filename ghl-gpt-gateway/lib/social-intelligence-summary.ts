@@ -4,7 +4,7 @@ export function observed(values:(number|null|undefined)[]){
  const valid=values.filter((n):n is number=>typeof n==="number"&&Number.isFinite(n)&&n>=0);
  return {value:valid.length?valid.reduce((a,b)=>a+b,0):null,known:valid.length,total:values.length};
 }
-export function profilePerformance(p:ProfileScan){
+export function profilePerformance<T extends ProfileScan>(p:T){
  const data=p.snapshot,posts=data?.recentPosts||[];
  const complete=posts.filter(x=>x.likes!==null&&x.comments!==null);
  const reactions=observed(posts.map(x=>x.likes)),comments=observed(posts.map(x=>x.comments)),shares=observed(posts.map(x=>x.shares));
