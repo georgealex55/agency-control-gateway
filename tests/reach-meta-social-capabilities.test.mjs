@@ -356,7 +356,7 @@ test("profile-first analytics has independent scan scopes and honest health stat
  const ui=read("app/meta-intelligence-panel.tsx"),studio=read("app/social-studio.tsx");
  assert.match(ui,/scanAll\("profile"\)/);assert.match(ui,/scanAll\("all"\)/);assert.match(ui,/scope==="all"\|\|a.id===account\?\.id/);
  assert.match(ui,/old.filter\(s=>!selected.some/);assert.match(ui,/scanned&&<section className=\{styles.health\}/);
- assert.match(studio,/\(!productionSocial&&tab==="metrics"\)\|\|tab==="content"/);
+ assert.match(studio,/!productionSocial&&tab==="metrics"/);
 });
 
 test("inbox reads only verified profile conversations and comments, never arbitrary object IDs or writes",async()=>{
