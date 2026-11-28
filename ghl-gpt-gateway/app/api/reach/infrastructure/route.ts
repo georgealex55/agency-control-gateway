@@ -3,7 +3,7 @@ import {randomUUID} from "node:crypto";
 import {connectionGate,reply,workspaceFromQuery} from "@/lib/social-api";
 import {ownerSocialStorageConfigured,socialMetaWorkspaceDb} from "@/lib/reach-social-owner-db";
 import {validId} from "@/lib/social-contract";
-import {normalizeDomain,safeCount,domainDns} from "@/lib/reach-infrastructure";
+import {normalizeDomain,safeCount,domainDns,domainIntelligence} from "@/lib/reach-infrastructure";
 export const runtime="nodejs";export const dynamic="force-dynamic";export const maxDuration=30;
 const allowed=(workspace:string|null):workspace is string=>Boolean(workspace&&ownerSocialStorageConfigured()&&workspace===process.env.REACH_SOCIAL_OWNER_WORKSPACE_ID);
 type Domain={id:string;hostname:string;created_at:string};
@@ -23,7 +23,7 @@ export async function GET(req:NextRequest){
    if(id!==null){
     if(!validId(id))return reply({error:"Invalid domain"},400);
     const selected=domains.find(d=>d.id===id);if(!selected)return reply({error:"Domain not registered in this workspace"},404);
-    return reply({workspaceId:workspace,domainId:id,hostname:selected.hostname,dns:await domainDns(selected.hostname,id),readOnly:true});
+    return reply({workspaceId:workspace,domainId:id,hostname:selected.hostname,dns:await (req.nextUrl.searchParams.get("detail")==="1"?domainIntelligence(selected.hostname,id):domainDns(selected.hostname,id)),readOnly:true});
    }
    return reply({workspaceId:workspace,domains:domains.map(d=>({id:d.id,hostname:d.hostname,createdAt:d.created_at})),readOnly:true});
   }
