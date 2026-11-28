@@ -121,7 +121,7 @@ test("marketing contains campaign tools rather than ordinary website or social n
 
 test("production social calendar is a real month view, not a redirect to posting",()=>{
  const calendar=read("ghl-gpt-gateway/app/meta-social-calendar.tsx");
- assert.match(social,/productionSocial\?\[\["automations","Create & Schedule"\],\["calendar","Calendar"\],\["content","Published Content"\],\["metrics","Analytics"\],\["inbox","Inbox"\],\["business_tools","Business tools"\]\]/);
+ assert.match(social,/productionSocial\?\[\["automations","Create & Schedule"\],\["calendar","Calendar"\],\["content","Published Content"\],\["metrics","Analytics"\],\["inbox","Inbox"\],\["comments","Comments"\],\["business_tools","Business tools"\]\]/);
  assert.match(social,/mode=\{tab==="calendar"\?"calendar"/);
  assert.match(calendar,/Array\.from\(\{length:42\}/);
  assert.match(calendar,/a\.scheduledAt/);
