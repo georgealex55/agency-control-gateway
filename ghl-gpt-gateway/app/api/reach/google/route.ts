@@ -11,10 +11,10 @@ function canonical(req:NextRequest){return canonicalGoogleRequest(req.nextUrl.or
 export async function GET(req:NextRequest){
  const denied=connectionGate(req);if(denied)return denied;
  const w=workspaceFromQuery(req);if(!approvedGoogleWorkspace(w))return reply({error:"Approved owner workspace required"},428);
- const env=await resolvedGoogleEnv(w);
- const configured=googleConfigured(env),isCanonical=canonical(req);
- if(!isCanonical)return reply({workspaceId:w,configured,ready:false,callbackUrl:GOOGLE_CALLBACK,pending:[],connections:[],readOnly:true});
+ if(!canonical(req))return reply({error:"Use the canonical REACH host"},428);
+ let configured=false;
  try{
+ const env=await resolvedGoogleEnv(w);configured=googleConfigured(env);
  const data=await googleInventory(w,env);
  return reply({workspaceId:w,configured,ready:configured,callbackUrl:GOOGLE_CALLBACK,...data,readOnly:true});
  }catch{return reply({workspaceId:w,configured,ready:false,callbackUrl:GOOGLE_CALLBACK,pending:[],connections:[],readOnly:true,storageUnavailable:true});}
