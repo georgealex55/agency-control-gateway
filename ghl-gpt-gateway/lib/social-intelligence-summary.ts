@@ -56,3 +56,16 @@ export function priorityNotes(profiles:ProfileScan[],now=Date.now()){
   return notes;
  });
 }
+
+export type HealthDimension={name:string;status:"observed"|"attention"|"unknown";detail:string};
+export function profileHealth(p:ProfileScan,unread:number|null,now=Date.now()):HealthDimension[]{
+ const m=profilePerformance(p),d=p.snapshot;
+ const dim=(name:string,status:HealthDimension["status"],detail:string):HealthDimension=>({name,status,detail});
+ return [
+  dim("Exposure",m.views===null||m.reach===null?"unknown":"observed",m.views===null||m.reach===null?"Reach or views not returned.":"Reach and views reported; no benchmark applied."),
+  dim("Engagement",m.completePosts<3?"unknown":m.avg===0?"attention":"observed",m.completePosts<3?"Need at least 3 complete posts.":m.avg===0?"No observed likes/reactions or comments.":"Positive observed engagement; not a quality grade."),
+  dim("Publishing",m.last===null?"unknown":now-m.last>14*86400000?"attention":"observed",m.last===null?"No dated post returned.":now-m.last>14*86400000?"Latest loaded post is over 14 days old.":"A loaded post is dated within 14 days."),
+  dim("Customer activity",unread===null?"unknown":unread>0?"attention":"observed",unread===null?"Unread count not available.":unread>0?"Unread messages need review.":"Provider reports zero unread messages."),
+  dim("Data coverage",!d?"unknown":d.partial||m.completePosts<m.posts||!m.posts?"attention":"observed",!d?"Profile report unavailable.":d.partial||m.completePosts<m.posts||!m.posts?"Some observations are missing or no posts returned.":"Loaded report has no flagged partial data.")
+ ];
+}
