@@ -380,10 +380,11 @@ export async function fetchMetaInbox(input:InboxInput){
  const pack=(body:Obj,rows:unknown[])=>({source:"meta_graph_api" as const,accountId,channel,rows,moreAvailable:Boolean(object(body.paging)?.next),checkedAt:new Date().toISOString(),readOnly:true as const});
  const person=(v:unknown)=>{const o=object(v);return text(o?.name,160)??text(o?.username,160);};
  const listPath=channel==="messages"?root+"/conversations":accountId+(fb?"/published_posts":"/media");
- const params=channel==="messages"?{fields:"id,updated_time",platform:fb?"MESSENGER":"INSTAGRAM",limit:"25"}:fb?{fields:"id,message,created_time,comments.summary(true)",limit:"25"}:{fields:"id,caption,timestamp,comments_count",limit:"25"};
- const inventory=await get(listPath,params);
+ const params:Record<string,string>=channel==="messages"?{fields:"id,updated_time",platform:fb?"MESSENGER":"INSTAGRAM",limit:"25"}:fb?{fields:"id,message,created_time,comments.summary(true)",limit:"25"}:{fields:"id,caption,timestamp,comments_count",limit:"25"};
+ let inventory:Obj;
+ try{inventory=await get(listPath,channel==="messages"?{...params,fields:"id,updated_time,participants"}:params);}catch(e){if(channel!=="messages")throw e;inventory=await get(listPath,params);}
  const parents=boundedList(inventory,25).filter(o=>channel==="messages"?validInboxObject(o.id):postIdValid(o.id));
- if(!input.parentId)return pack(inventory,parents.map(o=>({id:o.id,title:channel==="messages"?null:text(fb?o.message:o.caption,4000),date:timestamp(channel==="messages"?o.updated_time:fb?o.created_time:o.timestamp),count:channel==="comments"?(fb?countSummary(o.comments):nonnegative(o.comments_count)):null})));
+ if(!input.parentId)return pack(inventory,parents.map(o=>({id:o.id,title:channel==="messages"?(Array.isArray(object(o.participants)?.data)?(object(o.participants)!.data as unknown[]).slice(0,10).filter(v=>{const id=object(v)?.id;return typeof id==="string"&&id!==root&&id!==accountId;}).map(person).filter(Boolean).join(", ").slice(0,160)||null:null):text(fb?o.message:o.caption,4000),date:timestamp(channel==="messages"?o.updated_time:fb?o.created_time:o.timestamp),count:channel==="comments"?(fb?countSummary(o.comments):nonnegative(o.comments_count)):null})));
  if(!parents.some(o=>o.id===input.parentId))throw Error("Selected item is not in the connected profile inventory");
  if(channel==="comments"){
   const body=await get(input.parentId+"/comments",fb?{fields:"id,message,created_time,from",limit:"25"}:{fields:"id,text,timestamp,username",limit:"25"});
