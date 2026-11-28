@@ -31,7 +31,7 @@ ALTER TABLE public.reach_google_connections FORCE ROW LEVEL SECURITY;
 CREATE POLICY reach_google_flow_workspace ON public.reach_google_flows TO reach_app_runtime USING (workspace_id::text=current_setting('reach.workspace_id',true)) WITH CHECK (workspace_id::text=current_setting('reach.workspace_id',true));
 CREATE POLICY reach_google_pending_workspace ON public.reach_google_pending TO reach_app_runtime USING (workspace_id::text=current_setting('reach.workspace_id',true)) WITH CHECK (workspace_id::text=current_setting('reach.workspace_id',true));
 CREATE POLICY reach_google_connection_workspace ON public.reach_google_connections TO reach_app_runtime USING (workspace_id::text=current_setting('reach.workspace_id',true)) WITH CHECK (workspace_id::text=current_setting('reach.workspace_id',true));
-REVOKE ALL ON public.reach_google_flows,public.reach_google_pending,public.reach_google_connections FROM PUBLIC;
+REVOKE ALL ON public.reach_google_flows,public.reach_google_pending,public.reach_google_connections FROM PUBLIC, reach_app_runtime;
 GRANT SELECT,INSERT,DELETE ON public.reach_google_flows,public.reach_google_pending TO reach_app_runtime;
 GRANT SELECT,INSERT,UPDATE,DELETE ON public.reach_google_connections TO reach_app_runtime;
 COMMIT;
