@@ -4,6 +4,7 @@ import {SOCIAL_CHANNELS,type SocialChannel,type SocialState} from "@/lib/social-
 import {localMonthBounds,localDayKey,shiftMonth} from "@/lib/social-calendar-contract";
 import MetaAutomationPanel from "./meta-automation-panel";
 import MetaAnalyticsPanel from "./meta-analytics-panel";
+import MetaIntelligencePanel from "./meta-intelligence-panel";
 import MetaExpansionPanel from "./meta-expansion-panel";
 import type {MetaAnalyticsSnapshot as MetaSnapshot} from "@/lib/social-meta-analytics";
 type Post={id:string;workspaceId:string;content:string;state:SocialState;channels:string[];scheduledAt:string|null;createdAt:string};
@@ -457,6 +458,7 @@ export default function SocialStudio(){
         <div className="ag-ws-note">Engine: Vercel Functions + Queues. Schedule storage: Neon. No separate Postiz host.</div></div>
     </div>
    </section>}
+{productionSocial&&tab==="metrics"&&<MetaIntelligencePanel key={workspaceId} workspaceId={workspaceId} accounts={metaInventory?.connections||[]} onSnapshots={v=>setMetaAnalytics(old=>({...old,...v}))}/>}
 {(tab==="metrics"||tab==="content")&&<MetaAnalyticsPanel key={workspaceId} initialView={tab==="content"?"posts":"overview"} accounts={metaInventory?.connections||[]} snapshots={metaAnalytics} checking={metaChecking} busy={busy} limit={analyticsLimit} setLimit={setAnalyticsLimit} load={loadMetaAnalytics} refresh={()=>void refreshMetaInventory()} message={metaMessage}/>}
 {tab==="metrics"&&!productionSocial&&<section className="ag-card">
     <div className="ag-platform-bar"><div><h2>Content and queue performance</h2><p>Based only on the selected workspace's own staging records, not social-network analytics.</p></div><button className="ag-secondary" onClick={()=>void refreshInsights()} disabled={busy}>Refresh insights</button></div>

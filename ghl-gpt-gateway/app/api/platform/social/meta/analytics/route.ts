@@ -31,7 +31,7 @@ export async function GET(req:NextRequest){
   if(missing.length)return reply({error:"Account access permissions are missing. Reconnect this account with the requested permissions.",
    requiredAction:"reauthorize",missingPermissions:missing},403);
   const snapshot=await fetchMetaAnalytics({mode,accountId:credential.accountId,token:credential.token,
-   appSecret,version,grantedPermissions:inspection.grantedScopes,postLimit:Number(limit),detailed:detail==="1",accountDetails:detail==="1"});
+   appSecret,version,grantedPermissions:inspection.grantedScopes,postLimit:Number(limit),detailed:detail==="1",accountDetails:detail==="1",expanded:req.nextUrl.searchParams.get("expanded")==="1"});
   return reply({workspaceId,connectionId,provider:credential.provider,snapshot,permissionsVerified:true,
    publishingEnabled:false,metricsAreReal:true});
  }catch{return reply({error:"Meta analytics were not available for this account. Verify permissions or reconnect.",requiredAction:"reauthorize_or_retry"},503);}

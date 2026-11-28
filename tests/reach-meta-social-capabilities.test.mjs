@@ -308,3 +308,39 @@ test("Meta expansion restricts reports to verified scopes, exact discovered asse
  const credentials=read("lib/social-meta-connection-store.ts").split("export async function metaConnectionCredential")[1].split("export async function markMetaVerified")[0];
  assert.match(credentials,/workspace_id=\$1::uuid AND id=\$2::uuid AND revoked_at IS NULL/);
 });
+
+const summary=await import("data:text/javascript;base64,"+Buffer.from(transpile(read("lib/social-intelligence-summary.ts"))).toString("base64"));
+test("unified social intelligence preserves missing observations, zeroes, coverage and unique asset accounting",()=>{
+ assert.deepEqual(summary.observed([null,0,4,undefined]),{value:4,known:2,total:4});
+ assert.equal(summary.observed([null,undefined]).value,null);
+ const post=(likes,comments,format="PHOTO")=>({likes,comments,shares:null,createdAt:"2026-11-20T12:00:00Z",format});
+ const profiles=[{id:"a",name:"A",provider:"facebook_pages",snapshot:{followers:100,recentPosts:[post(0,0),post(10,null),post(5,5)],accountInsights:{metrics:[{name:"page_media_view",value:0}]}}},{id:"b",name:"B",provider:"instagram_professional",snapshot:null}];
+ const p=summary.profilePerformance(profiles[0]);
+ assert.equal(p.avg,5);assert.equal(p.rate,5);assert.equal(p.completePosts,2);assert.equal(p.views,0);assert.equal(p.reach,null);
+ assert.equal(summary.profilePerformance(profiles[1]).avg,null);
+ assert.equal(summary.ranked(profiles,r=>summary.profilePerformance(r).avg).length,1);
+ assert.equal(summary.dedupeAssets([{assetId:"act_1"},{assetId:"act_1"},{assetId:"act_2"}]).length,2);
+ assert.equal(summary.publishingActivity(profiles,Date.parse("2026-11-27")).reduce((n,x)=>n+x.count,0),3);
+ assert.equal(summary.contentGroups(profiles)[0].complete,2);
+ assert.ok(summary.priorityNotes(profiles,Date.parse("2026-11-27")).some(n=>n.name==="B"));
+});
+test("unified scan rejects missing scope before provider requests and keeps details contact-free",async()=>{
+ const input={mode:"facebook",accountId,version:"v27.0",token:userToken,appSecret:secret,grantedPermissions:[],fetcher:async()=>{throw Error("Unexpected call");}};
+ const result=await analytics.scanMetaExtras(input);
+ assert.equal(result.reports.length,3);assert.ok(result.reports.every(r=>r.status==="permission_required"));
+ assert.equal(result.inbox.status,"permission_required");assert.equal(result.trends.status,"permission_required");
+ const route=read("app/api/platform/social/meta/intelligence/route.ts"),ui=read("app/meta-intelligence-panel.tsx"),studio=read("app/social-studio.tsx");
+ assert.match(route,/connectionGate\(req\)/);assert.match(route,/inspectMetaToken/);assert.match(route,/publishingEnabled:false/);
+ assert.doesNotMatch(route,/export async function (POST|PATCH|DELETE)/);
+ assert.match(ui,/slice\(0,12\)/);assert.match(ui,/i\+=2/);assert.match(ui,/snapshot.accountId===a.accountId/);
+ assert.match(studio,/productionSocial&&tab==="metrics"&&<MetaIntelligencePanel/);
+ const seen=[];
+ const fetcher=async(url,opts)=>{const u=new URL(url);seen.push(u);assert.equal(opts.method,"GET");
+  if(u.pathname.endsWith("/me/adaccounts"))return new Response(JSON.stringify({data:[{id:"act_12345",name:"Test",currency:"USD"}]}));
+  if(u.pathname.endsWith("/act_12345/insights"))return new Response(JSON.stringify({data:[{spend:"0",impressions:"0",clicks:"0"}]}));
+  throw Error("Unexpected route");
+ };
+ const ad=await analytics.scanMetaExtras({...input,grantedPermissions:["ads_read"],fetcher});
+ assert.equal(ad.reports.find(r=>r.feature==="ads").details[0].data.rows[0].spend,"0");
+ assert.ok(seen.every(u=>!u.searchParams.has("access_token")&&!String(u).includes("field_data")));
+});

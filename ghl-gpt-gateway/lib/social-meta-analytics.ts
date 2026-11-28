@@ -48,7 +48,7 @@ async function facebookPageToken(input:{version:string;token:string;appSecret:st
  * do not infer reach, views, impressions or engagement rates.
  */
 export async function fetchMetaAnalytics(input:{mode:MetaLoginMode;accountId:string;version:string;
- token:string;appSecret:string;grantedPermissions:string[];fetcher?:typeof fetch;postLimit?:number;detailed?:boolean;accountDetails?:boolean
+ token:string;appSecret:string;grantedPermissions:string[];fetcher?:typeof fetch;postLimit?:number;detailed?:boolean;accountDetails?:boolean;expanded?:boolean
 }):Promise<MetaAnalyticsSnapshot>{
  if(!idValid(input.accountId)||!validGraphVersion(input.version)||typeof input.token!=="string"||
   input.token.length<10||input.token.length>4096||input.appSecret.length<8||input.appSecret.length>1024)
@@ -104,7 +104,7 @@ export async function fetchMetaAnalytics(input:{mode:MetaLoginMode;accountId:str
  // deny some metric combinations; preserve real basic data and mark missing values.
  const detailPosts=detailed?postRecords.slice(0,10):[];
  const canReadInsights=input.grantedPermissions.includes(facebook?"read_insights":mode==="instagram_direct"?"instagram_business_manage_insights":"instagram_manage_insights");
- const accountPromise=input.accountDetails?fetchAccountInsights({mode,version:input.version,token,appSecret:input.appSecret,accountId:input.accountId,fetcher},canReadInsights):Promise.resolve(undefined);
+ const accountPromise=input.accountDetails?fetchAccountInsights({mode,version:input.version,token,appSecret:input.appSecret,accountId:input.accountId,fetcher},canReadInsights,Date.now(),input.expanded===true):Promise.resolve(undefined);
  for(let i=0;i<detailPosts.length;i+=5){
   await Promise.all(detailPosts.slice(i,i+5).map(async p=>{
    if(!canReadInsights){p.insightsStatus="unavailable";return;}
@@ -209,9 +209,10 @@ export function readLifetimeInsights(body:Obj,allowed:readonly string[]):Record<
 type AccountInsightInput={mode:MetaLoginMode;version:string;token:string;appSecret:string;accountId:string;fetcher:typeof fetch};
 type AccountInsights=NonNullable<MetaAnalyticsSnapshot["accountInsights"]>;
 /** Read a real account-level reporting period separately from lifetime post metrics. */
-export async function fetchAccountInsights(input:AccountInsightInput,allowed:boolean,now=Date.now()):Promise<AccountInsights>{
+export async function fetchAccountInsights(input:AccountInsightInput,allowed:boolean,now=Date.now(),expanded=false):Promise<AccountInsights>{
  const facebook=input.mode==="facebook";
  const keys=facebook?["page_media_view","page_total_media_view_unique","page_total_actions"]:["reach","views","accounts_engaged","total_interactions","profile_views","profile_links_taps"];
+ if(expanded&&!facebook)keys.push("likes","comments","shares","saves","replies","content_views");
  const until=Math.floor(now/86400000)*86400,since=until-28*86400;
  const result:AccountInsights={period:facebook?"Latest provider-reported 28-day window":"Previous 28 complete UTC days ("+new Date(since*1000).toISOString().slice(0,10)+" to "+new Date((until-86400)*1000).toISOString().slice(0,10)+")",status:"unavailable",metrics:[]};
  if(!allowed||!idValid(input.accountId))return result;
@@ -320,4 +321,36 @@ export async function fetchMetaExpansion(input:{feature:ExpansionFeature;mode:Me
   return result(boundedList(body,25).filter(o=>idValid(o.id)).map(o=>({createdAt:timestamp(o.timestamp)})),body);
  }
  return result(discovered.map(o=>({id:o.id,format:text(o.media_type,40),createdAt:timestamp(o.timestamp),comments:numericCount(o.comments_count)})),media);
+}
+
+export async function fetchMetaDailyTrends(input:AccountInsightInput,now=Date.now()){
+ const fb=input.mode==="facebook",until=Math.floor(now/86400000)*86400,since=until-28*86400;
+ const keys=fb?["page_media_view","page_total_media_view_unique"]:["reach","follower_count"];
+ return Promise.all(keys.map(async name=>{
+  try{
+   const body=await graphGet({...input,path:input.accountId+"/insights",params:fb?{metric:name,period:"day",since:String(since),until:String(until)}:{metric:name,period:"day",since:String(since),until:String(until)}});
+   const item=Array.isArray(body.data)?body.data.map(object).find(v=>v?.name===name&&v.period==="day"):null;
+   const points=(Array.isArray(item?.values)?item.values:[]).slice(0,31).flatMap(raw=>{const o=object(raw),v=nonnegative(o?.value),date=timestamp(o?.end_time);return v!==null&&date&&Date.parse(date)>since*1000&&Date.parse(date)<=until*1000?[{date,value:v}]:[];}).sort((a,b)=>a.date.localeCompare(b.date));
+   return {name,points,status:points.length?"available":"unavailable"};
+  }catch{return {name,points:[],status:"unavailable"};}
+ }));
+}
+export async function scanMetaExtras(input:{mode:MetaLoginMode;accountId:string;version:string;token:string;appSecret:string;grantedPermissions:string[];fetcher?:typeof fetch}){
+ const fb=input.mode==="facebook",scope=input.grantedPermissions,fetcher=input.fetcher||fetch;
+ const safe=async<T>(fn:()=>Promise<T>)=>{try{return {status:"available" as const,data:await fn()};}catch{return {status:"unavailable" as const,data:null};}};
+ const scan=async(feature:ExpansionFeature)=>{
+  const missing=META_EXPANSION_SCOPES[feature].filter(x=>!scope.includes(x));
+  if(missing.length)return {status:"permission_required",missing,inventory:null,details:[]};
+  const result=await safe(()=>fetchMetaExpansion({...input,feature}));
+  if(!result.data)return {status:result.status,missing,inventory:null,details:[]};
+  const inventory=result.data;
+  const rows=inventory.rows as {id?:string}[];
+  const details=feature==="ads"||feature==="leads"?await Promise.all(rows.slice(0,3).filter(x=>typeof x.id==="string").map(async row=>({assetId:row.id!,...await safe(()=>fetchMetaExpansion({...input,feature,assetId:row.id!,includeContacts:false}))}))):[];
+  return {status:result.status,missing,inventory,details};
+ };
+ const insights=scope.includes(fb?"read_insights":input.mode==="instagram_direct"?"instagram_business_manage_insights":"instagram_manage_insights");
+ const trendsPromise=insights?safe(async()=>{const token=fb?await facebookPageToken({...input,fetcher}):input.token;return fetchMetaDailyTrends({...input,token,fetcher});}):Promise.resolve({status:"permission_required",data:null});
+ const features=fb?["ads","businesses","leads"] as const:[input.mode==="instagram_direct"?"instagram_direct_comments":"instagram_comments"] as const;
+ const [reports,inbox,trends]=await Promise.all([Promise.all(features.map(async f=>({feature:f,...await scan(f)}))),fb&&FACEBOOK_INBOX_READ_SCOPES.every(s=>scope.includes(s))?safe(()=>fetchFacebookInboxActivity(input)):{status:fb?"permission_required":"not_supported",data:null},trendsPromise]);
+ return {reports,inbox,trends};
 }
