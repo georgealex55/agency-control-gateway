@@ -1,4 +1,4 @@
--- Additive, single-owner Google OAuth storage; apply only after staging review.
+-- Additive, single-owner Google OAuth storage. Apply only after staging review.
 BEGIN;
 CREATE TABLE public.reach_google_flows (
  workspace_id uuid NOT NULL REFERENCES public.agency_platform_workspaces(id),
