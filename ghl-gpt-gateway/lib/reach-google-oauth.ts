@@ -1,4 +1,5 @@
 import {createCipheriv,createDecipheriv,createHash,randomBytes} from "node:crypto";
+import {GoogleDiagnosticError,providerDiagnostic} from "./reach-google-diagnostics";
 import {GOOGLE_CALLBACK,googleGrant,groupFor,type GoogleGroup} from "./reach-google-contract";
 import {normalizeDomain} from "./reach-infrastructure";
 export const digest=(s:string)=>createHash("sha256").update(s).digest("base64url");
@@ -19,8 +20,8 @@ const array=(v:unknown):Obj[]=>Array.isArray(v)?v.slice(0,100).map(obj):[];
 const name=(v:unknown)=>typeof v==="string"?v.slice(0,200):"Unnamed";
 export async function googleJson(url:string,init:RequestInit={},fetcher:typeof fetch=fetch){
  const u=new URL(url);if(u.protocol!=="https:"||u.port||u.username||u.password||!["oauth2.googleapis.com","openidconnect.googleapis.com","analyticsadmin.googleapis.com","analyticsdata.googleapis.com","www.googleapis.com","youtube.googleapis.com","people.googleapis.com","tagmanager.googleapis.com"].includes(u.hostname))throw Error("Unapproved Google endpoint");
- const r=await fetcher(u.href,{...init,redirect:"error",cache:"no-store",signal:AbortSignal.timeout(9000)});if(!r.ok||!r.body)throw Error("Google request unavailable");
- const reader=r.body.getReader();let size=0,text="";const dec=new TextDecoder();try{for(;;){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>2000000)throw Error("Google response too large");text+=dec.decode(value,{stream:true});}return obj(JSON.parse(text+dec.decode()));}finally{await reader.cancel().catch(()=>{});}
+ const r=await fetcher(u.href,{...init,redirect:"error",cache:"no-store",signal:AbortSignal.timeout(9000)});if(!r.body)throw Error("Google request unavailable");
+ const reader=r.body.getReader();let size=0,text="";const dec=new TextDecoder();try{for(;;){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>2000000)throw Error("Google response too large");text+=dec.decode(value,{stream:true});}const value=obj(JSON.parse(text+dec.decode()));if(!r.ok){if(u.hostname==="oauth2.googleapis.com"&&u.pathname==="/token"){const code=providerDiagnostic(value.error);throw new GoogleDiagnosticError(code==="provider_error"?"token_unavailable":code);}throw Error("Google request unavailable");}return value;}finally{await reader.cancel().catch(()=>{});}
 }
 const tokenOk=(x:unknown):x is string=>typeof x==="string"&&x.length>0&&x.length<=8192&&!/[\r\n\0]/.test(x);
 async function token(params:Record<string,string>,env:NodeJS.ProcessEnv,fetcher:typeof fetch){
@@ -32,11 +33,14 @@ export async function googleIdentity(access:string,fetcher:typeof fetch=fetch){
  return {subject:v.sub as string,email:v.email as string};
 }
 export async function exchangeGoogle(code:string,verifier:string,group:GoogleGroup,env:NodeJS.ProcessEnv=process.env,fetcher:typeof fetch=fetch){
- if(!code||code.length>4096||!/^[A-Za-z0-9_-]{43}$/.test(verifier))throw Error("Invalid authorization");
+ if(!code||code.length>4096)throw new GoogleDiagnosticError("code_missing");
+ if(!/^[A-Za-z0-9_-]{43}$/.test(verifier))throw new GoogleDiagnosticError("verifier_unavailable");
  const v=await token({code,code_verifier:verifier,redirect_uri:GOOGLE_CALLBACK,grant_type:"authorization_code"},env,fetcher);
  const scopes=googleGrant(v.scope,group);
- if(!scopes||!tokenOk(v.access_token)||!tokenOk(v.refresh_token)||String(v.token_type).toLowerCase()!=="bearer")throw Error("Required read-only grant or offline access missing");
- return {...await googleIdentity(v.access_token,fetcher),access:v.access_token,refresh:v.refresh_token,scopes};
+ if(!scopes||!tokenOk(v.access_token)||String(v.token_type).toLowerCase()!=="bearer")throw new GoogleDiagnosticError("grant_invalid");
+ if(!tokenOk(v.refresh_token))throw new GoogleDiagnosticError("offline_missing");
+ let identity;try{identity=await googleIdentity(v.access_token,fetcher);}catch{throw new GoogleDiagnosticError("identity_unavailable");}
+ return {...identity,access:v.access_token,refresh:v.refresh_token,scopes};
 }
 export async function refreshGoogle(refresh:string,group:GoogleGroup,subject:string,env:NodeJS.ProcessEnv=process.env,fetcher:typeof fetch=fetch){
  const v=await token({refresh_token:refresh,grant_type:"refresh_token"},env,fetcher);

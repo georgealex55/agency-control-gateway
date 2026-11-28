@@ -1,4 +1,5 @@
 import {randomUUID} from "node:crypto";
+import {GoogleDiagnosticError,flowFailure,GOOGLE_FLOW_SECONDS} from "./reach-google-diagnostics";
 import {resolvedGoogleEnv} from "./reach-google-developer-store";
 import {ownerSocialStorageConfigured,socialMetaWorkspaceDb} from "./reach-social-owner-db";
 import {googleConfigured,groupFor,type GoogleGroup} from "./reach-google-contract";
@@ -15,14 +16,18 @@ export async function googleDomain(w:string,id:string|null){
 export async function createGoogleFlow(w:string,group:GoogleGroup,domainId:string|null,state:string,browser:string,verifier:string,env:NodeJS.ProcessEnv){
  const d=await db(w,env);const hash=digest(state);
  await d.query("DELETE FROM public.reach_google_flows WHERE workspace_id=$1::uuid AND expires_at<=now()",[w]);
- const out=rows(await d.query("INSERT INTO public.reach_google_flows(workspace_id,state_hash,browser_hash,group_id,domain_id,sealed_verifier,client_hash,expires_at) SELECT $1::uuid,$2,$3,$4,$5::uuid,$6,$7,now()+interval '10 minutes' WHERE (SELECT count(*) FROM public.reach_google_flows WHERE workspace_id=$1::uuid)<10 RETURNING state_hash",[w,hash,digest(browser),group,domainId,sealGoogle(verifier,context(w,hash,"flow",env),env),clientHash(env)]));
+ const out=rows(await d.query("INSERT INTO public.reach_google_flows(workspace_id,state_hash,browser_hash,group_id,domain_id,sealed_verifier,client_hash,expires_at) SELECT $1::uuid,$2,$3,$4,$5::uuid,$6,$7,now()+($8::integer * interval '1 second') WHERE (SELECT count(*) FROM public.reach_google_flows WHERE workspace_id=$1::uuid)<10 RETURNING state_hash",[w,hash,digest(browser),group,domainId,sealGoogle(verifier,context(w,hash,"flow",env),env),clientHash(env),GOOGLE_FLOW_SECONDS]));
  if(out.length!==1)throw Error("Too many authorization attempts");
 }
 export async function consumeGoogleFlow(w:string,state:string,browser:string,env:NodeJS.ProcessEnv){
  const d=await db(w,env),hash=digest(state);
  const r=rows(await d.query("DELETE FROM public.reach_google_flows WHERE workspace_id=$1::uuid AND state_hash=$2 AND browser_hash=$3 AND client_hash=$4 AND expires_at>now() RETURNING group_id,domain_id,sealed_verifier",[w,hash,digest(browser),clientHash(env)]))[0];
- if(!r||!groupFor(r.group_id))throw Error("Invalid or expired authorization");
- return {group:r.group_id as GoogleGroup,domainId:r.domain_id as string|null,verifier:openGoogle(r.sealed_verifier,context(w,hash,"flow",env),env)};
+ if(!r){
+ const hint=rows(await d.query("SELECT expires_at<=now() AS expired,browser_hash=$3 AS browser_matches,client_hash=$4 AS client_matches FROM public.reach_google_flows WHERE workspace_id=$1::uuid AND state_hash=$2 LIMIT 1",[w,hash,digest(browser),clientHash(env)]))[0];
+ throw new GoogleDiagnosticError(flowFailure(hint?{expired:hint.expired===true,browserMatches:hint.browser_matches===true,clientMatches:hint.client_matches===true}:null));
+ }
+ if(!groupFor(r.group_id))throw new GoogleDiagnosticError("flow_storage");
+ try{return {group:r.group_id as GoogleGroup,domainId:r.domain_id as string|null,verifier:openGoogle(r.sealed_verifier,context(w,hash,"flow",env),env)};}catch{throw new GoogleDiagnosticError("verifier_unavailable");}
 }
 export async function stageGoogle(w:string,group:GoogleGroup,domainId:string|null,grant:{subject:string;email:string;refresh:string;scopes:string[]},env:NodeJS.ProcessEnv){
  const d=await db(w,env),id=randomUUID();
