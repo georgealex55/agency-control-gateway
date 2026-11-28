@@ -645,3 +645,17 @@ test("Google OAuth client replacement requires paused same-project config and no
  assert.equal((flows.match(/active_app AS MATERIALIZED/g)||[]).length,3);
  assert.equal((flows.match(/AND enabled FOR UPDATE/g)||[]).length,3);
 });
+
+test("Google client replacement supports manual credentials as well as optional JSON without relaxing guards",()=>{
+ const route=read("app/api/reach/google/developer/route.ts"),ui=read("app/connections/google-developer-panel.tsx");
+ const replace=route.slice(route.indexOf('if(b.action==="replace")'),route.indexOf('if(b.action==="enable"'));
+ assert.match(replace,/typeof b.webClientJson==="string"\?parseGoogleWebClient\(b.webClientJson\):validateGoogleDeveloper\(b.config\)/);
+ assert.match(replace,/replaceGoogleDeveloper\(w,config,b.expectedUpdatedAt\)/);
+ assert.match(replace,/typeof b.expectedUpdatedAt!=="string"/);
+ assert.match(ui,/Optional: import Google Web OAuth JSON/);
+ assert.match(ui,/!status.replacementAllowed\|\|!ready\|\|busy\|\|projectId.trim\(\)!==status.projectId/);
+ assert.match(ui,/action==="replace"\?\{workspaceId,action,confirm:true,\.\.\.\(json\?\{webClientJson:json\}:\{config:\{projectId,clientId,clientSecret:secret\}\}\),expectedUpdatedAt:status.updatedAt/);
+ const credentials={projectId:"reach-example",clientId:"synthetic-example.apps.googleusercontent.com",clientSecret:"GOCSPX-synthetic-secret"};
+ assert.deepEqual(googleDeveloper.validateGoogleDeveloper(credentials),credentials);
+ assert.throws(()=>googleDeveloper.validateGoogleDeveloper({...credentials,clientSecret:""}));
+});
