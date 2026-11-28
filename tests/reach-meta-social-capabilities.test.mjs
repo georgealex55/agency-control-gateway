@@ -434,3 +434,29 @@ test("domain intelligence distinguishes observed DNS from unavailable checks and
  const noData=await infra.domainIntelligence("example.com",id,{...resolver,resolve4:failed,resolve6:failed,resolveCname:failed,resolveTxt:failed});
  assert.equal(noData.checks.find(c=>c.name==="Website DNS").status,"unknown");assert.equal(noData.checks.find(c=>c.name==="SPF").status,"unknown");
 });
+
+const infraUri="data:text/javascript;base64,"+Buffer.from(transpile(read("lib/reach-infrastructure.ts"))).toString("base64");
+const website=await import("data:text/javascript;base64,"+Buffer.from(transpile(read("lib/reach-web-analytics.ts").replace('"./reach-infrastructure"',JSON.stringify(infraUri)))).toString("base64"));
+test("website public ranking stays separate from unavailable measured demographics",async()=>{
+ const fetcher=async(url,opts)=>{assert.equal(url,"https://tranco-list.eu/api/ranks/domain/example.com");assert.equal(opts.redirect,"error");return new Response(JSON.stringify({domain:"example.com",ranks:[{date:"2026-11-26",rank:420},{date:"2026-11-25",rank:500},{date:"bad",rank:1}]}));};
+ const result=await website.websiteAnalytics("example.com",28,{},fetcher);
+ assert.equal(result.public.rank,420);assert.equal(result.public.history.length,2);assert.equal(result.measured.status,"not_configured");assert.deepEqual(result.measured.reports,[]);
+ assert.equal((await website.publicRank("example.com",async()=>new Response(JSON.stringify({ranks:[]})))).status,"not_ranked");
+ assert.equal((await website.publicRank("example.com",async()=>new Response("",{status:429}))).status,"unavailable");
+ await assert.rejects(()=>website.websiteAnalytics("127.0.0.1",28,{},fetcher),/Invalid report/);
+});
+test("website GA4 reports use exact hostname and privacy thresholding, not inferred demographics",()=>{
+ const age=website.REPORTS.find(s=>s.id==="age"),outbound=website.REPORTS.find(s=>s.id==="outbound");
+ const filter=website.gaRequest("example.com",28,outbound);
+ assert.equal(filter.dimensionFilter.andGroup.expressions[0].filter.stringFilter.value,"example.com");
+ assert.equal(filter.dimensionFilter.andGroup.expressions[1].filter.stringFilter.value,"click");
+ assert.equal(filter.dimensionFilter.andGroup.expressions[2].filter.stringFilter.value,"true");
+ const data={dimensionHeaders:[{name:"userAgeBracket"}],metricHeaders:[{name:"activeUsers"}],rows:[{dimensionValues:[{value:"25-34"}],metricValues:[{value:"5"}]}],rowCount:1,metadata:{subjectToThresholding:true}};
+ assert.deepEqual(website.parseGaReport(data,age).rows,[]);
+ assert.equal(website.parseGaReport(data,age).status,"thresholded");
+ assert.equal(website.parseGaReport({...data,metadata:{}},age).rows[0].values[0],5);
+ assert.throws(()=>website.parseGaReport({...data,metricHeaders:[{name:"wrong"}]},age),/Unexpected report schema/);
+ const route=read("app/api/reach/website-analytics/route.ts"),ui=read("app/website-analytics-panel.tsx");
+ assert.match(route,/connectionGate\(req\)/);assert.match(route,/WHERE workspace_id=\$1::uuid AND id=\$2::uuid/);assert.doesNotMatch(route,/export async function (POST|DELETE|PATCH)/);
+ assert.match(ui,/report.hostname!==selected.hostname/);assert.match(ui,/not visits or demographics/);
+});
