@@ -628,3 +628,20 @@ test("Google token response diagnostic codes never expose raw provider messages 
  assert.equal(googleDiagnostics.providerDiagnostic("access_denied"),"consent_denied");
  assert.equal(googleDiagnostics.providerDiagnostic("admin_policy_enforced"),"access_blocked");
 });
+
+test("Google OAuth client replacement requires paused same-project config and no existing grants",()=>{
+ const store=read("lib/reach-google-developer-store.ts"),route=read("app/api/reach/google/developer/route.ts"),ui=read("app/connections/google-developer-panel.tsx"),flows=read("lib/reach-google-store.ts");
+ assert.match(store,/old.project_id!==v.projectId/);
+ assert.match(store,/old.client_id===v.clientId/);
+ assert.match(store,/replacementReason\(old.enabled,await googleReplacementCounts\(w\)\)/);
+ assert.match(store,/const tokenKey=secrets\(w,old\).tokenKey/);
+ assert.match(store,/SET client_id=\$2,sealed_config=\$3,enabled=false/);
+ assert.match(store,/AND NOT c.enabled AND NOT EXISTS\(SELECT 1 FROM public.reach_google_connections/);
+ assert.match(store,/c.updated_at=\$7::timestamptz/);
+ assert.match(route,/b.action==="replace"/);
+ assert.match(route,/parseGoogleWebClient\(b.webClientJson\)/);
+ assert.match(ui,/Replace Google OAuth application/);
+ assert.match(ui,/expectedUpdatedAt:status.updatedAt/);
+ assert.equal((flows.match(/active_app AS MATERIALIZED/g)||[]).length,3);
+ assert.equal((flows.match(/AND enabled FOR UPDATE/g)||[]).length,3);
+});
