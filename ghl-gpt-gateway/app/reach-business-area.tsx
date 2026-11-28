@@ -14,9 +14,10 @@ export default function ReachBusinessArea({area,initialTool}:{area:"web"|"market
   {selected&&<section className="ag-card" aria-label={selected.title}><h2>{selected.title}</h2><p>{selected.description}</p><p className="ag-ws-note">{selected.detail}</p>
    {selected.id==="website"&&engine&&<><h3>Website engine foundation</h3><div className="ag-source-list">{engine.capabilities.filter(c=>c!=="Forms & appointments").map(c=><div key={c}>{c}</div>)}</div><p>Runtime: {engine.runtime}. The visual editor is not live yet.</p></>}
    {selected.id==="funnels"&&<><h3>Lead generation tools</h3><div className="ag-source-list">{["Landing pages","Lead capture forms","Funnel steps","Conversion tracking"].map(c=><div key={c}>{c}</div>)}</div><p>Website engine groundwork is available; public intake and conversion tracking are not enabled.</p></>}
-   {selected.id==="web-domains"&&<a href="/connections">Open central Connections</a>}
+   {selected.id==="web-domains"&&<><p>Register your website domain, check DNS records and verify hostname ownership from Connections Center.</p><a href="/connections#domains">Manage domain connections →</a></>}
    {selected.id==="social-ads"&&<p>Paid campaigns require a separate advertising account connection and budget approval. Organic post analytics do not provide ad spend or attribution.</p>}
   </section>}
+  {web&&<section className="ag-card"><h2>Website infrastructure</h2><p>Manage domain ownership and check your database health in one place.</p><div className="ag-social-actions"><a className="ag-secondary" href="/connections#domains">Domains &amp; DNS</a><a className="ag-secondary" href="/connections#neon">Neon database</a></div></section>}
   <p className="ag-footnote">Planned features are shown for navigation and readiness only. No connection, campaign, website or external action is created here.</p>
  </section>;
 }

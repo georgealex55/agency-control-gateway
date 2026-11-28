@@ -112,3 +112,5 @@
 .reach-conn-card-head .reach-light-yellow{background:#42351a;color:#ffebad;border-color:#ab8341}
 .reach-conn-card-head .reach-light-red{background:#49202e;color:#ffd2d9;border-color:#a75a6b}
 .reach-conn-card-head .reach-light>span{background:none!important;color:inherit!important;font-size:inherit;padding:0;border-radius:0}
+
+.reach-infra-input{width:100%;display:block;margin:6px 0;background:#0e1630;border:1px solid #697492;border-radius:8px;color:#fff;padding:10px}.reach-infra-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.reach-infra-metrics>div{background:#202c48;border:1px solid #475573;padding:10px;border-radius:9px;display:grid;gap:3px}.reach-infra-metrics small{font-size:10px;color:#b7c4da}.reach-infra-metrics strong{font-size:16px;overflow-wrap:anywhere}.reach-infra-break{overflow-wrap:anywhere;white-space:normal}.reach-infra-track{height:8px;border-radius:8px;background:#303a58;overflow:hidden}.reach-infra-track>div{height:100%;background:#58b6a0;border-radius:8px}.reach-infra-table{display:grid;gap:5px}.reach-conn-card[id]{scroll-margin-top:100px}

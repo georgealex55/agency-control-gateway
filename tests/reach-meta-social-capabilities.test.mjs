@@ -356,7 +356,7 @@ test("profile-first analytics has independent scan scopes and honest health stat
  const ui=read("app/meta-intelligence-panel.tsx"),studio=read("app/social-studio.tsx");
  assert.match(ui,/scanAll\("profile"\)/);assert.match(ui,/scanAll\("all"\)/);assert.match(ui,/scope==="all"\|\|a.id===account\?\.id/);
  assert.match(ui,/old.filter\(s=>!selected.some/);assert.match(ui,/scanned&&<section className=\{styles.health\}/);
- assert.match(studio,/\(!productionSocial&&tab==="metrics"\)\|\|tab==="content"/);
+ assert.match(studio,/!productionSocial&&tab==="metrics"/);
 });
 
 test("inbox reads only verified profile conversations and comments, never arbitrary object IDs or writes",async()=>{
@@ -407,4 +407,18 @@ test("Instagram direct inbox reads only the most recent 20 message IDs from the 
  assert.equal(result.rows[0].body,null);assert.equal(result.rows[1].body,"Synthetic text");
  assert.equal(seen.length,22);assert.ok(!seen.some(x=>x.endsWith("/ig_message_20")));
  await assert.rejects(()=>analytics.fetchMetaInbox({...input,parentId:"ig_other"}),/not in the connected profile/);
+});
+
+const infra=await import("data:text/javascript;base64,"+Buffer.from(transpile(read("lib/reach-infrastructure.ts"))).toString("base64"));
+test("infrastructure DNS only accepts public hostnames and exact ownership challenge",async()=>{
+ assert.equal(infra.normalizeDomain(" Example.COM. "),"example.com");
+ for(const input of ["http://example.com","a.com/path","a.com:443","127.0.0.1","a.local","a.internal","localhost","bad..com","-bad.com","a.com?x=1"])assert.equal(infra.normalizeDomain(input),null);
+ assert.equal(infra.safeCount("0"),0);assert.equal(infra.safeCount(null),null);assert.equal(infra.safeCount("-1"),null);
+ const id="12345678-1234-1234-1234-123456789012";
+ const missing=async()=>{throw Object.assign(Error("missing"),{code:"ENODATA"});};
+ const resolver={resolve4:async h=>{assert.equal(h,"example.com");return ["192.0.2.10"];},resolve6:missing,resolveCname:missing,resolveMx:missing,resolveNs:missing,resolveTxt:async h=>{assert.equal(h,"_reach-verification.example.com");return [["reach-verification=",id]];}};
+ const result=await infra.domainDns("example.com",id,resolver);
+ assert.equal(result.ownership,"verified");assert.equal(result.ssl,"not_checked");assert.equal(result.records.aaaa.status,"not_found");
+ assert.equal((await infra.domainDns("example.com",id,{...resolver,resolveTxt:async()=>[["different"]]})).ownership,"not_verified");
+ await assert.rejects(()=>infra.domainDns("127.0.0.1",id,resolver),/Invalid domain/);
 });

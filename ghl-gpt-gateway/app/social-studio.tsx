@@ -72,7 +72,7 @@ export default function SocialStudio(){
  const [tab,setTab]=useState<"composer"|"calendar"|"insights"|"metrics"|"providers"|"media"|"automations"|"content"|"inbox"|"comments"|"business_tools">("composer");
  const [productionSocial,setProductionSocial]=useState(false);
  useEffect(()=>{const socialView=new URLSearchParams(window.location.search).get("social");if(["connections","calendar","media","insights","posting","metrics","content","inbox","comments"].includes(socialView||"")){
-  setTab(socialView==="connections"?"providers":socialView==="calendar"?"calendar":socialView==="media"?"media":socialView==="posting"?"automations":socialView==="metrics"?"metrics":socialView==="content"?"content":socialView==="inbox"?"inbox":socialView==="comments"?"comments":"insights");
+  setTab(socialView==="connections"?"providers":socialView==="calendar"?"calendar":socialView==="media"?"media":socialView==="posting"?"automations":socialView==="metrics"?"metrics":socialView==="content"?"metrics":socialView==="inbox"?"inbox":socialView==="comments"?"comments":"insights");
   const status=new URLSearchParams(window.location.search).get("meta");
   if(status==="select")setMetaMessage("Meta authorization completed. Select the account you want to connect below.");
   if(status==="failed")setMetaMessage("Meta authorization did not complete. Check developer-app permissions and redirect URL.");
@@ -92,7 +92,7 @@ export default function SocialStudio(){
      if(!list.length){reason="No business workspace is connected";continue;}
      const live=path==="/api/reach/connection-hub";
      setProductionSocial(live);setWorkspaces(list);setWorkspaceId(list[0].id);
-     if(live)setTab(v=>v==="composer"||v==="insights"?"automations":v==="media"?"content":v);
+     if(live)setTab(v=>v==="composer"||v==="insights"?"automations":v==="media"||v==="content"?"metrics":v);
      return;
     }catch(e){reason=e instanceof Error?e.message:reason;}
    }
@@ -378,7 +378,7 @@ export default function SocialStudio(){
   {message&&<p className="ag-ws-note" role="status">{message}</p>}
   {!workspaceId?<section className="ag-card"><h2>No business workspace available</h2><p>{productionSocial?"Open Connections Center to authorize your business accounts.":"Create a synthetic workspace in the staging Workspaces menu."}</p></section>:<>
    {!productionSocial&&<div className="ag-social-stats">{[["Draft content",counts.draft,"Edit anytime"],["Planned posts",counts.planned,"Not queued to publish"],["Approved internally",counts.approved,"Not sent"],["Dry-run deliveries",jobs.filter(j=>j.status==="simulated").length,"No external sends"]].map(([label,count,sub])=><div className="ag-metric" key={String(label)}><div><span>{label}</span><i>◈</i></div><strong>{count}</strong><small>{sub}</small></div>)}</div>}
-   <div className="ag-social-tabs">{[...(productionSocial?[["automations","Create & Schedule"],["calendar","Calendar"],["content","Published Content"],["metrics","Analytics"],["inbox","Inbox"],["comments","Comments"],["business_tools","Business tools"]]:
+   <div className="ag-social-tabs">{[...(productionSocial?[["automations","Create & Schedule"],["calendar","Calendar"],["metrics","Analytics"],["inbox","Inbox"],["comments","Comments"],["business_tools","Business tools"]]:
    [["composer","Content Studio"],["calendar","Publishing Calendar"],["insights","Delivery Operations"],["metrics","Internal Insights"],["providers","Social Connections"],["automations","Automations"],["media","Media Library"]])].map(([key,label])=><button key={key} className={tab===key?"active":""} onClick={()=>setTab(key as typeof tab)}>{label}</button>)}</div>
    {(tab==="automations"||productionSocial&&tab==="calendar")&&<MetaAutomationPanel key={workspaceId} workspaceId={workspaceId} accounts={metaInventory?.connections||[]} mode={tab==="calendar"?"calendar":"posting"} onOpenPosting={()=>setTab("automations")}/>}
    {productionSocial&&tab==="business_tools"&&<MetaExpansionPanel key={workspaceId} workspaceId={workspaceId} accounts={metaInventory?.connections||[]}/>}
@@ -461,7 +461,7 @@ export default function SocialStudio(){
     </div>
    </section>}
 {productionSocial&&tab==="metrics"&&<MetaIntelligencePanel key={workspaceId} workspaceId={workspaceId} accounts={metaInventory?.connections||[]} snapshots={metaAnalytics} onSnapshots={v=>setMetaAnalytics(old=>({...old,...v}))}/>}
-{((!productionSocial&&tab==="metrics")||tab==="content")&&<MetaAnalyticsPanel key={workspaceId} initialView={tab==="content"?"posts":"overview"} accounts={metaInventory?.connections||[]} snapshots={metaAnalytics} checking={metaChecking} busy={busy} limit={analyticsLimit} setLimit={setAnalyticsLimit} load={loadMetaAnalytics} refresh={()=>void refreshMetaInventory()} message={metaMessage}/>}
+{(!productionSocial&&tab==="metrics")&&<MetaAnalyticsPanel key={workspaceId} initialView="overview" accounts={metaInventory?.connections||[]} snapshots={metaAnalytics} checking={metaChecking} busy={busy} limit={analyticsLimit} setLimit={setAnalyticsLimit} load={loadMetaAnalytics} refresh={()=>void refreshMetaInventory()} message={metaMessage}/>}
 {tab==="metrics"&&!productionSocial&&<section className="ag-card">
     <div className="ag-platform-bar"><div><h2>Content and queue performance</h2><p>Based only on the selected workspace's own staging records, not social-network analytics.</p></div><button className="ag-secondary" onClick={()=>void refreshInsights()} disabled={busy}>Refresh insights</button></div>
     {!internalInsights?<div className="ag-social-empty">No internal insights available. Check the staging database connection.</div>:<>

@@ -29,7 +29,7 @@ export default function Home() {
   useEffect(()=>{
    const q=new URLSearchParams(window.location.search);
    const social=q.get("social"),requested=q.get("view");
-   const next=["connections","calendar","media","insights","posting","metrics","content","inbox"].includes(social||"")?"social":NAV.some(n=>n.id===requested)?requested as View:"overview";
+   const next=["connections","calendar","media","insights","posting","metrics","content","inbox","comments"].includes(social||"")?"social":NAV.some(n=>n.id===requested)?requested as View:"overview";
    setView(next);setAreaTool(q.get("tool")||"");
   },[]);
   const [selected,setSelected]=useState("sample-web");

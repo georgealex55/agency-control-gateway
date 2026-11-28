@@ -8,7 +8,7 @@ const app=read("ghl-gpt-gateway/app/page.tsx");
 const css=read("ghl-gpt-gateway/app/reach-ui-23.css");
 const layout=read("ghl-gpt-gateway/app/layout.tsx");
 const social=read("ghl-gpt-gateway/app/social-studio.tsx");
-const paths=["command","directory","workspaces","contacts","inbox","calls","pipelines","social","social-analytics","social-inbox","social-connections","social-calendar","media","web-home","website","web-domains","web-analytics","web-seo","web-publishing","marketing-home","funnels","social-ads","search-ads","email-campaigns","campaign-reporting","reviews","automations","tasks","calendar","courses","ai","insights","reporting","neon","integrations","features","settings","migration"];
+const paths=["command","directory","workspaces","contacts","inbox","calls","pipelines","social","social-analytics","social-inbox","social-connections","social-calendar","social-comments","web-home","website","web-domains","web-analytics","web-seo","web-publishing","marketing-home","funnels","social-ads","search-ads","email-campaigns","campaign-reporting","reviews","automations","tasks","calendar","courses","ai","insights","reporting","neon","integrations","features","settings","migration"];
 test("feature directory includes all 38 unique capabilities and eight owner groups",()=>{
  const entries=[...catalog.matchAll(/\{id:"([^"]+)",title:/g)].map(x=>x[1]);
  assert.deepEqual(entries,paths);
@@ -58,7 +58,7 @@ test("social deep links route only to existing internal tabs",()=>{
  assert.match(social,/setTab\(socialView==="connections"\?"providers"/);
  assert.match(catalog,/href:"\/connections"/);
  assert.match(catalog,/href:"\/\?social=calendar"/);
- assert.match(catalog,/href:"\/\?social=content"/);
+ assert.match(catalog,/href:"\/\?social=comments"/);
  assert.match(catalog,/href:"\/\?social=insights"/);
 });
 test("dashboard personalization uses a validated owner-only staging layout endpoint",()=>{
@@ -77,7 +77,7 @@ test("staging boundary is visible and outbound/social operations are not introdu
  assert.doesNotMatch(app,/\/api\/platform\/social\/dispatch.+method:"POST"/);
 });
 test("owner can reach existing functional pages and isolated connections",()=>{
- for(const url of ["/connections","/reach-connections"]){
+ for(const url of ["/connections","/connections#neon"]){
   assert.ok(catalog.includes('href:"'+url+'"'));
  }
  for(const view of ["directory","clients","social","services","settings","features"]){
@@ -110,18 +110,18 @@ test("global toolbar is mounted once, authenticated and collapsible on business 
 test("marketing contains campaign tools rather than ordinary website or social navigation",()=>{
  const rows=[...catalog.matchAll(/\{id:"([^"]+)",title:"[^"]+",group:"([^"]+)"/g)];
  const groups=Object.fromEntries(rows.map(x=>[x[1],x[2]]));
- for(const id of ["social","social-calendar","social-analytics","media","social-inbox"])assert.equal(groups[id],"Social Media");
+ for(const id of ["social","social-calendar","social-analytics","social-comments","social-inbox"])assert.equal(groups[id],"Social Media");
  assert.equal(groups["social-connections"],"Platform");assert.equal(groups.insights,"Operations");
  for(const id of ["website","web-domains","web-analytics","web-seo","web-publishing"])assert.equal(groups[id],"Web Design");
  for(const id of ["funnels","social-ads","search-ads","email-campaigns","campaign-reporting","reviews"])assert.equal(groups[id],"Marketing");
  assert.match(app,/view==="web"\|\|view==="marketing"/);
  assert.match(app,/session.authenticated\?<ReachBusinessArea/);
- assert.match(social,/socialView==="metrics"\?"metrics":socialView==="content"\?"content"/);
+ assert.match(social,/socialView==="metrics"\?"metrics":socialView==="content"\?"metrics"/);
 });
 
 test("production social calendar is a real month view, not a redirect to posting",()=>{
  const calendar=read("ghl-gpt-gateway/app/meta-social-calendar.tsx");
- assert.match(social,/productionSocial\?\[\["automations","Create & Schedule"\],\["calendar","Calendar"\],\["content","Published Content"\],\["metrics","Analytics"\],\["inbox","Inbox"\],\["comments","Comments"\],\["business_tools","Business tools"\]\]/);
+ assert.match(social,/productionSocial\?\[\["automations","Create & Schedule"\],\["calendar","Calendar"\],\["metrics","Analytics"\],\["inbox","Inbox"\],\["comments","Comments"\],\["business_tools","Business tools"\]\]/);
  assert.match(social,/mode=\{tab==="calendar"\?"calendar"/);
  assert.match(calendar,/Array\.from\(\{length:42\}/);
  assert.match(calendar,/a\.scheduledAt/);
@@ -129,4 +129,14 @@ test("production social calendar is a real month view, not a redirect to posting
  assert.match(calendar,/e\.occurredAt/);
  assert.doesNotMatch(calendar,/fetch\(|method:"POST"/);
  assert.match(read("ghl-gpt-gateway/app/connections/page.tsx"),/<h1>Connections Center<\/h1>/);
+});
+
+test("central infrastructure and web links replace the retired Published Content navigation",()=>{
+ assert.doesNotMatch(catalog,/title:"Published Content"/);assert.doesNotMatch(social,/\["content","Published Content"\]/);
+ assert.match(catalog,/href:"\/connections#domains"/);assert.match(catalog,/href:"\/connections#neon"/);
+ const hub=read("ghl-gpt-gateway/app/connections/page.tsx");assert.match(hub,/<InfrastructureCards/);
+ const route=read("ghl-gpt-gateway/app/api/reach/infrastructure/route.ts");
+ assert.match(route,/connectionGate\(req,true\)/);assert.match(route,/ownerSocialStorageConfigured/);assert.match(route,/REACH_SOCIAL_OWNER_WORKSPACE_ID/);
+ assert.match(route,/pg_database_size\(current_database\(\)\)/);assert.match(route,/quotaBytes:null/);assert.match(route,/ON CONFLICT\(hostname\) DO NOTHING/);assert.match(route,/dnsChanged:false/);
+ assert.doesNotMatch(route,/DELETE FROM|ALTER TABLE|DROP TABLE|UPDATE public/);
 });
