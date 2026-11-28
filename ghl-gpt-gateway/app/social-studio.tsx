@@ -458,8 +458,8 @@ export default function SocialStudio(){
         <div className="ag-ws-note">Engine: Vercel Functions + Queues. Schedule storage: Neon. No separate Postiz host.</div></div>
     </div>
    </section>}
-{productionSocial&&tab==="metrics"&&<MetaIntelligencePanel key={workspaceId} workspaceId={workspaceId} accounts={metaInventory?.connections||[]} onSnapshots={v=>setMetaAnalytics(old=>({...old,...v}))}/>}
-{(tab==="metrics"||tab==="content")&&<MetaAnalyticsPanel key={workspaceId} initialView={tab==="content"?"posts":"overview"} accounts={metaInventory?.connections||[]} snapshots={metaAnalytics} checking={metaChecking} busy={busy} limit={analyticsLimit} setLimit={setAnalyticsLimit} load={loadMetaAnalytics} refresh={()=>void refreshMetaInventory()} message={metaMessage}/>}
+{productionSocial&&tab==="metrics"&&<MetaIntelligencePanel key={workspaceId} workspaceId={workspaceId} accounts={metaInventory?.connections||[]} snapshots={metaAnalytics} onSnapshots={v=>setMetaAnalytics(old=>({...old,...v}))}/>}
+{((!productionSocial&&tab==="metrics")||tab==="content")&&<MetaAnalyticsPanel key={workspaceId} initialView={tab==="content"?"posts":"overview"} accounts={metaInventory?.connections||[]} snapshots={metaAnalytics} checking={metaChecking} busy={busy} limit={analyticsLimit} setLimit={setAnalyticsLimit} load={loadMetaAnalytics} refresh={()=>void refreshMetaInventory()} message={metaMessage}/>}
 {tab==="metrics"&&!productionSocial&&<section className="ag-card">
     <div className="ag-platform-bar"><div><h2>Content and queue performance</h2><p>Based only on the selected workspace's own staging records, not social-network analytics.</p></div><button className="ag-secondary" onClick={()=>void refreshInsights()} disabled={busy}>Refresh insights</button></div>
     {!internalInsights?<div className="ag-social-empty">No internal insights available. Check the staging database connection.</div>:<>
