@@ -554,7 +554,7 @@ test("Google authorization keeps one-time flows, workspace checks and explicit r
  const store=read("lib/reach-google-store.ts"),route=read("app/api/reach/google/route.ts"),callback=read("app/api/reach/google/callback/route.ts"),migration=read("migrations/003-google-oauth.sql");
  assert.match(route,/connectionGate\(req,true\)/);assert.match(route,/b.confirm!==true/);assert.match(callback,/consumeGoogleFlow/);
  assert.match(store,/DELETE FROM public.reach_google_flows WHERE workspace_id=\$1::uuid AND state_hash=\$2 AND browser_hash=\$3/);
- assert.match(store,/candidates.find\(c=>c.id===resourceId\)/);assert.match(store,/WITH claimed AS \(DELETE FROM public.reach_google_pending/);
+ assert.match(store,/candidates.find\(c=>c.id===resourceId\)/);assert.match(store,/claimed AS \(DELETE FROM public.reach_google_pending/);
  assert.equal((migration.match(/FORCE ROW LEVEL SECURITY/g)||[]).length,3);
  assert.match(migration,/reach_google_one_site_mapping/);
  assert.match(read("app/api/reach/website-analytics/route.ts"),/googleSiteAccess/);
