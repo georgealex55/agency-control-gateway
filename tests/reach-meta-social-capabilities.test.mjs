@@ -654,7 +654,8 @@ test("Google client replacement supports manual credentials as well as optional 
  assert.match(replace,/typeof b.expectedUpdatedAt!=="string"/);
  assert.match(ui,/Optional: import Google Web OAuth JSON/);
  assert.match(ui,/!status.replacementAllowed\|\|!ready\|\|busy\|\|projectId.trim\(\)!==status.projectId/);
- assert.match(ui,/action==="replace"\?\{workspaceId,action,confirm:true,\.\.\.\(json\?\{webClientJson:json\}:\{config:\{projectId,clientId,clientSecret:secret\}\}\),expectedUpdatedAt:status.updatedAt/);
+ assert.match(ui,/action==="replace"\?\{action,\.\.\.credentials,expectedUpdatedAt:status.updatedAt\}/);
+ assert.match(ui,/json\?\{webClientJson:json\}:\{config:validateGoogleDeveloper\(/);
  const credentials={projectId:"reach-example",clientId:"synthetic-example.apps.googleusercontent.com",clientSecret:"GOCSPX-synthetic-secret"};
  assert.deepEqual(googleDeveloper.validateGoogleDeveloper(credentials),credentials);
  assert.throws(()=>googleDeveloper.validateGoogleDeveloper({...credentials,clientSecret:""}));
@@ -688,4 +689,22 @@ test("Paused Google connections remain visible and only confirmed owner-scoped r
  assert.match(route,/configured,ready:configured,callbackUrl/);
  assert.match(store,/const pending=googleConfigured\(env\)\?rows/);
  assert.match(ui,/action!=="disconnect"&&!inventory.ready/);
+});
+
+
+test("Google activation UI retains entered credentials until confirmed save and prompts service selection",()=>{
+ const ui=read("app/connections/google-developer-panel.tsx"),services=read("app/connections/google-oauth-panel.tsx");
+ const mutation=ui.slice(ui.indexOf("async function mutate"),ui.indexOf("function edit"));
+ assert.match(ui,/Save credentials and enable authorization/);
+ assert.match(ui,/Step 2 — Enable Google authorization/);
+ assert.match(ui,/Refresh Google setup status/);
+ assert.match(mutation,/!v.status.storageReady\|\|v.status.source!=="vault"\|\|!v.status.configured/);
+ assert.match(mutation,/if\(action==="save"\|\|action==="replace"\)\{saved=true;setSecret\(""\)/);
+ assert.doesNotMatch(mutation.slice(mutation.indexOf("}catch(e)")),/setSecret\(""\)|setClient\(""\)|setJson\(""\)/);
+ assert.match(mutation,/if\(activateAfterSave&&!next.enabled\)/);
+ assert.match(mutation,/request\(\{action:"enable",enabled:true\}\)/);
+ assert.match(ui,/window.confirm\("Save these credentials securely and enable Google authorization/);
+ assert.match(services,/id="google-service-connections"/);
+ assert.match(services,/Choose the Google services you want to use/);
+ assert.doesNotMatch(ui,/localStorage|sessionStorage/);
 });
