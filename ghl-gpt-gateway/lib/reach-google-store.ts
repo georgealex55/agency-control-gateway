@@ -72,7 +72,7 @@ export async function googleSiteAccess(w:string,host:string,group:"ga4"|"search_
  const d=await db(w),r=rows(await d.query("SELECT c.id FROM public.reach_google_connections c JOIN public.agency_platform_domains d ON d.id=c.domain_id AND d.workspace_id=c.workspace_id WHERE c.workspace_id=$1::uuid AND c.group_id=$2 AND d.hostname=$3 AND c.client_hash=$4 LIMIT 1",[w,group,host,clientHash()]))[0];
  if(!r)return null;
  const c=await googleConnectionAccess(w,r.id);if(c.host!==host||c.group!==group)throw Error("Selected resource mismatch");
- if(group==="ga4"&&!/^properties\\/\\d{1,20}$/.test(c.resourceId))throw Error("Invalid property");
+ if(group==="ga4"&&!/^properties[/][0-9]{1,20}$/.test(c.resourceId))throw Error("Invalid property");
  if(group==="search_console"&&c.resourceId!=="https://"+host+"/")throw Error("Invalid search property");
  return {token:c.token,resourceId:c.resourceId};
 }
