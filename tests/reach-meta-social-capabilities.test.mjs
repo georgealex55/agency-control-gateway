@@ -558,3 +558,26 @@ test("Google authorization keeps one-time flows, workspace checks and explicit r
  assert.match(read("app/api/reach/website-analytics/route.ts"),/googleSiteAccess/);
  assert.match(read("app/api/reach/website-seo/route.ts"),/googleSiteAccess/);
 });
+
+const googleDeveloper=await import("data:text/javascript;base64,"+Buffer.from(transpile(read("lib/reach-google-developer-contract.ts").replace('"./reach-google-contract"',JSON.stringify(googleContractUri)))).toString("base64"));
+test("Google developer setup accepts exact Web OAuth credentials and rejects incorrect import types and callback",()=>{
+ const fixture={web:{project_id:"reach-example",client_id:"synthetic-example.apps.googleusercontent.com",client_secret:"GOCSPX-synthetic-secret",redirect_uris:[googleContract.GOOGLE_CALLBACK],auth_uri:"https://evil.example/auth"}};
+ const v=googleDeveloper.parseGoogleWebClient(JSON.stringify(fixture));
+ assert.deepEqual(v,{projectId:"reach-example",clientId:"synthetic-example.apps.googleusercontent.com",clientSecret:"GOCSPX-synthetic-secret"});
+ assert.equal(Object.hasOwn(v,"auth_uri"),false);
+ assert.throws(()=>googleDeveloper.parseGoogleWebClient(JSON.stringify({installed:fixture.web})));
+ assert.throws(()=>googleDeveloper.parseGoogleWebClient(JSON.stringify({type:"service_account",private_key:"synthetic"})));
+ assert.throws(()=>googleDeveloper.parseGoogleWebClient(JSON.stringify({web:{...fixture.web,redirect_uris:["https://evil.example/callback"]}})));
+ assert.throws(()=>googleDeveloper.validateGoogleDeveloper({...v,projectId:"NOT VALID"}));
+});
+test("developer app stays server encrypted, owner scoped, activation gated and preserves existing grants",()=>{
+ const store=read("lib/reach-google-developer-store.ts"),route=read("app/api/reach/google/developer/route.ts"),googleStore=read("lib/reach-google-store.ts"),ui=read("app/connections/google-developer-panel.tsx"),schema=read("migrations/004-google-developer-config.sql");
+ assert.match(store,/hkdfSync/);assert.match(store,/randomBytes\(32\)/);assert.match(store,/sealGoogle\(JSON.stringify/);
+ assert.match(store,/old.client_id!==v.clientId/);assert.match(store,/old\?\.enabled/);assert.match(store,/REACH_GOOGLE_OAUTH_ENABLED!=="true"/);
+ assert.match(route,/connectionGate\(req,true\)/);assert.match(route,/b.confirm!==true/);
+ assert.match(schema,/FORCE ROW LEVEL SECURITY/);assert.match(schema,/FROM PUBLIC,reach_app_runtime/);
+ assert.match(ui,/type="password"/);assert.match(ui,/setSecret\(""\)/);assert.doesNotMatch(ui,/localStorage|sessionStorage/);
+ assert.match(googleStore,/g.scopes.every\(scope=>r.scopes.includes\(scope\)\)/);assert.match(googleStore,/await refreshGoogle\(refresh,group,r.subject,env\)/);
+ assert.match(read("app/api/reach/google/callback/route.ts"),/resolvedGoogleEnv\(w\)/);
+ assert.match(read("app/api/reach/google/route.ts"),/b.action==="reuse"/);
+});
