@@ -22,8 +22,8 @@ export async function POST(req:NextRequest){
  return reply({workspaceId:w,status:await saveGoogleDeveloper(w,config)});
  }
  if(b.action==="replace"){
- if(typeof b.webClientJson!=="string"||typeof b.expectedUpdatedAt!=="string"||b.expectedUpdatedAt.length>40)return reply({error:"Import the new Web OAuth JSON and confirm the current configuration."},400);
- let config;try{config=parseGoogleWebClient(b.webClientJson);}catch{return reply({error:"Import the new Web OAuth client JSON with the exact REACH callback."},400);}
+ if(typeof b.expectedUpdatedAt!=="string"||b.expectedUpdatedAt.length>40)return reply({error:"Confirm the current Google configuration before replacement."},400);
+ let config;try{config=typeof b.webClientJson==="string"?parseGoogleWebClient(b.webClientJson):validateGoogleDeveloper(b.config);}catch{return reply({error:"Enter the new Web OAuth project ID, client ID and secret, or import JSON with the exact REACH callback."},400);}
  return reply({workspaceId:w,status:await replaceGoogleDeveloper(w,config,b.expectedUpdatedAt)});
  }
  if(b.action==="enable"&&typeof b.enabled==="boolean")return reply({workspaceId:w,status:await enableGoogleDeveloper(w,b.enabled)});
